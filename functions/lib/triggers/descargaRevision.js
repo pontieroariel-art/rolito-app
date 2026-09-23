@@ -48,11 +48,15 @@ exports.onDescargaContada = (0, firestore_1.onDocumentCreated)('descargasCamion/
         .where('fecha', '<', firestore_2.Timestamp.fromDate(hasta))
         .get();
     try {
-        const [remitos, ventas, cambios, descargas] = await Promise.all([
+        // Entregas con remito de fábrica del día (orders.entregaFabrica, 2026-09-23):
+        // sin venta de la app, pero bajaron del camión. Dos igualdades: sin índice.
+        const dia = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Argentina/Buenos_Aires', year: 'numeric', month: '2-digit', day: '2-digit' }).format(fecha);
+        const [remitos, ventas, cambios, descargas, pedidosFabrica] = await Promise.all([
             del('remitosCarga', 'choferId'),
             del('ventasCamion', 'choferId'),
             del('cambiosCamion', 'choferId'),
             del('descargasCamion', 'choferId'),
+            db.collection('orders').where('entregaFabrica.choferId', '==', choferId).where('entregaFabrica.dia', '==', dia).get(),
         ]);
         const umbral = (0, revisionDescarga_1.normalizarUmbralFaltantes)((await db.doc('config/liquidacion').get()).data()?.faltantes);
         const r = (0, revisionDescarga_1.calcularRevision)(remitos.docs.map((d) => ({ items: (d.data().items ?? []) })), ventas.docs.map((d) => ({
@@ -66,7 +70,7 @@ exports.onDescargaContada = (0, firestore_1.onDocumentCreated)('descargasCamion/
             id: d.id,
             rectificaA: d.data().rectificaA,
             items: (d.data().items ?? []),
-        })), umbral);
+        })), umbral, pedidosFabrica.docs.map((d) => ({ productos: (d.data().entregaFabrica?.productos ?? []) })));
         await event.data.ref.update({ revision: { ...r, calculadoEn: firestore_2.Timestamp.now() } });
     }
     catch (err) {

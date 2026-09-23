@@ -232,6 +232,7 @@ export function DetallePorProducto({ calc, sinDescarga = false }: {
 }) {
   const dif = (n: number) => n === 0 ? <span className="text-secundario">0</span> : <span className="font-semibold text-red-600">{n > 0 ? `+${n}` : n}</span>
   const pendiente = <span className="text-secundario">—</span>
+  const conFabrica = calc.productos.some((p) => (p.entregasFabrica ?? 0) > 0)
   return (
     <div className="space-y-4">
       {sinDescarga && (
@@ -240,7 +241,8 @@ export function DetallePorProducto({ calc, sinDescarga = false }: {
         </p>
       )}
       <table className="w-full min-w-[640px]">
-        <thead><tr>{['Producto', 'Carga', 'Contado', 'Promo', 'Cambios', 'Dev. teórica', 'Descarga', 'Diferencia'].map((h, i) => <th key={h} className={`${th} ${i > 0 ? 'text-right' : ''}`}>{h}</th>)}</tr></thead>
+        {/* "Rem. fábrica" (Coto/Carrefour, 2026-09-23) solo cuando hubo: entregas sin venta de la app que igual bajaron del camión. */}
+        <thead><tr>{['Producto', 'Carga', 'Contado', 'Promo', ...(conFabrica ? ['Rem. fábrica'] : []), 'Cambios', 'Dev. teórica', 'Descarga', 'Diferencia'].map((h, i) => <th key={h} className={`${th} ${i > 0 ? 'text-right' : ''}`} title={h === 'Rem. fábrica' ? 'Entregas con remito de fábrica: sin comprobante de la app, descuentan del camión' : undefined}>{h}</th>)}</tr></thead>
         <tbody>
           {calc.productos.map((p) => (
             <tr key={p.productoId}>
@@ -248,13 +250,14 @@ export function DetallePorProducto({ calc, sinDescarga = false }: {
               <td className={`${td} text-right`}>{num(p.carga)}</td>
               <td className={`${td} text-right`}>{num(p.ventaContado)}</td>
               <td className={`${td} text-right`}>{num(p.ventaPromo)}</td>
+              {conFabrica && <td className={`${td} text-right`}>{num(p.entregasFabrica ?? 0)}</td>}
               <td className={`${td} text-right`}>{num(p.cambios)}</td>
               <td className={`${td} text-right`}>{num(p.devolucionTeorica)}</td>
               <td className={`${td} text-right`}>{sinDescarga ? pendiente : num(p.descarga)}</td>
               <td className={`${td} text-right`}>{sinDescarga ? pendiente : dif(p.diferencia)}</td>
             </tr>
           ))}
-          {calc.productos.length === 0 && <tr><td className={`${td} text-secundario`} colSpan={8}>Sin movimientos.</td></tr>}
+          {calc.productos.length === 0 && <tr><td className={`${td} text-secundario`} colSpan={conFabrica ? 9 : 8}>Sin movimientos.</td></tr>}
         </tbody>
       </table>
       <div className="grid sm:grid-cols-2 gap-x-8 gap-y-1 text-sm text-gray-700 max-w-xl">

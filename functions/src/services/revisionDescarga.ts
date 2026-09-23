@@ -64,6 +64,8 @@ export function calcularRevision(
   cambiosViejos: ItemContado[],
   descargas: DescargaParaRevision[],
   umbral:    UmbralFaltantes = UMBRAL_FALTANTES_DEFAULT,
+  /** Entregas con remito de fábrica del día (orders.entregaFabrica, 2026-09-23): bajaron sin venta de la app. */
+  entregasFabrica: { productos?: ItemContado[] | null }[] = [],
 ): RevisionCalculada {
   const filas = new Map<string, { nombre: string; teorico: number; descarga: number }>()
   const fila = (productoId: string, nombre: string) => {
@@ -84,6 +86,7 @@ export function calcularRevision(
     })
   // Registro viejo de cambios (cuando el cambio era una pantalla aparte).
   cambiosViejos.forEach((c) => { fila(productoDelCambio(c.productoId), nombreDelCambio(c.nombre)).teorico -= c.cantidad })
+  entregasFabrica.forEach((e) => (e.productos ?? []).forEach((i) => { fila(i.productoId, i.nombre).teorico -= i.cantidad }))
   descargasVigentes(descargas).forEach((d) => (d.items ?? []).forEach((i) => { fila(i.productoId, i.nombre).descarga += i.cantidad }))
 
   const productos: RevisionCalculada['productos'] = []

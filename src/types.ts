@@ -32,6 +32,25 @@ export interface OrderProduct {
   price?:     number
 }
 
+/**
+ * Entrega de un pedido con remito de fábrica (2026-09-23): lo que bajó del
+ * camión sin venta de la app. Va en `orders.entregaFabrica`, la escribe el
+ * chofer al confirmar y la leen la liquidación, el cierre de mercadería del
+ * servidor, el faltante del muelle y el reparto en vivo, que la restan de la
+ * devolución teórica como a una venta. `remitoId` es el viaje (el mismo del
+ * que sale la venta); `dia` es la clave del día para buscarla sin índice.
+ */
+export interface EntregaFabrica {
+  choferId:     string
+  choferNombre: string
+  remitoId:     string | null
+  remitoCodigo: string | null
+  camionId:     string | null
+  dia:          string          // yyyy-MM-dd
+  en:           Timestamp
+  productos:    { productoId: string; nombre: string; cantidad: number }[]
+}
+
 // ── Catálogo y listas de precios ──────────────────────────────────────────────
 
 export interface CatalogProducto {
@@ -1297,6 +1316,13 @@ export interface LiquidacionResumenProducto {
   // que va a Tango (camión → 98) es carga − ventas − rotas − descarga: los cambios
   // no mueven stock, la merma real es la rota que el muelle contó (camión → 99).
   rotas?:            number
+  /**
+   * Unidades entregadas con remito de fábrica (2026-09-23, Coto/Carrefour):
+   * salieron del camión sin venta de la app. Descuentan de la devolución teórica
+   * igual que una venta; el server ya las tiene en Tango por el remito de la
+   * oficina, así que no mueven nada allá.
+   */
+  entregasFabrica?:  number
 }
 
 // ── Rendición por sobres, etapa 1 (2026-09-16, decisión de Ariel) ────────────
@@ -1802,6 +1828,15 @@ export interface UserProfile {
   esVisita?:          boolean
   frecuenciaVisita?:  'semanal' | 'quincenal' | 'mensual'
   codigoCliente?:     string
+  /**
+   * Entrega con remito de fábrica (2026-09-23, Coto y Carrefour): la oficina
+   * emite el remito en Tango desde el depósito del chofer antes de que salga el
+   * camión, así que el pedido se entrega SIN comprobante de la app (ni remito,
+   * ni factura, ni mail, ni Tango) pero la mercadería igual descuenta del
+   * camión (utils/entregaFabrica.ts). Vale para todas las sucursales de la
+   * cuenta. Lo prenden super_admin y facturación desde la ficha del cliente.
+   */
+  entregaConRemitoDeFabrica?: boolean
   codigoTango?:       string   // COD_GVA14 de Tango (cruzado por CUIT, ver scripts/tango/) — numeración distinta de codigoCliente
   idGva14Tango?:      number   // ID_GVA14 de Tango — para GetById/Update/Delete contra la API de Plataforma
   // Identidad por empresa (2026-09-06): un CUIT = una cuenta; en cada empresa
@@ -2140,6 +2175,14 @@ export interface Order {
   notaEntrega?:         string
   motivoCancelacion?:   string
   origenRecurrente?:    boolean
+  /**
+   * Sellado por el servidor al crearse el pedido (functions/triggers/orders.ts)
+   * cuando el cliente tiene `entregaConRemitoDeFabrica`: el chofer lo entrega
+   * sin comprobante de la app. Logística carga la cantidad real en el pedido.
+   */
+  entregaSinComprobante?: boolean
+  /** La entrega sin comprobante que registró el chofer (ver EntregaFabrica). */
+  entregaFabrica?:      EntregaFabrica
   // Reprogramación / reasignación
   reprogramado?:         boolean
   fechaOriginal?:        Timestamp

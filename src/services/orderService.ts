@@ -18,7 +18,7 @@ import {
 } from 'firebase/firestore'
 import { db, auth } from './firebase'
 import { reportError } from './observability'
-import { Order, OrderProduct, UserProfile, getPrimaryAddress } from '../types'
+import { EntregaFabrica, Order, OrderProduct, UserProfile, getPrimaryAddress } from '../types'
 import { tsToDate, normalizeAddress } from '../utils/helpers'
 
 // El cliente puede "modificar" un pedido (cancelar + recrear) solo mientras
@@ -235,6 +235,58 @@ export const markDelivered = (
     updatedAt:            serverTimestamp(),
     historialAcciones:    arrayUnion(accion(actor, 'entregado', parcial ? `Parcial: ${nota}` : undefined)),
   })
+
+/**
+ * Entrega con remito de fábrica (Coto/Carrefour, 2026-09-23): el pedido queda
+ * entregado con las cantidades reales y la entrega que descuenta del camión,
+ * sin venta, sin comprobante, sin mail ni Tango (utils/entregaFabrica.ts).
+ */
+export const entregarConRemitoDeFabrica = (
+  orderId: string,
+  entregados: OrderProduct[],
+  parcial: boolean,
+  nota: string,
+  entrega: EntregaFabrica,
+  actor: Actor,
+): Promise<void> =>
+  updateDoc(doc(db, ORDERS, orderId), {
+    status:               'entregado',
+    productosEntregados:  entregados,
+    entregaParcial:       parcial,
+    notaEntrega:          nota || '',
+    entregaFabrica:       entrega,
+    updatedAt:            serverTimestamp(),
+    historialAcciones:    arrayUnion(accion(actor, 'entregado', `Remito de fábrica${parcial ? ` · parcial: ${nota}` : ''}`)),
+  })
+
+// Las entregas con remito de fábrica se buscan por los campos de la entrega
+// (dos igualdades: sin índice compuesto). Caja y tesorería leen `orders`
+// desde el 2026-09-23; el chofer solo las suyas (driverId == su email).
+const mapOrders = (snap: { docs: { id: string; data(): unknown }[] }) => snap.docs.map((d) => ({ id: d.id, ...(d.data() as object) }) as Order)
+
+/** Las de un chofer en un día (liquidación de caja). */
+export const subscribeEntregasFabricaChofer = (choferId: string, dia: string, callback: (orders: Order[]) => void, onError?: (e: Error) => void) =>
+  onSnapshot(
+    query(collection(db, ORDERS), where('entregaFabrica.choferId', '==', choferId), where('entregaFabrica.dia', '==', dia)),
+    (snap) => callback(mapOrders(snap)),
+    (err) => { reportError(err, { origen: 'orderService', accion: 'subscribeEntregasFabricaChofer' }); onError?.(err) },
+  )
+
+/** Todas las del día (tableros en vivo). */
+export const subscribeEntregasFabricaDelDia = (dia: string, callback: (orders: Order[]) => void, onError?: (e: Error) => void) =>
+  onSnapshot(
+    query(collection(db, ORDERS), where('entregaFabrica.dia', '==', dia)),
+    (snap) => callback(mapOrders(snap)),
+    (err) => { reportError(err, { origen: 'orderService', accion: 'subscribeEntregasFabricaDelDia' }); onError?.(err) },
+  )
+
+/** Las del propio chofer en un día (Mi camión hoy): por su email, que es lo que las reglas le dejan leer. */
+export const subscribeEntregasFabricaMias = (driverEmail: string, dia: string, callback: (orders: Order[]) => void, onError?: (e: Error) => void) =>
+  onSnapshot(
+    query(collection(db, ORDERS), where('driverId', '==', driverEmail), where('entregaFabrica.dia', '==', dia)),
+    (snap) => callback(mapOrders(snap)),
+    (err) => { reportError(err, { origen: 'orderService', accion: 'subscribeEntregasFabricaMias' }); onError?.(err) },
+  )
 
 export const assignDriver = (orderId: string, driverId: string | null): Promise<void> =>
   updateDoc(doc(db, ORDERS, orderId), { driverId, updatedAt: serverTimestamp() })

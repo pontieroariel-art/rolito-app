@@ -30,7 +30,7 @@ export default function RepartoEnVivoPage() {
   useEffect(() => subscribeRepartoEnVivo(new Date(fecha), setFuentes), [fecha])
 
   const camiones = useMemo(
-    () => (fuentes ? agruparRepartoEnVivo(fuentes.remitos, fuentes.ventas, fuentes.cambios, fuentes.descargas, fuentes.cobranzas) : []),
+    () => (fuentes ? agruparRepartoEnVivo(fuentes.remitos, fuentes.ventas, fuentes.cambios, fuentes.descargas, fuentes.cobranzas, fuentes.entregasFabrica) : []),
     [fuentes],
   )
   const totales = useMemo(() => ({

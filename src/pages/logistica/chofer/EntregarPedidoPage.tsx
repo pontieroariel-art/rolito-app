@@ -13,8 +13,11 @@ import { useRemitosCargaChofer } from '@/hooks/useRemitosCargaChofer'
 import { useDepositoDelUsuario } from '@/hooks/useDepositosReparto'
 import { useCatalogo } from '@/hooks/useCatalogo'
 import { useOnline } from '@/hooks/useOnline'
+import { Timestamp } from 'firebase/firestore'
 import { crearVentaCamion } from '@/services/ventaCamionService'
-import { markDelivered } from '@/services/orderService'
+import { entregarConRemitoDeFabrica, markDelivered } from '@/services/orderService'
+import { armarEntregaFabrica, esEntregaSinComprobante, renglonesFabrica } from '@/utils/entregaFabrica'
+import { claveDia } from '@/utils/diaReparto'
 import { asegurarReserva, consumirNumero, precargarSiSeAcerca, codigoComprobanteInterno } from '@/services/numeracionInternaService'
 import { getPreciosIncluyenIva } from '@/services/arcaConfigService'
 import { reportError } from '@/services/observability'
@@ -72,6 +75,10 @@ export default function EntregarPedidoPage() {
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState('')
   const [exito, setExito] = useState<{ documento: string | null; total: number; conIva: boolean; parcial: boolean; mail: string; sinImporte: boolean } | null>(null)
+  // Entrega con remito de fábrica (Coto/Carrefour, 2026-09-23): un solo paso,
+  // cantidades reales y listo. Sin venta, sin comprobante, sin mail ni Tango.
+  const sinComprobante = !!order && esEntregaSinComprobante(order)
+  const [exitoFabrica, setExitoFabrica] = useState<{ unidades: number; parcial: boolean } | null>(null)
   const [preciosIncluyenIva, setPreciosIncluyenIva] = useState(false)
   useEffect(() => { getPreciosIncluyenIva().then(setPreciosIncluyenIva).catch((err) => reportError(err, { origen: 'EntregarPedidoPage', accion: 'leer config de precios con IVA' })) }, [])
 
@@ -195,6 +202,50 @@ export default function EntregarPedidoPage() {
     }
   }
 
+  const confirmarFabrica = async () => {
+    if (!user || !order || !renglones) return
+    setError('')
+    const entregados = renglones.map((r) => ({ name: r.nombre, quantity: r.cantidad, ...(r.productoId ? { productoId: r.productoId } : {}) }))
+    const conCatalogo = renglonesFabrica(entregados)
+    if (conCatalogo.length === 0) { setError('No hay nada para entregar. Si no pudiste entregar, volvé y tocá "No entregado".'); return }
+    if (parcial && !nota.trim()) { setError('Contá por qué entregaste menos de lo pedido.'); return }
+    setGuardando(true)
+    try {
+      const entrega = armarEntregaFabrica(entregados, { uid: user.uid, nombre: user.nombre, camionId: camionIdHoy || null }, remitosCarga[0] ?? null, Timestamp.now(), claveDia(new Date()))
+      // Sin señal el write queda encolado y la entrega igual figura registrada.
+      entregarConRemitoDeFabrica(order.id, entregados, parcial, nota.trim(), entrega, { uid: user.uid, nombre: user.nombre })
+        .catch((err) => reportError(err, { origen: 'EntregarPedidoPage', accion: 'entregarConRemitoDeFabrica', orderId: order.id }))
+      setExitoFabrica({ unidades: conCatalogo.reduce((s, r) => s + r.cantidad, 0), parcial })
+    } catch (err) {
+      reportError(err, { origen: 'EntregarPedidoPage', accion: 'confirmarFabrica' })
+      setError('No se pudo registrar la entrega. Intentá de nuevo.')
+    } finally {
+      setGuardando(false)
+    }
+  }
+
+  // ── Pantalla de éxito (remito de fábrica) ──────────────────────────────────
+  if (exitoFabrica && order) {
+    return (
+      <div className="min-h-dvh bg-[#F8F7F2] text-gray-900 flex flex-col">
+        <main className="flex-1 flex flex-col items-center justify-center px-6 text-center max-w-md mx-auto w-full">
+          <div className="w-20 h-20 rounded-full bg-success/15 flex items-center justify-center mb-4">
+            <CheckCircle2 size={48} className="text-success" strokeWidth={2.2} />
+          </div>
+          <h2 className="text-2xl font-black">¡Entrega registrada!</h2>
+          <p className="text-secundario mt-1">{order.clientName}</p>
+          <p className="text-3xl font-black tabular-nums mt-3">{exitoFabrica.unidades} u.</p>
+          <div className="mt-5 w-full rounded-2xl border border-[#D3D1C7] bg-white p-4 text-left text-sm space-y-2">
+            <p className="flex gap-2"><span className="text-success font-bold">✓</span> Pedido entregado{exitoFabrica.parcial ? ' (parcial)' : ''}</p>
+            <p className="flex gap-2"><FileText size={16} className="text-secundario shrink-0 mt-0.5" /> Con remito de fábrica: no sale comprobante de la app.</p>
+            <p className="flex gap-2"><span className="text-success font-bold">✓</span> Descontado del camión para la liquidación.</p>
+          </div>
+          <Button onClick={() => navigate('/chofer')} className="mt-6 w-full h-14 text-base">Volver a mis entregas</Button>
+        </main>
+      </div>
+    )
+  }
+
   // ── Pantalla de éxito ──────────────────────────────────────────────────────
   if (exito && order) {
     return (
@@ -239,6 +290,63 @@ export default function EntregarPedidoPage() {
     )
   }
   if (cargandoCliente || !renglones) return <LoadingSpinner fullScreen />
+
+  if (sinComprobante) {
+    return (
+      <div className="min-h-dvh bg-[#F8F7F2] text-gray-900 pb-28">
+        <header className="sticky top-0 z-10 bg-white border-b border-[#D3D1C7] px-4 py-3 flex items-center gap-3">
+          <button type="button" onClick={() => navigate('/chofer')} aria-label="Volver"
+            className="w-9 h-9 rounded-full bg-[#EEEDE6] flex items-center justify-center"><ArrowLeft size={18} /></button>
+          <div className="min-w-0">
+            <p className="font-bold leading-tight truncate">{order.clientName}</p>
+            <p className="text-xs text-secundario">Entrega con remito de fábrica</p>
+          </div>
+        </header>
+
+        <main className="max-w-lg mx-auto p-4 space-y-3">
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 flex gap-2">
+            <FileText size={18} className="shrink-0 mt-0.5" />
+            <p>Este cliente recibe con el remito que imprimió la oficina. No sale comprobante de la app: solo cargá <b>lo que bajaste del camión</b>.</p>
+          </div>
+          <div className="rounded-2xl border border-[#D3D1C7] bg-white p-4">
+            <p className="text-xs font-bold uppercase tracking-wide text-secundario mb-1">¿Qué bajaste?</p>
+            {renglones.map((r, i) => (
+              <div key={`${r.productoId}-${i}`} className="flex items-center justify-between gap-3 py-3 border-t first:border-t-0 border-[#EEEDE6]">
+                <div className="min-w-0">
+                  <p className="font-semibold text-[15px] leading-tight">{r.nombre}</p>
+                  <p className="text-xs text-secundario">pedido: {r.pedido}{!r.productoId ? ' · no está en el catálogo' : ''}</p>
+                </div>
+                <div className="grid grid-cols-[44px_56px_44px] items-center shrink-0">
+                  <button type="button" onClick={() => cambiar(i, -1)} aria-label="Menos" className="h-11 rounded-xl border border-[#D3D1C7] bg-white text-xl font-bold active:scale-95"><Minus size={20} className="mx-auto" /></button>
+                  <span className="text-center text-2xl font-black tabular-nums">{r.cantidad}</span>
+                  <button type="button" onClick={() => cambiar(i, +1)} aria-label="Más" className="h-11 rounded-xl border border-[#D3D1C7] bg-white text-xl font-bold active:scale-95"><Plus size={20} className="mx-auto" /></button>
+                </div>
+              </div>
+            ))}
+          </div>
+          {sinCatalogo.length > 0 && (
+            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
+              {sinCatalogo.map((r) => r.nombre).join(', ')}: no lo reconozco en el catálogo, no va a descontar del camión. Avisá a la oficina.
+            </p>
+          )}
+          {parcial && (
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+              <p className="text-xs font-bold uppercase tracking-wide text-amber-700 mb-1">Bajaste menos de lo pedido</p>
+              <input value={nota} onChange={(e) => setNota(e.target.value)} placeholder="Motivo (ej. rechazaron un pallet)"
+                className="w-full bg-white border border-[#D3D1C7] rounded-xl px-3.5 py-3 text-[15px] focus:outline-none focus:ring-1 focus:ring-accent" />
+            </div>
+          )}
+          {error && <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-xl px-3 py-2">{error}</p>}
+        </main>
+
+        <div className="fixed bottom-0 inset-x-0 bg-white/95 backdrop-blur border-t border-[#D3D1C7] p-3">
+          <div className="max-w-lg mx-auto">
+            <Button onClick={confirmarFabrica} loading={guardando} className="w-full h-14 text-lg font-black">CONFIRMAR ENTREGA</Button>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   const subtitulo = ['Cantidades', 'Venta y pago', 'Firma'][paso - 1]
 

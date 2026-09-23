@@ -59,13 +59,32 @@ const descargas = [
     envases: { tarimasMadera: 3, palletsMetal: 4, palletsMetalSimples: 1, puntales: 24, aros: 3, sombreros: 6, racks: [23] } },
 ] as unknown as DescargaCamion[]
 
+// Entrega con remito de fábrica (Coto/Carrefour, 2026-09-23): sin venta de la
+// app, pero baja del camión igual que una.
+const entregasFabrica = [
+  { productos: [{ productoId: 'escamas_10kg', nombre: 'Hielo en escamas 10kg', cantidad: 30 }] },
+]
+
 describe('paridad front ↔ server: mercaderiaDelViaje', () => {
   it('el mismo viaje da los mismos productos, cambios y envases en la app y en functions', () => {
-    const front = delFront([remito], ventas, cambiosViejos, descargas)
-    const server = delServer([remito] as never, ventas as never, cambiosViejos as never, descargas as never)
+    const front = delFront([remito], ventas, cambiosViejos, descargas, entregasFabrica)
+    const server = delServer([remito] as never, ventas as never, cambiosViejos as never, descargas as never, entregasFabrica)
     expect(server.productos).toEqual(front.productos)
     expect(server.cambios).toEqual(front.cambios)
     expect(server.envases).toEqual(front.envases)
+    // Y sin entregas de fábrica los dos siguen iguales (el parámetro es opcional en ambos).
+    expect(delServer([remito] as never, ventas as never, cambiosViejos as never, descargas as never).productos)
+      .toEqual(delFront([remito], ventas, cambiosViejos, descargas).productos)
+  })
+
+  it('la entrega con remito de fábrica descuenta de la devolución teórica en los dos lados', () => {
+    const front = delFront([remito], ventas, cambiosViejos, descargas, entregasFabrica)
+    const server = delServer([remito] as never, ventas as never, cambiosViejos as never, descargas as never, entregasFabrica)
+    for (const lado of [front, server]) {
+      const escamas = lado.productos.find((p) => p.productoId === 'escamas_10kg')!
+      // carga 420 − contado 350 − fábrica 30 = 40; volvieron 70 → sobran 30
+      expect(escamas).toMatchObject({ carga: 420, ventaContado: 350, entregasFabrica: 30, devolucionTeorica: 40, descarga: 70, diferencia: 30 })
+    }
   })
 
   it('el viaje de la fixture cierra como se espera (ancla para que la paridad no sea "los dos mal")', () => {

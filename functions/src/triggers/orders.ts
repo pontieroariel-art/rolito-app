@@ -21,6 +21,20 @@ export const onOrderCreated = onDocumentCreated({ document: 'orders/{orderId}', 
   const order = event.data?.data() as Record<string, unknown> | undefined
   if (!order) return
 
+  // Entrega con remito de fábrica (Coto/Carrefour, 2026-09-23): si el cliente
+  // tiene la marca, el pedido nace sellado y el chofer lo entrega sin
+  // comprobante de la app. Se sella acá y no en el front para que valga igual
+  // lo cargue quien lo cargue (logística, el cliente, un recurrente).
+  const clientId = order.clientId as string | undefined
+  if (clientId && clientId !== 'externo' && order.entregaSinComprobante !== true) {
+    try {
+      const cliente = (await getFirestore().doc(`users/${clientId}`).get()).data()
+      if (cliente?.entregaConRemitoDeFabrica === true) await event.data!.ref.update({ entregaSinComprobante: true })
+    } catch (e) {
+      console.error(`[onOrderCreated] no se pudo sellar entregaSinComprobante en ${event.params.orderId}: ${(e as Error).message}`)
+    }
+  }
+
   const clientName = (order.clientName || '') as string
   const products   = (order.products || []) as { name: string; quantity: number }[]
   const nombre     = clientName.split(' ')[0] || 'Cliente'

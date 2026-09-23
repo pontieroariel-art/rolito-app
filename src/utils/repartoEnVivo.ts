@@ -1,5 +1,5 @@
 import { cobranzasVigentes } from './anulacionCobranza'
-import { CambioCamion, Cobranza, DescargaCamion, RemitoCarga, VentaCamion } from '../types'
+import { CambioCamion, Cobranza, DescargaCamion, EntregaFabrica, RemitoCarga, VentaCamion } from '../types'
 import { calcularLiquidacion, LiquidacionCalculada } from './liquidacion'
 import { ventasVigentes } from './anulacionVenta'
 import { descargasVigentes } from './rectificacionDescarga'
@@ -46,6 +46,8 @@ export function agruparRepartoEnVivo(
   cambios:   CambioCamion[],
   descargas: DescargaCamion[],
   cobranzasCalle: Cobranza[],
+  /** Entregas con remito de fábrica del día (orders.entregaFabrica, 2026-09-23): bajan del camión sin venta. */
+  entregasFabrica: EntregaFabrica[] = [],
 ): CamionEnVivo[] {
   // Facturas anuladas con nota de crédito: fuera del reparto en vivo (2026-09-11).
   cobranzasCalle = cobranzasVigentes(cobranzasCalle)
@@ -67,7 +69,8 @@ export function agruparRepartoEnVivo(
     // salen de la corrección, no de la suma de las dos.
     const ds = descargasVigentes(descargas.filter((d) => d.choferId === choferId))
     const cb = cobranzasCalle.filter((c) => c.registradoPor.uid === choferId)
-    const liq = calcularLiquidacion(rs, vs, cs, ds, cb)
+    const ef = entregasFabrica.filter((e) => e.choferId === choferId)
+    const liq = calcularLiquidacion(rs, vs, cs, ds, cb, ef)
 
     const salidas = rs.map((r) => r.salida?.hora ?? r.entregadoPor?.hora).filter((h): h is NonNullable<typeof h> => !!h).map((h) => h.toDate())
     const salida = salidas.length ? new Date(Math.min(...salidas.map((d) => d.getTime()))) : null
@@ -76,7 +79,7 @@ export function agruparRepartoEnVivo(
     const estado: EstadoCamion = vuelta ? 'volvio' : (salida || vs.length ? 'en_calle' : 'cargando')
 
     const cargado = liq.productos.reduce((s, p) => s + p.carga, 0)
-    const bajado = liq.productos.reduce((s, p) => s + p.ventaContado + p.ventaPromo + p.cambios, 0)
+    const bajado = liq.productos.reduce((s, p) => s + p.ventaContado + p.ventaPromo + p.cambios + (p.entregasFabrica ?? 0), 0)
     const camionLabel = rs[0]?.camionLabel ?? ds[0]?.camionLabel ?? (vs[0]?.camionId ? vs[0].camionId : '')
 
     out.push({

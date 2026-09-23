@@ -413,6 +413,52 @@ describe('orders — actualización por el chofer asignado', () => {
   })
 })
 
+// ── orders: entrega con remito de fábrica (Coto/Carrefour, 2026-09-23) ───────
+describe('orders — entrega con remito de fábrica', () => {
+  const seedChofer = () => seed((d) => setDoc(doc(d, 'users/ch'), { rol: 'chofer', estado: 'activo', email: 'ch@x.com' }))
+  const seedPedido = (extra = {}) => seed((d) => setDoc(doc(d, 'orders/o1'), pedido({ driverId: 'ch@x.com', ...extra })))
+  const entrega = (choferId = 'ch') => ({
+    choferId, choferNombre: 'Chofer Uno', remitoId: 'rem1', remitoCodigo: 'RC-DT-000001', camionId: 'cam1',
+    dia: '2026-09-23', en: new Date(), productos: [{ productoId: 'bolsa_2kg', nombre: 'Hielo bolsa 2kg', cantidad: 460 }],
+  })
+  const marcar = (choferId) => updateDoc(doc(db('ch', 'ch@x.com'), 'orders/o1'), {
+    status: 'entregado', productosEntregados: [{ name: 'Hielo bolsa 2kg', quantity: 460, productoId: 'bolsa_2kg' }],
+    entregaParcial: false, notaEntrega: '', updatedAt: new Date(), entregaFabrica: entrega(choferId),
+  })
+
+  test('el chofer registra la entrega sin comprobante de SU pedido sellado por el server', async () => {
+    await seedChofer()
+    await seedPedido({ entregaSinComprobante: true })
+    await assertSucceeds(marcar('ch'))
+  })
+
+  test('sin el sello del server no hay entrega de fábrica: el pedido va por ENTREGAR (venta)', async () => {
+    await seedChofer()
+    await seedPedido()
+    await assertFails(marcar('ch'))
+  })
+
+  test('el chofer no puede sellar el pedido él mismo ni firmar la entrega a nombre de otro', async () => {
+    await seedChofer()
+    await seedPedido()
+    await assertFails(updateDoc(doc(db('ch', 'ch@x.com'), 'orders/o1'), { entregaSinComprobante: true, updatedAt: new Date() }))
+    await seedPedido({ entregaSinComprobante: true })
+    await assertFails(marcar('otro'))
+  })
+
+  test('caja y tesorería leen pedidos (la liquidación suma las entregas de fábrica); el cliente ajeno no', async () => {
+    await seed(async (d) => {
+      await setDoc(doc(d, 'users/caja1'), { rol: 'caja', estado: 'activo', planta: 'torcuato' })
+      await setDoc(doc(d, 'users/tes1'), { rol: 'tesoreria', estado: 'activo' })
+      await setDoc(doc(d, 'users/otro'), cliente())
+    })
+    await seedPedido({ entregaSinComprobante: true })
+    await assertSucceeds(getDoc(doc(db('caja1'), 'orders/o1')))
+    await assertSucceeds(getDoc(doc(db('tes1'), 'orders/o1')))
+    await assertFails(getDoc(doc(db('otro'), 'orders/o1')))
+  })
+})
+
 // ── orders: chofer marca "no entregado" (reprograma a mañana) ────────────────
 describe('orders — chofer marca "no entregado"', () => {
   const manana = new Date(Date.now() + 24 * 60 * 60 * 1000)
@@ -553,6 +599,19 @@ describe('users — código de cliente por facturación', () => {
     await assertFails(updateDoc(doc(db('fac'), 'users/cli'), {
       codigoCliente: 'CLI-0042', listaPreciosId: 'vip',
     }))
+  })
+
+  // Entrega con remito de fábrica (Coto/Carrefour, 2026-09-23): la prende
+  // facturación (y super_admin); el cliente no se la puede poner solo.
+  test('facturacion SÍ puede prender la entrega con remito de fábrica', async () => {
+    await seedFacturacion()
+    await assertSucceeds(updateDoc(doc(db('fac'), 'users/cli'), { entregaConRemitoDeFabrica: true }))
+  })
+
+  test('el cliente NO puede prenderse la entrega con remito de fábrica, ni al registrarse ni después', async () => {
+    await seedFacturacion()
+    await assertFails(updateDoc(doc(db('cli'), 'users/cli'), { entregaConRemitoDeFabrica: true }))
+    await assertFails(setDoc(doc(db('nuevo'), 'users/nuevo'), { ...cliente(), estado: 'pendiente', entregaConRemitoDeFabrica: true }))
   })
 })
 

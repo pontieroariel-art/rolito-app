@@ -50,11 +50,15 @@ export const onDescargaContada = onDocumentCreated(
       .get()
 
     try {
-      const [remitos, ventas, cambios, descargas] = await Promise.all([
+      // Entregas con remito de fábrica del día (orders.entregaFabrica, 2026-09-23):
+      // sin venta de la app, pero bajaron del camión. Dos igualdades: sin índice.
+      const dia = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Argentina/Buenos_Aires', year: 'numeric', month: '2-digit', day: '2-digit' }).format(fecha)
+      const [remitos, ventas, cambios, descargas, pedidosFabrica] = await Promise.all([
         del('remitosCarga', 'choferId'),
         del('ventasCamion', 'choferId'),
         del('cambiosCamion', 'choferId'),
         del('descargasCamion', 'choferId'),
+        db.collection('orders').where('entregaFabrica.choferId', '==', choferId).where('entregaFabrica.dia', '==', dia).get(),
       ])
 
       const umbral = normalizarUmbralFaltantes(
@@ -76,6 +80,7 @@ export const onDescargaContada = onDocumentCreated(
           items:      (d.data().items ?? []) as ItemContado[],
         })),
         umbral,
+        pedidosFabrica.docs.map((d) => ({ productos: (d.data().entregaFabrica?.productos ?? []) as ItemContado[] })),
       )
 
       await event.data!.ref.update({ revision: { ...r, calculadoEn: Timestamp.now() } })

@@ -418,7 +418,7 @@ async function escribirCierreMercaderia(descargaId, descarga) {
     const delDia = (col) => db.collection(col)
         .where('choferId', '==', choferId)
         .where('fecha', '>=', desde).where('fecha', '<', hasta).get();
-    const [ventasDelDia, ventasConRemito, cambios, descargas, viajesDelDia, configLiq] = await Promise.all([
+    const [ventasDelDia, ventasConRemito, cambios, descargas, viajesDelDia, configLiq, pedidosFabrica] = await Promise.all([
         // Las ventas sin `remitoId` (anteriores al 18/09, o del acompañante que sale
         // sin remito propio) se ubican por camión + día, como en utils/viajeDeVenta.
         delDia('ventasCamion'),
@@ -427,6 +427,10 @@ async function escribirCierreMercaderia(descargaId, descarga) {
         db.collection('descargasCamion').where('remitoId', '==', remitoId).get(),
         delDia('remitosCarga'),
         db.doc('config/liquidacion').get(),
+        // Entregas con remito de fábrica (Coto/Carrefour, 2026-09-23): pedidos que el
+        // chofer entregó sin venta de la app en ESTE viaje. Descuentan del camión
+        // como una venta; Tango ya las tiene por el remito de la oficina.
+        db.collection('orders').where('entregaFabrica.remitoId', '==', remitoId).get(),
     ]);
     // Una venta puede venir por las dos consultas: se deduplica por id.
     const ventasPorId = new Map();
@@ -453,6 +457,7 @@ async function escribirCierreMercaderia(descargaId, descarga) {
         ventas,
         cambios: cambios.docs.map((d) => d.data()),
         descargas: descargas.docs.map((d) => ({ id: d.id, ...d.data() })),
+        entregasFabrica: pedidosFabrica.docs.map((d) => ({ productos: (d.data().entregaFabrica?.productos ?? []) })),
         umbral: (0, revisionDescarga_1.normalizarUmbralFaltantes)(configLiq.data()?.faltantes),
         // El cierre pertenece al día del VIAJE, no al del conteo (2026-09-17).
         diaReparto: typeof descarga.diaReparto === 'string' ? descarga.diaReparto : dia,

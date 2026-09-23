@@ -8,6 +8,8 @@ import { subscribeVentasChoferEnRango } from '@/services/ventaCamionService'
 import { subscribeCambiosChoferEnRango } from '@/services/cambioCamionService'
 import { subscribeDescargasChoferEnRango } from '@/services/descargaCamionService'
 import { subscribeCobranzasChoferEnRango } from '@/services/cobranzaService'
+import { subscribeEntregasFabricaChofer } from '@/services/orderService'
+import { entregasFabricaDelViaje } from '@/utils/entregaFabrica'
 import { useDepositosReparto } from '@/hooks/useDepositosReparto'
 import { etiquetaDeposito, identidadDeposito, nombreDeposito, ordenarDepositosReparto } from '@/utils/depositos'
 import { cerrarLiquidacion, LiquidacionYaCerradaError, subscribeLiquidacion, subscribeLiquidacionDeViaje } from '@/services/liquidacionService'
@@ -32,7 +34,7 @@ import DosPartes from '@/components/expedicion/liquidacion/DosPartes'
 import { BarraEstado, DetallePorProducto, Plegable, ResumenPorCliente, TarjetasPlata } from '@/components/expedicion/liquidacion/ResumenLiquidacion'
 import CierreLiquidacionModal, { type DatosCierre } from '@/components/expedicion/liquidacion/CierreLiquidacionModal'
 import {
-  CambioCamion, CierreMercaderia, Cobranza, DescargaCamion, Liquidacion, PLANTAS, VentaCamion, type PlantaId,
+  CambioCamion, CierreMercaderia, Cobranza, DescargaCamion, Liquidacion, Order, PLANTAS, VentaCamion, type PlantaId,
 } from '@/types'
 import { reportError } from '@/services/observability'
 import SolicitarAnulacionModal from '@/components/expedicion/SolicitarAnulacionModal'
@@ -85,6 +87,7 @@ export default function LiquidacionesPage({ base }: { base: '/caja' | '/tesoreri
   const [cambios,   setCambios]   = useState<CambioCamion[]>([])
   const [descargas, setDescargas] = useState<DescargaCamion[]>([])
   const [cobranzas, setCobranzas] = useState<Cobranza[]>([])
+  const [pedidosFabrica, setPedidosFabrica] = useState<Order[]>([])
   const { abrir } = useVisorComprobante()
   const [cerrada,   setCerrada]   = useState<Liquidacion | null>(null)
   // Rendición por sobres, etapa 1 (2026-09-16): caja cuenta billete por billete
@@ -129,7 +132,7 @@ export default function LiquidacionesPage({ base }: { base: '/caja' | '/tesoreri
   const choferNombre  = depositoElegido ? nombreDeposito(depositoElegido) : (huerfanos.find((h) => h.id === choferId)?.nombre ?? '')
 
   useEffect(() => {
-    if (!choferId) { setVentas([]); setCambios([]); setDescargas([]); setCobranzas([]); setCerrada(null); return }
+    if (!choferId) { setVentas([]); setCambios([]); setDescargas([]); setCobranzas([]); setPedidosFabrica([]); setCerrada(null); return }
     const desde = new Date(fecha); desde.setHours(0, 0, 0, 0)
     const hasta = new Date(desde); hasta.setDate(hasta.getDate() + 1)
     const unsubs = [
@@ -137,6 +140,9 @@ export default function LiquidacionesPage({ base }: { base: '/caja' | '/tesoreri
       subscribeCambiosChoferEnRango(choferId, desde, hasta, setCambios),
       subscribeDescargasChoferEnRango(choferId, desde, hasta, setDescargas),
       subscribeCobranzasChoferEnRango(choferId, desde, hasta, setCobranzas),
+      // Entregas con remito de fábrica (Coto/Carrefour, 2026-09-23): bajan del
+      // camión sin venta de la app y descuentan de la devolución teórica.
+      subscribeEntregasFabricaChofer(choferId, hoy, setPedidosFabrica),
       // La plata de un viaje se guarda por su remito; sin viaje, por día.
       viajeId ? subscribeLiquidacionDeViaje(viajeId, setCerrada) : subscribeLiquidacion(hoy, choferId, setCerrada),
       // La otra mitad: la escribe el servidor cuando muelle cuenta la descarga.
@@ -174,9 +180,13 @@ export default function LiquidacionesPage({ base }: { base: '/caja' | '/tesoreri
     const unSoloViaje = remitosChofer.length <= 1
     return descargas.filter((d) => d.remitoId === viajeId || (unSoloViaje && !d.remitoId))
   }, [descargas, viajeId, remitosChofer])
+  const entregasFabrica = useMemo(
+    () => entregasFabricaDelViaje(pedidosFabrica, remitosChofer, viajeId || null),
+    [pedidosFabrica, remitosChofer, viajeId],
+  )
   const calc = useMemo(
-    () => calcularLiquidacion(remitosDelViaje, ventasDelDia, cambios, descargasDelViaje, cobranzasDelDia),
-    [remitosDelViaje, ventasDelDia, cambios, descargasDelViaje, cobranzasDelDia],
+    () => calcularLiquidacion(remitosDelViaje, ventasDelDia, cambios, descargasDelViaje, cobranzasDelDia, entregasFabrica),
+    [remitosDelViaje, ventasDelDia, cambios, descargasDelViaje, cobranzasDelDia, entregasFabrica],
   )
   // El estado del viaje sale del helper compartido, nunca deducido acá: las
   // cinco pantallas y el PDF tienen que decir lo mismo (utils/estadoLiquidacion.ts).

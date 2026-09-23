@@ -1,8 +1,12 @@
 import { claveDia } from '@/utils/diaReparto'
 import { collection, onSnapshot, query, where, Timestamp } from 'firebase/firestore'
-import { db } from './firebase'
+import { auth, db } from './firebase'
 import { onSnapshotError } from './observability'
-import { CambioCamion, Cobranza, DescargaCamion, RemitoCarga, VentaCamion } from '../types'
+import { CambioCamion, Cobranza, DescargaCamion, EntregaFabrica, Order, RemitoCarga, VentaCamion } from '../types'
+
+/** Las entregas con remito de fábrica de una lista de pedidos (solo los que la tienen). */
+const entregasDe = (snap: { docs: { data(): unknown }[] }): EntregaFabrica[] =>
+  snap.docs.map((d) => (d.data() as Order).entregaFabrica).filter((e): e is EntregaFabrica => !!e)
 
 // Fuentes del "Reparto en vivo" del supervisor: todo lo del día, de todos los
 // camiones y las dos plantas. Cinco suscripciones acotadas por fecha (rango de
@@ -16,6 +20,8 @@ export interface FuentesRepartoEnVivo {
   cambios:   CambioCamion[]
   descargas: DescargaCamion[]
   cobranzas: Cobranza[]      // solo origen 'cobrador' (cobradas en la calle por choferes)
+  /** Entregas con remito de fábrica (Coto/Carrefour, 2026-09-23): bajan del camión sin venta de la app. */
+  entregasFabrica: EntregaFabrica[]
 }
 
 export function subscribeRepartoEnVivo(dia: Date, callback: (f: FuentesRepartoEnVivo) => void): () => void {
@@ -23,11 +29,14 @@ export function subscribeRepartoEnVivo(dia: Date, callback: (f: FuentesRepartoEn
   const hasta = new Date(desde); hasta.setDate(hasta.getDate() + 1)
   const d = Timestamp.fromDate(desde), h = Timestamp.fromDate(hasta)
 
-  const f: FuentesRepartoEnVivo = { remitos: [], ventas: [], cambios: [], descargas: [], cobranzas: [] }
+  const f: FuentesRepartoEnVivo = { remitos: [], ventas: [], cambios: [], descargas: [], cobranzas: [], entregasFabrica: [] }
   const emitir = () => callback({ ...f })
   const mapear = <T>(snap: { docs: { id: string; data(): unknown }[] }) => snap.docs.map((x) => ({ id: x.id, ...(x.data() as object) }) as T)
 
   const unsubs = [
+    // Dos igualdades, sin índice. Leen `orders` los roles de oficina, caja y tesorería.
+    onSnapshot(query(collection(db, 'orders'), where('entregaFabrica.dia', '==', claveDia(desde))),
+      (s) => { f.entregasFabrica = entregasDe(s); emitir() }, onSnapshotError((x: EntregaFabrica[]) => { f.entregasFabrica = x; emitir() }, 'repartoEnVivo.entregasFabrica')),
     onSnapshot(query(collection(db, 'remitosCarga'), where('fecha', '>=', d), where('fecha', '<', h)),
       (s) => { f.remitos = mapear<RemitoCarga>(s); emitir() }, onSnapshotError((x: RemitoCarga[]) => { f.remitos = x; emitir() }, 'repartoEnVivo.remitosCarga')),
     onSnapshot(query(collection(db, 'ventasCamion'), where('fecha', '>=', d), where('fecha', '<', h)),
@@ -53,11 +62,15 @@ export function subscribeRepartoDelChofer(dia: Date, choferId: string, callback:
   const hasta = new Date(desde); hasta.setDate(hasta.getDate() + 1)
   const d = Timestamp.fromDate(desde), h = Timestamp.fromDate(hasta)
 
-  const f: FuentesRepartoEnVivo = { remitos: [], ventas: [], cambios: [], descargas: [], cobranzas: [] }
+  const f: FuentesRepartoEnVivo = { remitos: [], ventas: [], cambios: [], descargas: [], cobranzas: [], entregasFabrica: [] }
   const emitir = () => callback({ ...f })
   const mapear = <T>(snap: { docs: { id: string; data(): unknown }[] }) => snap.docs.map((x) => ({ id: x.id, ...(x.data() as object) }) as T)
 
+  // Las reglas le dejan al chofer leer los pedidos asignados a su email.
+  const email = auth.currentUser?.email ?? ''
   const unsubs = [
+    ...(email ? [onSnapshot(query(collection(db, 'orders'), where('driverId', '==', email), where('entregaFabrica.dia', '==', claveDia(desde))),
+      (s) => { f.entregasFabrica = entregasDe(s).filter((e) => e.choferId === choferId); emitir() }, onSnapshotError((x: EntregaFabrica[]) => { f.entregasFabrica = x; emitir() }, 'miCamion.entregasFabrica'))] : []),
     onSnapshot(query(collection(db, 'remitosCarga'), where('choferId', '==', choferId), where('fecha', '>=', d), where('fecha', '<', h)),
       (s) => { f.remitos = mapear<RemitoCarga>(s); emitir() }, onSnapshotError((x: RemitoCarga[]) => { f.remitos = x; emitir() }, 'miCamion.remitosCarga')),
     onSnapshot(query(collection(db, 'ventasCamion'), where('choferId', '==', choferId), where('fecha', '>=', d), where('fecha', '<', h)),

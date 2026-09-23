@@ -29,7 +29,7 @@ export default function MiCamionHoyCard({ uid, hoy }: { uid: string; hoy: string
 
   const camion: CamionEnVivo | null = useMemo(() => {
     if (!fuentes) return null
-    return agruparRepartoEnVivo(fuentes.remitos, fuentes.ventas, fuentes.cambios, fuentes.descargas, fuentes.cobranzas).find((c) => c.choferId === uid) ?? null
+    return agruparRepartoEnVivo(fuentes.remitos, fuentes.ventas, fuentes.cambios, fuentes.descargas, fuentes.cobranzas, fuentes.entregasFabrica).find((c) => c.choferId === uid) ?? null
   }, [fuentes, uid])
 
   if (!fuentes) return null

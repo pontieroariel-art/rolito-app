@@ -35,7 +35,9 @@ const PREFIJO_CAMBIO = 'cambio_';
 const productoDelCambio = (id) => id.startsWith(PREFIJO_CAMBIO) ? id.slice(PREFIJO_CAMBIO.length) : id;
 const nombreDelCambio = (nombre) => nombre.startsWith('Cambio ') ? nombre.slice('Cambio '.length) : nombre;
 /** Igual que utils/liquidacion.ts: devolución teórica = carga − ventas − cambios. */
-function calcularRevision(remitos, ventas, cambiosViejos, descargas, umbral = exports.UMBRAL_FALTANTES_DEFAULT) {
+function calcularRevision(remitos, ventas, cambiosViejos, descargas, umbral = exports.UMBRAL_FALTANTES_DEFAULT, 
+/** Entregas con remito de fábrica del día (orders.entregaFabrica, 2026-09-23): bajaron sin venta de la app. */
+entregasFabrica = []) {
     const filas = new Map();
     const fila = (productoId, nombre) => {
         let f = filas.get(productoId);
@@ -57,6 +59,7 @@ function calcularRevision(remitos, ventas, cambiosViejos, descargas, umbral = ex
     });
     // Registro viejo de cambios (cuando el cambio era una pantalla aparte).
     cambiosViejos.forEach((c) => { fila(productoDelCambio(c.productoId), nombreDelCambio(c.nombre)).teorico -= c.cantidad; });
+    entregasFabrica.forEach((e) => (e.productos ?? []).forEach((i) => { fila(i.productoId, i.nombre).teorico -= i.cantidad; }));
     descargasVigentes(descargas).forEach((d) => (d.items ?? []).forEach((i) => { fila(i.productoId, i.nombre).descarga += i.cantidad; }));
     const productos = [];
     let bolsasFaltantes = 0;

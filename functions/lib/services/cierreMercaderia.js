@@ -115,7 +115,7 @@ const nombreDelCambio = (nombre) => (nombre.startsWith('Cambio ') ? nombre.slice
  * Por producto: carga − ventas − cambios = devolución teórica, contra lo que
  * el muelle contó. Ni un gramo de plata: el muelle nunca ve importes.
  */
-function mercaderiaDelViaje(remitos, ventas, cambios, descargas) {
+function mercaderiaDelViaje(remitos, ventas, cambios, descargas, entregasFabrica = []) {
     // Una factura anulada con nota de crédito (2026-09-11) no cuenta: la NC ya
     // devolvió el stock, esa mercadería tenía que volver en el camión.
     const ventasVigentes = ventas.filter((v) => v.anulacion?.estado !== 'anulada');
@@ -125,12 +125,15 @@ function mercaderiaDelViaje(remitos, ventas, cambios, descargas) {
     const fila = (productoId, nombre) => {
         let f = porProducto.get(productoId);
         if (!f) {
-            f = { productoId, nombre, carga: 0, ventaContado: 0, ventaPromo: 0, cambios: 0, devolucionTeorica: 0, descarga: 0, diferencia: 0, rotas: 0 };
+            f = { productoId, nombre, carga: 0, ventaContado: 0, ventaPromo: 0, cambios: 0, devolucionTeorica: 0, descarga: 0, diferencia: 0, rotas: 0, entregasFabrica: 0 };
             porProducto.set(productoId, f);
         }
         return f;
     };
     remitos.forEach((r) => (r.items ?? []).forEach((i) => { fila(i.productoId, i.nombre).carga += n(i.cantidad); }));
+    // Entregas con remito de fábrica (Coto/Carrefour, 2026-09-23): bajaron del
+    // camión sin venta de la app; Tango ya las tiene por el remito de la oficina.
+    entregasFabrica.forEach((e) => (e.productos ?? []).forEach((i) => { fila(i.productoId, i.nombre).entregasFabrica += n(i.cantidad); }));
     ventasVigentes.forEach((v) => (v.items ?? []).forEach((i) => {
         const f = fila(i.productoId, i.nombre);
         if (v.canal === 'contado')
@@ -151,7 +154,7 @@ function mercaderiaDelViaje(remitos, ventas, cambios, descargas) {
         fila(productoDelCambio(i.productoId), nombreDelCambio(i.nombre)).rotas += n(i.cantidad);
     }));
     const productos = [...porProducto.values()].map((f) => {
-        const devolucionTeorica = f.carga - f.ventaContado - f.ventaPromo - f.cambios;
+        const devolucionTeorica = f.carga - f.ventaContado - f.ventaPromo - f.cambios - f.entregasFabrica;
         return { ...f, devolucionTeorica, diferencia: f.descarga - devolucionTeorica };
     }).sort((a, b) => a.nombre.localeCompare(b.nombre));
     const registrados = ventasVigentes.reduce((s, v) => s + (v.cambios ?? []).reduce((x, i) => x + n(i.cantidad), 0), 0) +
@@ -214,7 +217,7 @@ exports.ventasDelViaje = ventasDelViaje;
 function armarCierreMercaderia(args) {
     const { remito, ventas, cambios, descargas, diaReparto, contadaPor, contadaEn } = args;
     const vigentes = (0, revisionDescarga_1.descargasVigentes)(descargas);
-    const { productos, envases } = mercaderiaDelViaje([remito], ventas, cambios, descargas);
+    const { productos, envases } = mercaderiaDelViaje([remito], ventas, cambios, descargas, args.entregasFabrica ?? []);
     return {
         id: remito.id,
         remitoId: remito.id,

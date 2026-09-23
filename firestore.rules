@@ -443,7 +443,9 @@ service cloud.firestore {
             && request.resource.data.get('codigoCliente', '')  == resource.data.get('codigoCliente', '')
             && request.resource.data.get('codVendedor', '')    == resource.data.get('codVendedor', '')
             && request.resource.data.get('sector', '')         == resource.data.get('sector', '')
-            && request.resource.data.get('creadoPor', null)    == resource.data.get('creadoPor', null);
+            && request.resource.data.get('creadoPor', null)    == resource.data.get('creadoPor', null)
+            // Entrega con remito de fábrica (2026-09-23): la prende la oficina, nunca el cliente.
+            && request.resource.data.get('entregaConRemitoDeFabrica', false) == resource.data.get('entregaConRemitoDeFabrica', false);
       }
       // El flag de bridge de Tango (isTangoBridge()) da acceso al pipeline de
       // Tango (tango-outbox, config/tango). Solo lo setea el Admin SDK al
@@ -523,7 +525,7 @@ service cloud.firestore {
              'rolesExtra', 'autorizaAnulaciones', 'tangoBridge', 'planta', 'area', 'subrol',
              'codigoCliente', 'codigoTango', 'codigosTango', 'idGva14Tango',
              'preciosTango', 'listaTango', 'listaTangoNombre', 'preciosCustom', 'listaPreciosId',
-             'codVendedor', 'sector', 'creadoPor', 'claimsActualizadosEn',
+             'codVendedor', 'sector', 'creadoPor', 'claimsActualizadosEn', 'entregaConRemitoDeFabrica',
            ]);
 
       // Operadores (super_admin/logistica) pueden dar de alta choferes.
@@ -560,11 +562,12 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys()
              .hasOnly(['estado', 'fechaAprobacion', 'aprobadoPor']);
 
-      // ── facturacion: asignar código interno de facturación (solo ese campo) ──
+      // ── facturacion: código interno de facturación y la marca de entrega con
+      //    remito de fábrica (2026-09-23, Coto/Carrefour); nada más ──
       allow update: if request.auth != null && isFacturacion()
         && targetEsCliente()
         && request.resource.data.diff(resource.data).affectedKeys()
-             .hasOnly(['codigoCliente']);
+             .hasOnly(['codigoCliente', 'entregaConRemitoDeFabrica']);
 
       // ── Módulo heladeras: activar/desactivar cuentas de técnico (solo ese
       // campo, solo sobre docs con rol 'tecnico' — no pueden tocar otro staff). ──
@@ -628,6 +631,9 @@ service cloud.firestore {
         isFacturacion() ||
         isGerenteGeneral() ||
         hasRol('heladeras_encargado') ||
+        // Caja y tesorería (2026-09-23): la liquidación y los tableros en vivo
+        // leen las entregas con remito de fábrica (orders.entregaFabrica).
+        hasAlguno(['caja', 'tesoreria']) ||
         // Supervisor: historial de pedidos en la ficha del cliente (2026-09-07).
         isSupervisor()
       );
@@ -638,11 +644,17 @@ service cloud.firestore {
       // myEstado() == 'activo': un chofer dado de baja con sesión todavía
       // vigente no debe poder seguir marcando entregas de pedidos ya
       // asignados (antes solo la UI se lo impedía, no las reglas).
+      // `entregaFabrica` (2026-09-23): la entrega sin comprobante de la app de
+      // un pedido con remito de fábrica (Coto/Carrefour); solo su viaje y sus
+      // cantidades, nunca el sello `entregaSinComprobante` (lo pone el server).
       allow update: if request.auth != null &&
         request.auth.token.email == resource.data.driverId &&
         myEstado() == 'activo' &&
         request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['status', 'productosEntregados', 'entregaParcial', 'notaEntrega', 'updatedAt', 'historialAcciones']);
+          .hasOnly(['status', 'productosEntregados', 'entregaParcial', 'notaEntrega', 'updatedAt', 'historialAcciones', 'entregaFabrica']) &&
+        (!('entregaFabrica' in request.resource.data.diff(resource.data).affectedKeys())
+          || (resource.data.get('entregaSinComprobante', false) == true
+              && request.resource.data.entregaFabrica.choferId == request.auth.uid));
 
       // Chofer marca "no entregado": reprograma su propio pedido asignado al
       // día siguiente y lo libera (vuelve a bandeja sin chofer, para que

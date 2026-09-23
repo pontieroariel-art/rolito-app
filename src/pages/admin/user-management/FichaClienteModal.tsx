@@ -54,6 +54,23 @@ export function FichaClienteModal({
 
   const canAssignCode    = ['super_admin', 'facturacion', 'gerente_comercial', 'comercial', 'logistica'].includes(currentUser?.rol ?? '')
   const canEditInfoBasica = ['super_admin', 'gerente_comercial', 'comercial', 'logistica'].includes(currentUser?.rol ?? '')
+  // Entrega con remito de fábrica (Coto/Carrefour, 2026-09-23): decisión de
+  // Ariel, la prenden solo super_admin y facturación (reglas: isFacturacion()).
+  const canEditRemitoFabrica = ['super_admin', 'facturacion'].includes(currentUser?.rol ?? '')
+  const [remitoFabrica,       setRemitoFabrica]       = useState(user.entregaConRemitoDeFabrica ?? false)
+  const [savingRemitoFabrica, setSavingRemitoFabrica] = useState(false)
+  const handleToggleRemitoFabrica = async (valor: boolean) => {
+    setRemitoFabrica(valor)
+    setSavingRemitoFabrica(true)
+    try {
+      await updateUserDocument(user.uid, { entregaConRemitoDeFabrica: valor })
+    } catch (err) {
+      reportError(err, { origen: 'FichaClienteModal', accion: 'entregaConRemitoDeFabrica' })
+      setRemitoFabrica(!valor)
+    } finally {
+      setSavingRemitoFabrica(false)
+    }
+  }
 
   const handleSaveInfo = async () => {
     setSavingInfo(true)
@@ -310,6 +327,31 @@ export function FichaClienteModal({
               {canAssignCode && (
                 <p className="text-xs text-secundario mt-1.5">Código interno de cliente (facturación / gestión comercial).</p>
               )}
+            </div>
+          </section>
+        )}
+
+        {/* Entrega con remito de fábrica (Coto/Carrefour, 2026-09-23) */}
+        {user.rol === 'cliente' && (canEditRemitoFabrica || user.entregaConRemitoDeFabrica) && (
+          <section className="space-y-2">
+            <h3 className="text-xs font-semibold text-secundario uppercase tracking-wider flex items-center gap-1.5">
+              <Tag size={12} /> Entrega con remito de fábrica
+            </h3>
+            <div className="bg-[#F8F7F2] rounded-xl p-3 space-y-2">
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={remitoFabrica}
+                  disabled={savingRemitoFabrica || !canEditRemitoFabrica}
+                  onChange={(e: ChangeEvent<HTMLInputElement>) => handleToggleRemitoFabrica(e.target.checked)}
+                  className="w-4 h-4 accent-accent"
+                />
+                <span className="text-sm text-gray-900">La oficina emite el remito desde el depósito del chofer</span>
+              </label>
+              <p className="text-xs text-secundario">
+                Los pedidos de este cliente, en todas sus sucursales, se entregan sin comprobante de la app: el chofer confirma las cantidades que bajó y listo. Sin remito, factura, mail ni Tango; la mercadería igual descuenta del camión. Logística carga la cantidad real en el pedido.
+              </p>
+              {savingRemitoFabrica && <p className="text-xs text-secundario">Guardando…</p>}
             </div>
           </section>
         )}

@@ -1,6 +1,6 @@
 import { cobranzasVigentes } from './anulacionCobranza'
 import {
-  CambioCamion, Cobranza, DescargaCamion, EmpresaTango, Liquidacion, LiquidacionResumenProducto,
+  CambioCamion, Cobranza, DescargaCamion, EmpresaTango, EntregaFabrica, Liquidacion, LiquidacionResumenProducto,
   PlataEmpresa, PlataPorEmpresa, RemitoCarga, VentaCamion, VentaCamionItem,
 } from '../types'
 import { nombreDelCambio, productoDelCambio } from './cambios'
@@ -87,6 +87,8 @@ export function mercaderiaDelViaje(
   ventas:    VentaCamion[],
   cambios:   CambioCamion[],
   descargas: DescargaCamion[],
+  /** Entregas con remito de fábrica del viaje (2026-09-23): salieron del camión sin venta de la app. */
+  entregasFabrica: Pick<EntregaFabrica, 'productos'>[] = [],
 ): MercaderiaCalculada {
   // Una factura anulada con nota de crédito (2026-09-11) no cuenta: ni en
   // plata ni en productos (la NC devolvió el stock al depósito en Tango).
@@ -101,13 +103,17 @@ export function mercaderiaDelViaje(
   const fila = (productoId: string, nombre: string): LiquidacionResumenProducto => {
     let f = porProducto.get(productoId)
     if (!f) {
-      f = { productoId, nombre, carga: 0, ventaContado: 0, ventaPromo: 0, cambios: 0, devolucionTeorica: 0, descarga: 0, diferencia: 0, rotas: 0 }
+      f = { productoId, nombre, carga: 0, ventaContado: 0, ventaPromo: 0, cambios: 0, devolucionTeorica: 0, descarga: 0, diferencia: 0, rotas: 0, entregasFabrica: 0 }
       porProducto.set(productoId, f)
     }
     return f
   }
 
   remitos.forEach((r) => r.items.forEach((i) => { fila(i.productoId, i.nombre).carga += i.cantidad }))
+  // Entregas con remito de fábrica (Coto/Carrefour): bajaron del camión igual
+  // que una venta, sin papel de la app. Tango ya las tiene por el remito de la
+  // oficina, emitido desde el depósito del chofer.
+  entregasFabrica.forEach((e) => e.productos.forEach((i) => { const f = fila(i.productoId, i.nombre); f.entregasFabrica = (f.entregasFabrica ?? 0) + i.cantidad }))
   ventas.forEach((v) => v.items.forEach((i) => {
     const f = fila(i.productoId, i.nombre)
     if (v.canal === 'contado') f.ventaContado += i.cantidad
@@ -137,7 +143,7 @@ export function mercaderiaDelViaje(
   }))
 
   const productos = [...porProducto.values()].map((f) => {
-    const devolucionTeorica = f.carga - f.ventaContado - f.ventaPromo - f.cambios
+    const devolucionTeorica = f.carga - f.ventaContado - f.ventaPromo - f.cambios - (f.entregasFabrica ?? 0)
     return { ...f, devolucionTeorica, diferencia: f.descarga - devolucionTeorica }
   }).sort((a, b) => a.nombre.localeCompare(b.nombre))
 
@@ -217,9 +223,10 @@ export function calcularLiquidacion(
   cambios:   CambioCamion[],
   descargas: DescargaCamion[],
   cobranzasCalle: Cobranza[] = [],
+  entregasFabrica: Pick<EntregaFabrica, 'productos'>[] = [],
 ): LiquidacionCalculada {
   return {
-    ...mercaderiaDelViaje(remitos, ventas, cambios, descargas),
+    ...mercaderiaDelViaje(remitos, ventas, cambios, descargas, entregasFabrica),
     ...plataDelViaje(ventas, cobranzasCalle),
   }
 }

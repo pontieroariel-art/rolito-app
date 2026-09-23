@@ -22,6 +22,21 @@ exports.onOrderCreated = (0, firestore_1.onDocumentCreated)({ document: 'orders/
     const order = event.data?.data();
     if (!order)
         return;
+    // Entrega con remito de fábrica (Coto/Carrefour, 2026-09-23): si el cliente
+    // tiene la marca, el pedido nace sellado y el chofer lo entrega sin
+    // comprobante de la app. Se sella acá y no en el front para que valga igual
+    // lo cargue quien lo cargue (logística, el cliente, un recurrente).
+    const clientId = order.clientId;
+    if (clientId && clientId !== 'externo' && order.entregaSinComprobante !== true) {
+        try {
+            const cliente = (await (0, firestore_2.getFirestore)().doc(`users/${clientId}`).get()).data();
+            if (cliente?.entregaConRemitoDeFabrica === true)
+                await event.data.ref.update({ entregaSinComprobante: true });
+        }
+        catch (e) {
+            console.error(`[onOrderCreated] no se pudo sellar entregaSinComprobante en ${event.params.orderId}: ${e.message}`);
+        }
+    }
     const clientName = (order.clientName || '');
     const products = (order.products || []);
     const nombre = clientName.split(' ')[0] || 'Cliente';

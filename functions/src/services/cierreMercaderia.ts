@@ -74,7 +74,12 @@ export interface ProductoCierre {
   descarga:          number
   diferencia:        number
   rotas:             number
+  /** Entregas con remito de fábrica (2026-09-23): bajaron del camión sin venta de la app. */
+  entregasFabrica:   number
 }
+
+/** Entrega con remito de fábrica de un pedido (orders.entregaFabrica), solo lo que importa a la cuenta. */
+export interface EntregaFabricaParaCierre { productos?: ItemMercaderia[] | null }
 
 export interface ConteoEnvasesCierre { tarimasMadera: number; palletsMetal: number; puntales: number; aros: number; sombreros: number }
 export interface CuadreEnvases {
@@ -195,6 +200,7 @@ export function mercaderiaDelViaje(
   ventas:    VentaParaCierre[],
   cambios:   ItemMercaderia[],
   descargas: DescargaParaCierre[],
+  entregasFabrica: EntregaFabricaParaCierre[] = [],
 ): MercaderiaCalculada {
   // Una factura anulada con nota de crédito (2026-09-11) no cuenta: la NC ya
   // devolvió el stock, esa mercadería tenía que volver en el camión.
@@ -206,13 +212,16 @@ export function mercaderiaDelViaje(
   const fila = (productoId: string, nombre: string): ProductoCierre => {
     let f = porProducto.get(productoId)
     if (!f) {
-      f = { productoId, nombre, carga: 0, ventaContado: 0, ventaPromo: 0, cambios: 0, devolucionTeorica: 0, descarga: 0, diferencia: 0, rotas: 0 }
+      f = { productoId, nombre, carga: 0, ventaContado: 0, ventaPromo: 0, cambios: 0, devolucionTeorica: 0, descarga: 0, diferencia: 0, rotas: 0, entregasFabrica: 0 }
       porProducto.set(productoId, f)
     }
     return f
   }
 
   remitos.forEach((r) => (r.items ?? []).forEach((i) => { fila(i.productoId, i.nombre).carga += n(i.cantidad) }))
+  // Entregas con remito de fábrica (Coto/Carrefour, 2026-09-23): bajaron del
+  // camión sin venta de la app; Tango ya las tiene por el remito de la oficina.
+  entregasFabrica.forEach((e) => (e.productos ?? []).forEach((i) => { fila(i.productoId, i.nombre).entregasFabrica += n(i.cantidad) }))
   ventasVigentes.forEach((v) => (v.items ?? []).forEach((i) => {
     const f = fila(i.productoId, i.nombre)
     if (v.canal === 'contado') f.ventaContado += n(i.cantidad)
@@ -232,7 +241,7 @@ export function mercaderiaDelViaje(
   }))
 
   const productos = [...porProducto.values()].map((f) => {
-    const devolucionTeorica = f.carga - f.ventaContado - f.ventaPromo - f.cambios
+    const devolucionTeorica = f.carga - f.ventaContado - f.ventaPromo - f.cambios - f.entregasFabrica
     return { ...f, devolucionTeorica, diferencia: f.descarga - devolucionTeorica }
   }).sort((a, b) => a.nombre.localeCompare(b.nombre))
 
@@ -355,6 +364,8 @@ export interface ArmarCierreArgs<TS> {
   cambios:    ItemMercaderia[]
   /** TODAS las descargas del remito, incluida la que dispara el cierre; acá se descartan las rectificadas. */
   descargas:  DescargaParaCierre[]
+  /** Entregas con remito de fábrica del viaje (orders.entregaFabrica con este remitoId). */
+  entregasFabrica?: EntregaFabricaParaCierre[]
   umbral?:    UmbralFaltantes
   diaReparto: string
   contadaPor: { uid: string; nombre: string }
@@ -364,7 +375,7 @@ export interface ArmarCierreArgs<TS> {
 export function armarCierreMercaderia<TS>(args: ArmarCierreArgs<TS>): CierreMercaderiaDoc<TS> {
   const { remito, ventas, cambios, descargas, diaReparto, contadaPor, contadaEn } = args
   const vigentes = descargasVigentes(descargas)
-  const { productos, envases } = mercaderiaDelViaje([remito], ventas, cambios, descargas)
+  const { productos, envases } = mercaderiaDelViaje([remito], ventas, cambios, descargas, args.entregasFabrica ?? [])
   return {
     id:           remito.id,
     remitoId:     remito.id,

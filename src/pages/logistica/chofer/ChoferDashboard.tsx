@@ -874,9 +874,14 @@ const DeliveryCard = memo(function DeliveryCard({ order, index, isFirst, chofer 
             (2026-09-11). Sin cliente en la app queda el "Entregado" de siempre. */}
         {order.clientId && order.clientId !== 'externo' ? (
           <>
+            {/* Remito de fábrica (Coto/Carrefour, 2026-09-23): la misma pantalla,
+                pero un solo paso y sin comprobante de la app. */}
+            {order.entregaSinComprobante && (
+              <p className="pl-10"><span className="inline-block text-[11px] font-bold px-2 py-0.5 rounded-full bg-sky-50 text-sky-800 border border-sky-200">Remito de fábrica · sin comprobante de la app</span></p>
+            )}
             <Link to={`/chofer/entregar/${order.id}`}
               className="block w-full rounded-2xl bg-[#1D9E75] px-4 py-4 text-center text-lg font-black text-white shadow-sm active:scale-[.99] hover:bg-[#178760]">
-              ENTREGAR
+              {order.entregaSinComprobante ? 'ENTREGADO' : 'ENTREGAR'}
             </Link>
             <Button variant="outline" onClick={openInMaps} className="w-full text-sm py-3">
               📍 Abrir en Maps
