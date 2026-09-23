@@ -85,7 +85,7 @@ export const ROLE_HOME: Record<UserRole, string> = {
 }
 
 /**
- * `sistemasPermitidos` guardado antes de un cambio de dominios puede traer
+ * `dominiosOcultos` guardado antes de un cambio de dominios puede traer
  * nombres viejos. Se traducen en lectura, así nadie pierde accesos ni hay que
  * migrar documentos:
  *   · antes de la fase 2 existían 'produccion' y 'expedicion' sueltos;
@@ -107,7 +107,7 @@ export function techoSistemasDe(user: Pick<UserProfile, 'rol' | 'rolesExtra'>): 
   return SISTEMAS.filter((s) => set.has(s))
 }
 
-export type UsuarioRecorteDominios = Pick<UserProfile, 'rol' | 'rolesExtra' | 'dominiosOcultos' | 'sistemasPermitidos'>
+export type UsuarioRecorteDominios = Pick<UserProfile, 'rol' | 'rolesExtra' | 'dominiosOcultos'>
 
 // Dominios efectivos de un usuario: el techo de su rol menos lo que el admin
 // le escondió desde Usuarios → Permisos. Nunca devuelve algo que el rol no
@@ -118,10 +118,7 @@ export function sistemasDeUsuario(user: UsuarioRecorteDominios): Sistema[] {
     const ocultos = new Set(user.dominiosOcultos.map(compat).filter((s): s is Sistema => s !== null))
     return techo.filter((s) => !ocultos.has(s))
   }
-  // Modelo viejo, de inclusión (migrado el 2026-09-12; se lee por las dudas).
-  if (!user.sistemasPermitidos) return techo
-  const permitidos = new Set(user.sistemasPermitidos.map(compat).filter((s): s is Sistema => s !== null))
-  return techo.filter((s) => permitidos.has(s))
+  return techo
 }
 
 /** Adónde entra este usuario en un dominio (catálogo → HOME_SISTEMA). */
@@ -131,7 +128,7 @@ export function homeDeSistema(sistema: Sistema, user: Pick<UserProfile, 'rol' | 
 
 // Home de cada dominio disponible, solo para quien tiene más de uno (el
 // picker /sistema); con uno solo devuelve undefined y el picker no aplica.
-export function homesDeUsuario(user: Pick<UserProfile, 'rol' | 'sistemasPermitidos' | 'rolesExtra'>): Partial<Record<Sistema, string>> | undefined {
+export function homesDeUsuario(user: Pick<UserProfile, 'rol' | 'rolesExtra' | 'dominiosOcultos'>): Partial<Record<Sistema, string>> | undefined {
   const sistemas = sistemasDeUsuario(user)
   if (sistemas.length <= 1) return undefined
   const homes: Partial<Record<Sistema, string>> = {}

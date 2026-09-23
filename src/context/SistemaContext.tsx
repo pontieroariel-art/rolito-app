@@ -17,7 +17,7 @@ export function SistemaProvider({ children }: { children: ReactNode }) {
   const [sistemaActual, setSistemaActual] = useState<Sistema | null>(null)
 
   // Memo por los campos que lo determinan: el array nuevo en cada render re-renderizaba a todos los consumidores.
-  const sistemasKey = user ? `${user.rol}|${user.dominiosOcultos?.join(',') ?? ''}|${user.sistemasPermitidos?.join(',') ?? ''}|${user.rolesExtra?.join(',') ?? ''}` : ''
+  const sistemasKey = user ? `${user.rol}|${user.dominiosOcultos?.join(',') ?? ''}|${user.rolesExtra?.join(',') ?? ''}` : ''
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const sistemasDisponibles = useMemo(() => (user ? sistemasDeUsuario(user) : []), [sistemasKey])
 
@@ -36,11 +36,11 @@ export function SistemaProvider({ children }: { children: ReactNode }) {
     // Múltiples: restaurar desde localStorage
     const stored = localStorage.getItem(`sistema_${user.uid}`) as Sistema | null
     setSistemaActual(stored && disponibles.includes(stored) ? stored : null)
-    // sistemasPermitidosKey (no el array en sí, para no recalcular por
+    // sistemasKey (no el array en sí, para no recalcular por
     // cambios de referencia) hace que esto se re-evalúe si un admin le
     // recorta los sistemas a este usuario mientras tiene la sesión abierta.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.uid, user?.rol, user?.dominiosOcultos?.join(','), user?.sistemasPermitidos?.join(','), user?.rolesExtra?.join(',')])
+  }, [user?.uid, user?.rol, user?.dominiosOcultos?.join(','), user?.rolesExtra?.join(',')])
 
   const uid = user?.uid
   const elegirSistema = useCallback((s: Sistema) => {

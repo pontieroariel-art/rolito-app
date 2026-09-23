@@ -435,19 +435,17 @@ export function homeDeSistema(sistema: Sistema, user: UsuarioRoles & Partial<Usu
 export const pantallasVisiblesDe = (user: (UsuarioRoles & Partial<UsuarioRecorte>) | null | undefined, sistema: Sistema): ItemMenu[] =>
   gruposVisibles(user, sistema).flatMap((g) => g.items).filter((i) => pantallaVisible(user, i.to))
 
-type UsuarioRecorte = Pick<UserProfile, 'pestanasOcultas' | 'pestanasPermitidas'>
+type UsuarioRecorte = Pick<UserProfile, 'pestanasOcultas'>
 
 /**
  * ¿Esta pantalla le aparece en el menú? El recorte esconde, no cierra: el
  * acceso real lo decide el rol en <ProtectedRoute>. Se guarda lo que se
  * esconde, así una pantalla nueva de la app le aparece a todos sin tener que
- * volver a guardar cada recorte (`pestanasPermitidas` es el modelo viejo, de
- * inclusión, que se lee por si quedó alguno sin migrar).
+ * volver a guardar cada recorte.
  */
 export function pantallaVisible(user: UsuarioRecorte | null | undefined, path: string): boolean {
   if (!user) return true
   if (user.pestanasOcultas) return !user.pestanasOcultas.includes(path)
-  if (user.pestanasPermitidas) return user.pestanasPermitidas.includes(path)
   return true
 }
 

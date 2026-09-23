@@ -59,29 +59,13 @@ export function PermisosUsuarioModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [grupos, techo])
 
-  // Estado inicial: el recorte nuevo, o el viejo convertido a "lo escondido".
-  const [dominiosOcultos, setDominiosOcultos] = useState<Set<Sistema>>(() => {
-    if (user.dominiosOcultos) return new Set(user.dominiosOcultos)
-    if (user.sistemasPermitidos) return new Set(techo.filter((s) => !user.sistemasPermitidos!.includes(s)))
-    return new Set()
-  })
-  const [pestanasOcultas, setPestanasOcultas] = useState<Set<string>>(() => {
-    if (user.pestanasOcultas) return new Set(user.pestanasOcultas)
-    if (user.pestanasPermitidas) {
-      const vistas = new Set<string>()
-      for (const s of techo) for (const g of gruposVisibles(user, s)) for (const i of g.items) {
-        if (!user.pestanasPermitidas.includes(i.to)) vistas.add(i.to)
-      }
-      return vistas
-    }
-    return new Set()
-  })
+  // Estado inicial: lo que hoy tiene escondido.
+  const [dominiosOcultos, setDominiosOcultos] = useState<Set<Sistema>>(() => new Set(user.dominiosOcultos ?? []))
+  const [pestanasOcultas, setPestanasOcultas] = useState<Set<string>>(() => new Set(user.pestanasOcultas ?? []))
 
   const [abiertos, setAbiertos] = useState<Set<Sistema>>(() => new Set(techo.slice(0, 1)))
   const [vistaPrevia, setVistaPrevia] = useState<Sistema | null>(null)
   const [guardando, setGuardando] = useState(false)
-
-  const eraViejo = !!(user.sistemasPermitidos || user.pestanasPermitidas) && !user.dominiosOcultos && !user.pestanasOcultas
 
   // ── Estado de cada dominio ────────────────────────────────────────────────
   const estadoDe = (s: Sistema): Estado => {
@@ -134,9 +118,6 @@ export function PermisosUsuarioModal({
       await updateUserDocument(user.uid, {
         dominiosOcultos: [...dominiosOcultos],
         pestanasOcultas: [...pestanasOcultas],
-        // El modelo viejo se limpia al guardar.
-        sistemasPermitidos: deleteField(),
-        pestanasPermitidas: deleteField(),
       })
       onSaved()
     } finally { setGuardando(false) }
@@ -147,7 +128,6 @@ export function PermisosUsuarioModal({
     try {
       await updateUserDocument(user.uid, {
         dominiosOcultos: deleteField(), pestanasOcultas: deleteField(),
-        sistemasPermitidos: deleteField(), pestanasPermitidas: deleteField(),
       })
       onSaved()
     } finally { setGuardando(false) }
@@ -206,13 +186,6 @@ export function PermisosUsuarioModal({
             </button>
           ))}
         </div>
-
-        {eraViejo && (
-          <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-            Este recorte es del modelo viejo, que guardaba lo que se mostraba: hasta ahora, las pantallas nuevas de la app no le
-            aparecían. Al guardar queda al día y las nuevas le van a aparecer solas.
-          </p>
-        )}
 
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px] items-start">
           {/* ── Controles ── */}

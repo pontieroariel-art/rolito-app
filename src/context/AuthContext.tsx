@@ -165,8 +165,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const newListaTango   = d.listaTango   as UserProfile['listaTango']
         const newListaTangoNombre = d.listaTangoNombre as UserProfile['listaTangoNombre']
         const newAddrs   = d.addresses      as UserProfile['addresses'] | undefined
-        const newSistemas = d.sistemasPermitidos as UserProfile['sistemasPermitidos']
-        const newPestanas = d.pestanasPermitidas as UserProfile['pestanasPermitidas']
         const newDominiosOcultos = d.dominiosOcultos as UserProfile['dominiosOcultos']
         const newPestanasOcultas = d.pestanasOcultas as UserProfile['pestanasOcultas']
         // Favoritos del checklist de tipos de reparación (técnico de calle) —
@@ -206,8 +204,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           JSON.stringify(newListaTango)   !== JSON.stringify(cur.listaTango) ||
           JSON.stringify(newListaTangoNombre) !== JSON.stringify(cur.listaTangoNombre) ||
           JSON.stringify(newAddrs)     !== JSON.stringify(cur.addresses) ||
-          JSON.stringify(newSistemas)  !== JSON.stringify(cur.sistemasPermitidos) ||
-          JSON.stringify(newPestanas)  !== JSON.stringify(cur.pestanasPermitidas) ||
           JSON.stringify(newDominiosOcultos) !== JSON.stringify(cur.dominiosOcultos) ||
           JSON.stringify(newPestanasOcultas) !== JSON.stringify(cur.pestanasOcultas) ||
           JSON.stringify(newFavoritos) !== JSON.stringify(cur.tiposFavoritos) ||
@@ -225,8 +221,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           autorizaAnulaciones: newAutorizaAnulaciones,
           claimsActualizadosEn: newClaimsEn,
           ...(newAddrs !== undefined ? { addresses: newAddrs } : {}),
-          sistemasPermitidos: newSistemas,
-          pestanasPermitidas: newPestanas,
           dominiosOcultos:    newDominiosOcultos,
           pestanasOcultas:    newPestanasOcultas,
           tiposFavoritos: newFavoritos,

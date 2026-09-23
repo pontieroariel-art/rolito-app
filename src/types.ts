@@ -1853,10 +1853,9 @@ export interface UserProfile {
   // app hasta que alguien volviera a abrir el modal y guardar.
   dominiosOcultos?: Sistema[]
   pestanasOcultas?:  string[]
-  /** @deprecated listas de inclusión, migradas a las de arriba el 2026-09-12. Se leen por si quedó alguna. */
-  sistemasPermitidos?: Sistema[]
-  /** @deprecated ídem. */
-  pestanasPermitidas?: string[]
+  // Las listas de inclusión viejas (sistemasPermitidos / pestanasPermitidas)
+  // se retiraron el 2026-09-22: ningún documento las tenía desde la migración
+  // del 12/09 (scripts/migrar-recorte-menu.mjs).
   // Roles ADICIONALES al principal (solo caja / muelle / seguridad), para
   // quien cubre el mostrador además de su puesto — ver src/utils/roles.ts.
   // Van con `planta`. Solo los asigna el super_admin.
