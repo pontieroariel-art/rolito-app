@@ -1,4 +1,4 @@
-import { collection, getDocs, onSnapshot, query, where } from 'firebase/firestore'
+import { collection, getDocs, onSnapshot } from 'firebase/firestore'
 import { db } from './firebase'
 import { onSnapshotError } from './observability'
 import type { ClienteIndex } from '@/types'
@@ -41,14 +41,3 @@ export async function getClientesIndexTodos(): Promise<ClienteIndex[]> {
   return _indiceCache
 }
 
-export function subscribeClientesIndex(
-  cb: (clientes: ClienteIndex[]) => void,
-  onError?: (err: Error) => void,
-): () => void {
-  const q = query(collection(db, 'clientesIndex'), where('estado', '==', 'activo'))
-  return onSnapshot(
-    q,
-    (snap) => cb(snap.docs.map((d) => ({ ...(d.data() as Omit<ClienteIndex, 'uid'>), uid: d.id }))),
-    (err) => { onSnapshotError(cb, 'clientesIndex')(err); onError?.(err) },
-  )
-}
