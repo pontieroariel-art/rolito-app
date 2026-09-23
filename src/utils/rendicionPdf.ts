@@ -1,7 +1,7 @@
 import type { Rendicion } from '@/types'
 import { MOTIVOS_DIFERENCIA_LIQUIDACION, PLANTAS } from '@/types'
 import { formatoARS } from './money'
-import { ESTILO_CABECERA_TABLA, encabezadoA4, firmaA4, nuevoA4, pieA4, salidaPdf } from './pdfBase'
+import { ESTILO_CABECERA_TABLA, encabezadoA4, finTabla, firmaA4, nuevoA4, pieA4, salidaPdf } from './pdfBase'
 
 // PDF del cierre de caja de ventanilla (rendición de mostrador, 2026-09-09).
 // Mismo estilo que la liquidación del repartidor (pdf.ts → generateLiquidacion),
@@ -39,8 +39,7 @@ export async function generateRendicionMostrador(r: Rendicion, detalle: DetalleR
     columnStyles: { 1: { halign: 'right' }, 2: { halign: 'right' }, 3: { halign: 'right' }, 5: { halign: 'right', fontStyle: 'bold' } },
     margin: { left: 14, right: 14 },
   })
-  // @ts-expect-error jspdf-autotable adds lastAutoTable at runtime
-  let y = (doc.lastAutoTable?.finalY ?? 60) + 6
+  let y = finTabla(doc, 60) + 6
 
   autoTable(doc, {
     startY: y,
@@ -57,8 +56,7 @@ export async function generateRendicionMostrador(r: Rendicion, detalle: DetalleR
     columnStyles: { 0: { cellWidth: 50, fontStyle: 'bold' }, 1: { halign: 'right' } },
     margin: { left: 14, right: 108 },
   })
-  // @ts-expect-error jspdf-autotable adds lastAutoTable at runtime
-  const yCierre = doc.lastAutoTable?.finalY ?? y
+  const yCierre = finTabla(doc, y)
 
   if (r.recibido.liquidaciones.length) {
     autoTable(doc, {
@@ -70,8 +68,7 @@ export async function generateRendicionMostrador(r: Rendicion, detalle: DetalleR
       margin: { left: 108, right: 14 },
     })
   }
-  // @ts-expect-error jspdf-autotable adds lastAutoTable at runtime
-  y = Math.max(yCierre, doc.lastAutoTable?.finalY ?? 0) + 6
+  y = Math.max(yCierre, finTabla(doc, 0)) + 6
 
   if (r.bultos.length) {
     autoTable(doc, {
@@ -79,8 +76,7 @@ export async function generateRendicionMostrador(r: Rendicion, detalle: DetalleR
       body: r.bultos.map((b) => [b.nombre, String(b.cantidad)]),
       styles: { fontSize: 8, cellPadding: 1.8 }, headStyles: head, columnStyles: { 1: { halign: 'right' } }, margin: { left: 14, right: 14 },
     })
-    // @ts-expect-error jspdf-autotable adds lastAutoTable at runtime
-    y = (doc.lastAutoTable?.finalY ?? y) + 6
+    y = finTabla(doc, y) + 6
   }
 
   if (r.cheques.length || r.retenciones.length) {
@@ -92,8 +88,7 @@ export async function generateRendicionMostrador(r: Rendicion, detalle: DetalleR
       ],
       styles: { fontSize: 8, cellPadding: 1.8 }, headStyles: head, columnStyles: { 3: { halign: 'right' }, 4: { cellWidth: 36 } }, margin: { left: 14, right: 14 },
     })
-    // @ts-expect-error jspdf-autotable adds lastAutoTable at runtime
-    y = (doc.lastAutoTable?.finalY ?? y) + 6
+    y = finTabla(doc, y) + 6
   }
 
   if (detalle.ventas?.length) {
@@ -102,8 +97,7 @@ export async function generateRendicionMostrador(r: Rendicion, detalle: DetalleR
       body: detalle.ventas.map((x) => [x.turno != null ? String(x.turno) : '', hora(x.hora), x.cliente, x.canal, x.formaPago, x.comprobante ?? '', formatoARS(x.total)]),
       styles: { fontSize: 7.5, cellPadding: 1.5 }, headStyles: head, columnStyles: { 6: { halign: 'right' } }, margin: { left: 14, right: 14 },
     })
-    // @ts-expect-error jspdf-autotable adds lastAutoTable at runtime
-    y = (doc.lastAutoTable?.finalY ?? y) + 6
+    y = finTabla(doc, y) + 6
   }
   if (detalle.cobranzas?.length) {
     autoTable(doc, {
@@ -111,8 +105,7 @@ export async function generateRendicionMostrador(r: Rendicion, detalle: DetalleR
       body: detalle.cobranzas.map((x) => [hora(x.hora), x.cliente, x.recibo ?? '', formatoARS(x.efectivo), formatoARS(x.transferencia), formatoARS(x.cheques), formatoARS(x.retenciones)]),
       styles: { fontSize: 7.5, cellPadding: 1.5 }, headStyles: head, columnStyles: { 3: { halign: 'right' }, 4: { halign: 'right' }, 5: { halign: 'right' }, 6: { halign: 'right' } }, margin: { left: 14, right: 14 },
     })
-    // @ts-expect-error jspdf-autotable adds lastAutoTable at runtime
-    y = (doc.lastAutoTable?.finalY ?? y) + 6
+    y = finTabla(doc, y) + 6
   }
 
   // Firma

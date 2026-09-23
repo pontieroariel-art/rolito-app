@@ -1,4 +1,4 @@
-import { salidaPdf } from './pdfBase'
+import { finTabla, salidaPdf } from './pdfBase'
 // Factura en PDF — réplica del comprobante HISTÓRICO, el que emitía Bluesoft.
 //
 // ⚠️ Este es el formato de las facturas VIEJAS: el que los clientes con deuda
@@ -457,8 +457,7 @@ export async function generateFacturaPdf(d: FacturaPdfData): Promise<Blob> {
     },
     margin: { left: X0, right: 210 - X1 },
   })
-  // @ts-expect-error jspdf-autotable agrega lastAutoTable en runtime
-  const tablaFin: number = doc.lastAutoTable?.finalY ?? TABLA_Y + 100
+  const tablaFin = finTabla(doc, TABLA_Y + 100)
 
   // Las verticales de la grilla se dibujan enteras acá (no celda por celda),
   // así el cuerpo queda como una caja continua aunque sobren filas vacías.
