@@ -6,14 +6,28 @@ rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
 
-    // Perfil del usuario autenticado. Storage no tiene custom claims propios,
-    // así que se lee el documento (una lectura por operación, igual que antes).
+    // Rol y roles adicionales del usuario: primero de los custom claims del
+    // token (los escribe onUserClaims desde el 12/09, mismo criterio que
+    // firestore.rules → tokenConClaims) y, si el token todavía no los trae, del
+    // documento users/{uid} por firestore.get(). OJO (2026-09-23): la lectura
+    // cruzada a Firestore NO funcionaba en producción (toda subida del staff
+    // daba storage/unauthorized: fotos de service, facturas archivadas y los
+    // PDF para WhatsApp; el bucket estaba vacío), así que el camino real es el
+    // de los claims y el get queda solo de respaldo.
+    function tokenConClaims() {
+      return 'rol' in request.auth.token;
+    }
+
     function perfil() {
       return firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data;
     }
 
     function miRol() {
-      return perfil().rol;
+      return tokenConClaims() ? request.auth.token.rol : perfil().rol;
+    }
+
+    function misRolesExtra() {
+      return tokenConClaims() ? request.auth.token.get('rolesExtra', []) : perfil().get('rolesExtra', []);
     }
 
     // Mismo criterio que firestore.rules (2026-09-13): un permiso funcional se
@@ -21,7 +35,7 @@ service firebase.storage {
     // de logística y además hace facturación: tiene que poder archivar el PDF
     // de una factura desde Recupero de facturas.
     function tieneAlguno(rs) {
-      return miRol() in rs || perfil().get('rolesExtra', []).hasAny(rs);
+      return miRol() in rs || misRolesExtra().hasAny(rs);
     }
 
     // La sesión "Ver como" (impersonación auditada) es de SOLO LECTURA también
