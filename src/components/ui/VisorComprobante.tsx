@@ -1,9 +1,14 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { createContext, lazy, Suspense, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Download, ExternalLink, Printer, Share2, X } from 'lucide-react'
 import { descargarArchivo } from '@/utils/compartir'
 import { reportError } from '@/services/observability'
-import EnviarComprobanteSheet from './EnviarComprobanteSheet'
-import { envioGenerico, type EnvioComprobante } from '@/utils/envioComprobante'
+import type { EnvioComprobante } from '@/utils/envioComprobante'
+
+// La hoja de envío se carga recién al tocar Enviar: arrastra el armado de
+// comprobantes (facturas, remitos, QR: ~65 KB) y el visor vive en App.tsx,
+// así que con el import directo todo eso entraba en el chunk del login
+// (auditoría 2026-09-22).
+const EnviarComprobanteSheet = lazy(() => import('./EnviarComprobanteSheet'))
 
 /**
  * VISOR DE COMPROBANTES (2026-09-15, pedido de Ariel: "erradicar la descarga
@@ -208,7 +213,9 @@ function Visor({ c, onCerrar }: { c: ComprobanteAbierto; onCerrar: () => void })
         </div>
       </div>
       {enviando && (
-        <EnviarComprobanteSheet titulo={c.titulo} nombre={c.nombre} envio={c.envio ?? envioGenerico(c)} blob={blobActual} onCerrar={() => setEnviando(false)} />
+        <Suspense fallback={null}>
+          <EnviarComprobanteSheet titulo={c.titulo} nombre={c.nombre} subtitulo={c.subtitulo} envio={c.envio} blob={blobActual} onCerrar={() => setEnviando(false)} />
+        </Suspense>
       )}
     </div>
   )

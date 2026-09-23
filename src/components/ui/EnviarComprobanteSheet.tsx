@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Check, Mail, MessageCircle, Share2, X } from 'lucide-react'
 import Button from '@/components/ui/Button'
 import { getUserDocument } from '@/services/userService'
@@ -8,7 +8,7 @@ import { publicarParaCompartir } from '@/services/compartirComprobanteService'
 import { reportError } from '@/services/observability'
 import { compartirArchivo, puedeCompartirArchivos } from '@/utils/compartir'
 import { normalizarTelefonoAR, urlWhatsApp } from '@/utils/contacto'
-import { EMAIL_RE, contactoDePerfil, textoWhatsApp, type EnvioComprobante } from '@/utils/envioComprobante'
+import { EMAIL_RE, contactoDePerfil, envioGenerico, textoWhatsApp, type EnvioComprobante } from '@/utils/envioComprobante'
 
 // Hoja "Enviar" del visor de comprobantes (2026-09-15, pedido de Ariel): dos
 // caminos, WhatsApp y mail, con el celular y el mail de la ficha de Tango del
@@ -27,14 +27,17 @@ const AREA  = 'mt-1 w-full bg-white border border-[#D3D1C7] rounded-lg px-3 py-2
 
 const formatoInternacional = (n: string) => `+${n.slice(0, 2)} ${n.slice(2, 3)} ${n.slice(3, 5)} ${n.slice(5, 9)}-${n.slice(9)}`
 
-export default function EnviarComprobanteSheet({ titulo, nombre, envio, blob, onCerrar }: {
-  titulo:   string
-  nombre:   string
-  envio:    EnvioComprobante
+export default function EnviarComprobanteSheet({ titulo, nombre, subtitulo, envio: envioDado, blob, onCerrar }: {
+  titulo:    string
+  nombre:    string
+  subtitulo?: string
+  /** Sin `envio` (un papel sin cliente) se arma uno genérico con el título. */
+  envio?:    EnvioComprobante
   /** El archivo, ya generado (lo tiene el visor). */
   blob:     () => Promise<Blob>
   onCerrar: () => void
 }) {
+  const envio = useMemo(() => envioDado ?? envioGenerico({ titulo, subtitulo, nombre }), [envioDado, titulo, subtitulo, nombre])
   const [canal, setCanal] = useState<Canal>('whatsapp')
   const [telefono, setTelefono] = useState(envio.telefono ?? '')
   const [mail, setMail] = useState(envio.para ?? '')
