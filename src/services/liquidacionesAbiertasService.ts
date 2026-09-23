@@ -1,6 +1,6 @@
 import { collection, getDocs, query, where, Timestamp } from 'firebase/firestore'
 import { db } from './firebase'
-import type { CambioCamion, Cobranza, DescargaCamion, Liquidacion, RemitoCarga, VentaCamion } from '@/types'
+import type { CambioCamion, CierreMercaderia, Cobranza, DescargaCamion, Liquidacion, RemitoCarga, VentaCamion } from '@/types'
 import { gruposAbiertos, resumirAbierta, type LiquidacionAbierta } from '@/utils/liquidacionesAbiertas'
 import { descargasVigentes } from '@/utils/rectificacionDescarga'
 import { addDaysStr } from '@/utils/helpers'
@@ -39,12 +39,16 @@ async function docsDelDia(choferId: string, fecha: string) {
 export async function cargarLiquidacionesAbiertas(hoy: string, diasAtras = DIAS_ATRAS_DEFAULT): Promise<LiquidacionAbierta[]> {
   const desdeStr = addDaysStr(hoy, -diasAtras)
   const desde = Timestamp.fromDate(new Date(desdeStr + 'T00:00:00'))
-  const [remitos, cobranzas, liquidaciones] = await Promise.all([
+  const [remitos, cobranzas, liquidaciones, cierres] = await Promise.all([
     getDocs(query(collection(db, 'remitosCarga'), where('fecha', '>=', desde))),
     getDocs(query(collection(db, 'cobranzas'), where('fecha', '>=', desde))),
     getDocs(query(collection(db, 'liquidaciones'), where('fecha', '>=', desdeStr))),
+    // La mitad de mercadería (2026-09-23): sin esto, todo viaje con remito figuraba
+    // abierto aunque tuviera la plata liquidada y la descarga contada, y el 23/09
+    // la pantalla mostraba como abiertos viajes del 19 y 20 cerrados el 21.
+    getDocs(query(collection(db, 'cierresMercaderia'), where('diaReparto', '>=', desdeStr))),
   ])
-  const grupos = gruposAbiertos(docsDe<RemitoCarga>(remitos), docsDe<Cobranza>(cobranzas), docsDe<Liquidacion>(liquidaciones))
+  const grupos = gruposAbiertos(docsDe<RemitoCarga>(remitos), docsDe<Cobranza>(cobranzas), docsDe<Liquidacion>(liquidaciones), docsDe<CierreMercaderia>(cierres))
   // De a pocos: cada grupo son cuatro consultas.
   const filas: LiquidacionAbierta[] = []
   for (let i = 0; i < grupos.length; i += 5) {

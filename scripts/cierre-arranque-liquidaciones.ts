@@ -29,7 +29,16 @@
  *   --hasta   último día que se cierra (default: ayer; hoy se deja para que caja lo cierre bien)
  *   --desde   primer día que se mira (default: 45 días atrás)
  *   --actor   uid que firma como "cerradaPor" (default: el super_admin llamado Ariel)
+ *   --excluir códigos de remito que NO se cierran, separados por coma (--excluir RC-DT-000097,RC-DT-000098)
  *   --aplicar escribe; sin esto solo muestra
+ *
+ * Tesorería (2026-09-23, Ariel: "sin que impacte en tesorería, empezamos a usar la app
+ * correctamente desde ayer"): un cierre de arranque NO es plata que caja tenga que
+ * entregar. Se guarda SIN el campo `entregaId` (ni null): Entrega a tesorería y el
+ * tile "Tiene que llegarme" solo cuentan los docs con `entregaId === null`
+ * (utils/entregaTesoreria.ts), y el historial no lo marca "en caja". Con --aplicar
+ * también se les saca el `entregaId: null` a los cierres de arranque anteriores
+ * (los 79 del 21/09), que hasta hoy sumaban $4,1M en "Entrega a tesorería".
  */
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
@@ -50,8 +59,9 @@ declare const require: (id: string) => unknown
 declare const __dirname: string
 // El bundle vive en scripts/.build: la raíz del repo está dos niveles arriba.
 const RAIZ = path.resolve(__dirname, '..', '..')
+// firebase-admin 14 ya no trae la API con namespace: la arma el shim de los scripts (2026-09-22).
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const admin = require(path.join(RAIZ, 'functions', 'node_modules', 'firebase-admin', 'lib', 'index.js'))
+const admin = require(path.join(RAIZ, 'scripts', 'lib', 'firebase-admin-compat.cjs'))
 type Admin = typeof import('firebase-admin')
 const a = admin as Admin
 a.initializeApp({ credential: a.credential.cert(JSON.parse(readFileSync(path.join(RAIZ, 'scripts', 'serviceAccount.json'), 'utf8'))) })
@@ -61,6 +71,7 @@ const { Timestamp, FieldValue } = a.firestore
 const args = process.argv.slice(2)
 const opt = (n: string) => { const i = args.indexOf(n); return i >= 0 ? args[i + 1] : undefined }
 const APLICAR = args.includes('--aplicar')
+const EXCLUIR = new Set((opt('--excluir') ?? '').split(',').map((s) => s.trim()).filter(Boolean))
 const HOY = todayString()
 const HASTA = opt('--hasta') ?? addDaysStr(HOY, -1)
 const DESDE = opt('--desde') ?? addDaysStr(HOY, -45)
@@ -124,8 +135,24 @@ async function main() {
   ])
   const todosLosRemitos = docs<RemitoCarga>(rem)
   const cierresHechos = new Set(docs<CierreMercaderia>(cm).map((c) => c.remitoId))
-  const grupos = gruposAbiertos(todosLosRemitos, docs<Cobranza>(cob), docs<Liquidacion>(liq), docs<CierreMercaderia>(cm)).filter((g) => g.fecha <= HASTA)
-  console.log(`${APLICAR ? 'APLICANDO' : 'EN SECO'} · abiertas del ${DESDE} al ${HASTA}: ${grupos.length} · firma: ${actor.nombre} (${actor.uid})\n`)
+  const todosLosGrupos = gruposAbiertos(todosLosRemitos, docs<Cobranza>(cob), docs<Liquidacion>(liq), docs<CierreMercaderia>(cm)).filter((g) => g.fecha <= HASTA)
+  const excluidos = todosLosGrupos.filter((g) => g.remitos.some((r) => EXCLUIR.has(r.codigo)))
+  const grupos = todosLosGrupos.filter((g) => !excluidos.includes(g))
+  console.log(`${APLICAR ? 'APLICANDO' : 'EN SECO'} · abiertas del ${DESDE} al ${HASTA}: ${todosLosGrupos.length} · firma: ${actor.nombre} (${actor.uid})`)
+  if (excluidos.length) console.log(`Se dejan abiertas ${excluidos.length}: ${excluidos.map((g) => `${g.remitos.map((r) => r.codigo).join('+')} (${g.choferNombre}, ${g.fecha})`).join(', ')}`)
+  for (const codigo of EXCLUIR) if (!todosLosGrupos.some((g) => g.remitos.some((r) => r.codigo === codigo))) console.log(`  (aviso: --excluir ${codigo} no está entre las abiertas hasta ${HASTA})`)
+
+  // Cierres de arranque anteriores que todavía figuran como plata a entregar.
+  const arranqueEnTesoreria = docs<Liquidacion>(liq).filter((l) => l.cierreArranque && l.entregaId === null)
+  if (arranqueEnTesoreria.length) {
+    console.log(`Cierres de arranque anteriores con entregaId null (suman en Entrega a tesorería): ${arranqueEnTesoreria.length}, efectivo ${plata(arranqueEnTesoreria.reduce((s, l) => s + (l.efectivoRecibido ?? 0), 0))} → ${APLICAR ? 'se les saca el campo' : 'con --aplicar se les saca el campo'}`)
+    if (APLICAR) {
+      let b = db.batch(); let n = 0
+      for (const l of arranqueEnTesoreria) { b.update(db.doc(`liquidaciones/${l.id}`), { entregaId: FieldValue.delete() }); if (++n % 400 === 0) { await b.commit(); b = db.batch() } }
+      await b.commit()
+    }
+  }
+  console.log()
 
   const porDeposito = new Map<string, Map<string, number>>()
   let descargasNuevas = 0, cierres = 0, cierresMercaderia = 0
@@ -233,7 +260,7 @@ async function main() {
         cierreArranque: { motivo: MOTIVO, en: Timestamp.now() },
         cerradaPor: { uid: actor.uid, nombre: actor.nombre },
         createdAt: FieldValue.serverTimestamp(),
-        entregaId: null,
+        // Sin `entregaId`: no es plata que caja tenga que entregar (ver cabecera).
       }
       tx.set(ref, data)
     })
