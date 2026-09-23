@@ -22,6 +22,9 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(import.meta.dirname, './src'),
+      // Firestore 12 arrastra el motor RE2 (45 KB gz) para expresiones de
+      // pipelines que no se usan: ver src/stubs/re2js.ts.
+      re2js: path.resolve(import.meta.dirname, './src/stubs/re2js.ts'),
     },
   },
   build: {
