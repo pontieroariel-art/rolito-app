@@ -10,6 +10,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.indiceDeCliente = indiceDeCliente;
 exports.mismoIndice = mismoIndice;
+const num = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
 const txt = (v) => String(v ?? '').trim();
 /** Índice de un perfil de cliente; null si no es un cliente (rol distinto). */
 function indiceDeCliente(uid, p) {
@@ -38,17 +39,28 @@ function indiceDeCliente(uid, p) {
         estado: txt(p.estado) || 'pendiente',
         vinculadoTango: codigos.size > 0,
         ...(inhabilitadoEn.length ? { inhabilitadoEn } : {}),
+        ...(txt(p.telefono) || txt(p.phone) ? { telefono: txt(p.telefono) || txt(p.phone) } : {}),
+        ...(txt(p.email) ? { email: txt(p.email) } : {}),
+        ...(p.esVisita ? { esVisita: true } : {}),
+        ...(typeof p.listaTango?.redonhielo === 'number' || typeof p.listaTango?.rolito === 'number'
+            ? { listas: { ...(typeof p.listaTango?.redonhielo === 'number' ? { redonhielo: p.listaTango.redonhielo } : {}), ...(typeof p.listaTango?.rolito === 'number' ? { rolito: p.listaTango.rolito } : {}) } }
+            : {}),
+        ...(p.addresses?.length
+            ? { domicilios: p.addresses.map((a) => ({ id: txt(a?.id), nombre: txt(a?.nombre), direccion: txt(a?.address), lat: num(a?.lat), lng: num(a?.lng) })) }
+            : {}),
     };
 }
 /** ¿Cambió algo del índice? (para no reescribirlo cuando solo cambiaron precios u otros campos). */
 function mismoIndice(a, b) {
     if (!a || !b)
         return a === b;
-    const claves = ['uid', 'razonSocial', 'nombreContacto', 'cuit', 'sinCuit', 'codigoCliente', 'direccion', 'localidad', 'estado', 'vinculadoTango'];
+    const claves = ['uid', 'razonSocial', 'nombreContacto', 'cuit', 'sinCuit', 'codigoCliente', 'direccion', 'localidad', 'estado', 'vinculadoTango', 'telefono', 'email', 'esVisita'];
     for (const k of claves)
         if ((a[k] ?? null) !== (b[k] ?? null))
             return false;
     return a.codigos.join('|') === b.codigos.join('|') && a.sucursales.join('|') === b.sucursales.join('|')
-        && (a.inhabilitadoEn ?? []).join('|') === (b.inhabilitadoEn ?? []).join('|');
+        && (a.inhabilitadoEn ?? []).join('|') === (b.inhabilitadoEn ?? []).join('|')
+        && JSON.stringify(a.listas ?? null) === JSON.stringify(b.listas ?? null)
+        && JSON.stringify(a.domicilios ?? null) === JSON.stringify(b.domicilios ?? null);
 }
 //# sourceMappingURL=clientesIndex.js.map

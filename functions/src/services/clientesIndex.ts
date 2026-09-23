@@ -26,6 +26,17 @@ export interface ClienteIndex {
   vinculadoTango: boolean
   /** Empresas donde Tango lo tiene inhabilitado (users.habilitadoTango, lo escribe la sync). Ausente = habilitado en todas. */
   inhabilitadoEn?: string[]
+  // ── Ampliación 2026-09-22 (auditoría): lo que las pantallas de oficina
+  // sacaban de la ficha completa (getAllUsers, 2.000+ docs con precios) y que
+  // alcanza con el índice: contacto, marca de visita, listas y los domicilios
+  // con coordenadas para los mapas.
+  telefono?:  string
+  email?:     string
+  esVisita?:  boolean
+  /** Lista de precios de Tango por empresa (users.listaTango). */
+  listas?:    { redonhielo?: number; rolito?: number }
+  /** Todos los domicilios (sucursales) con sus coordenadas, para los mapas. */
+  domicilios?: { id: string; nombre: string; direccion: string; lat: number | null; lng: number | null }[]
 }
 
 interface TangoId { idGva14?: number; codigo?: string }
@@ -42,11 +53,17 @@ interface Perfil {
   codigoTango?:    string
   idGva14Tango?:   number
   tangoIds?:       { redonhielo?: TangoId[]; rolito?: TangoId[] }
-  addresses?:      { nombre?: string; address?: string; esPrincipal?: boolean }[]
+  addresses?:      { id?: string; nombre?: string; address?: string; esPrincipal?: boolean; lat?: number | null; lng?: number | null }[]
   address?:        string
   localidadTango?: string
   habilitadoTango?: { redonhielo?: boolean; rolito?: boolean }
+  telefono?:       string
+  phone?:          string
+  esVisita?:       boolean
+  listaTango?:     { redonhielo?: number; rolito?: number }
 }
+
+const num = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null)
 
 const txt = (v: unknown) => String(v ?? '').trim()
 
@@ -73,14 +90,25 @@ export function indiceDeCliente(uid: string, p: Perfil | undefined | null): Clie
     estado:         txt(p.estado) || 'pendiente',
     vinculadoTango: codigos.size > 0,
     ...(inhabilitadoEn.length ? { inhabilitadoEn } : {}),
+    ...(txt(p.telefono) || txt(p.phone) ? { telefono: txt(p.telefono) || txt(p.phone) } : {}),
+    ...(txt(p.email) ? { email: txt(p.email) } : {}),
+    ...(p.esVisita ? { esVisita: true } : {}),
+    ...(typeof p.listaTango?.redonhielo === 'number' || typeof p.listaTango?.rolito === 'number'
+      ? { listas: { ...(typeof p.listaTango?.redonhielo === 'number' ? { redonhielo: p.listaTango.redonhielo } : {}), ...(typeof p.listaTango?.rolito === 'number' ? { rolito: p.listaTango.rolito } : {}) } }
+      : {}),
+    ...(p.addresses?.length
+      ? { domicilios: p.addresses.map((a) => ({ id: txt(a?.id), nombre: txt(a?.nombre), direccion: txt(a?.address), lat: num(a?.lat), lng: num(a?.lng) })) }
+      : {}),
   }
 }
 
 /** ¿Cambió algo del índice? (para no reescribirlo cuando solo cambiaron precios u otros campos). */
 export function mismoIndice(a: ClienteIndex | null | undefined, b: ClienteIndex | null | undefined): boolean {
   if (!a || !b) return a === b
-  const claves: (keyof ClienteIndex)[] = ['uid', 'razonSocial', 'nombreContacto', 'cuit', 'sinCuit', 'codigoCliente', 'direccion', 'localidad', 'estado', 'vinculadoTango']
+  const claves: (keyof ClienteIndex)[] = ['uid', 'razonSocial', 'nombreContacto', 'cuit', 'sinCuit', 'codigoCliente', 'direccion', 'localidad', 'estado', 'vinculadoTango', 'telefono', 'email', 'esVisita']
   for (const k of claves) if ((a[k] ?? null) !== (b[k] ?? null)) return false
   return a.codigos.join('|') === b.codigos.join('|') && a.sucursales.join('|') === b.sucursales.join('|')
     && (a.inhabilitadoEn ?? []).join('|') === (b.inhabilitadoEn ?? []).join('|')
+    && JSON.stringify(a.listas ?? null) === JSON.stringify(b.listas ?? null)
+    && JSON.stringify(a.domicilios ?? null) === JSON.stringify(b.domicilios ?? null)
 }

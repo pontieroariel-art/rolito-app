@@ -1030,6 +1030,12 @@ export interface ClienteIndex {
   vinculadoTango: boolean
   /** Empresas donde Tango lo tiene inhabilitado (ausente = habilitado en todas). */
   inhabilitadoEn?: EmpresaTango[]
+  /** Ampliación 2026-09-22: contacto, visita, listas y domicilios con coordenadas (para no bajar la ficha completa en las pantallas de oficina). */
+  telefono?:   string
+  email?:      string
+  esVisita?:   boolean
+  listas?:     { redonhielo?: number; rolito?: number }
+  domicilios?: { id: string; nombre: string; direccion: string; lat: number | null; lng: number | null }[]
   actualizadoEn?: Timestamp
 }
 
