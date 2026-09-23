@@ -99,6 +99,7 @@ export function textoWhatsApp(e: { titulo: string; mensaje?: string; link: strin
 export function nombrePublicado(nombreArchivo: string, ahora: Date = new Date()): string {
   const base = nombreArchivo.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\w.-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 100) || 'comprobante.pdf'
   const conExt = /\.[a-z0-9]{2,5}$/i.test(base) ? base : `${base}.pdf`
-  const sello = ahora.toISOString().replace(/[-:T]/g, '').slice(0, 14)
+  // Solo dígitos (\D y no el patrón con corchetes de antes: el escáner de Tailwind lo tomaba como clase arbitraria y Vite 8 cortaba el build).
+  const sello = ahora.toISOString().replace(/\D/g, '').slice(0, 14)
   return `${sello}-${conExt}`
 }

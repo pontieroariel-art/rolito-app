@@ -21,37 +21,30 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src'),
+      '@': path.resolve(import.meta.dirname, './src'),
     },
   },
   build: {
     rollupOptions: {
       output: {
-        // En forma de FUNCIÓN a propósito (2026-09-12, auditoría de performance):
-        // con el objeto `{ pdf: ['jspdf'], … }` Rollup metía en esos chunks
-        // también los helpers que jspdf/recharts/maps comparten con el resto,
-        // y el chunk inicial terminaba importando pdf (412 KB), charts (374 KB)
-        // y maps (150 KB) de forma estática en el login de todos. Acá solo va
-        // al chunk el código de la librería misma; lo compartido queda en el
-        // chunk que corresponda por uso.
-        manualChunks(id: string) {
-          const ruta = id.replace(/\\/g, '/')
-          // Lo que TODA la app usa (React, el helper de precarga de Vite, clsx…)
-          // va a un chunk propio: si no, Rollup lo deja en el primer chunk manual
-          // que lo pide (pdf, maps, charts) y el arranque los importa a todos.
-          if (ruta.includes('vite/preload-helper') || ruta.includes('commonjsHelpers')) return 'vendor'
-          if (!ruta.includes('node_modules')) return undefined
-          const es = (...pkgs: string[]) => pkgs.some((p) => ruta.includes(`/node_modules/${p}/`))
-          if (es('react', 'react-dom', 'scheduler', 'react-is', 'clsx', 'class-variance-authority', 'tailwind-merge', 'tslib', '@babel/runtime', 'use-sync-external-store')) return 'vendor'
-          if (es('@react-google-maps/api')) return 'maps'
-          if (es('react-router', 'react-router-dom')) return 'router'
-          if (es('recharts')) return 'charts'
-          if (es('jspdf', 'jspdf-autotable')) return 'pdf'
-          if (es('pdfjs-dist')) return 'pdfjs'
-          if (es('@dnd-kit/core', '@dnd-kit/sortable', '@dnd-kit/utilities')) return 'dnd'
-          if (es('@firebase/app', '@firebase/auth', '@firebase/firestore', '@firebase/util', '@firebase/component', '@firebase/logger', '@firebase/webchannel-wrapper')
-            || ruta.includes('/node_modules/firebase/app/') || ruta.includes('/node_modules/firebase/auth/') || ruta.includes('/node_modules/firebase/firestore/')) return 'firebase'
-          return undefined
+        // Vite 8 empaqueta con Rolldown (2026-09-22): `manualChunks` ya no
+        // sirve (dejaba react-dom adentro de `charts` y el login precargaba
+        // gráficos, PDF y mapas otra vez, como antes de la auditoría del
+        // 12/09). `advancedChunks` asigna cada paquete a un grupo por
+        // prioridad; lo que no matchea (lucide, qrcode, date-fns…) lo parte
+        // Rolldown en chunks compartidos por uso. Verificar después de tocar
+        // esto que dist/index.html precargue solo vendor, router y firebase.
+        advancedChunks: {
+          groups: [
+            { name: 'vendor',   priority: 100, test: /[\/]node_modules[\/](react|react-dom|scheduler|react-is|clsx|class-variance-authority|tailwind-merge|tslib|@babel[\/]runtime|use-sync-external-store)[\/]/ },
+            { name: 'firebase', priority: 90,  test: /[\/]node_modules[\/](@firebase[\/](app|auth|firestore|util|component|logger|webchannel-wrapper)|firebase[\/](app|auth|firestore)|idb)[\/]/ },
+            { name: 'router',   priority: 90,  test: /[\/]node_modules[\/](react-router|react-router-dom)[\/]/ },
+            { name: 'maps',     priority: 80,  test: /[\/]node_modules[\/]@react-google-maps[\/]api[\/]/ },
+            { name: 'charts',   priority: 80,  test: /[\/]node_modules[\/](recharts|react-smooth|react-transition-group|dom-helpers|victory-vendor|d3-[a-z-]+|internmap|es-toolkit|immer|@reduxjs[\/]toolkit|redux|react-redux|reselect|decimal.js-light|eventemitter3)[\/]/ },
+            { name: 'pdf',      priority: 80,  test: /[\/]node_modules[\/](jspdf|jspdf-autotable|pako|fast-png|fflate|iobuffer|core-js|html2canvas|dompurify|canvg)[\/]/ },
+            { name: 'pdfjs',    priority: 80,  test: /[\/]node_modules[\/]pdfjs-dist[\/]/ },
+            { name: 'dnd',      priority: 80,  test: /[\/]node_modules[\/]@dnd-kit[\/]/ },
+          ],
         },
       },
     },
