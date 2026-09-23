@@ -1036,6 +1036,11 @@ export interface ClienteIndex {
   esVisita?:   boolean
   listas?:     { redonhielo?: number; rolito?: number }
   domicilios?: { id: string; nombre: string; direccion: string; lat: number | null; lng: number | null }[]
+  /** Segunda vuelta 2026-09-22: para el tablero comercial (cuentas del padrón que nunca pidieron) y el mapa por vendedor. */
+  aprobadoPor?:    string
+  fechaCreacion?:  Timestamp
+  ultimoPedidoAt?: Timestamp
+  codVendedor?:    string
   actualizadoEn?: Timestamp
 }
 

@@ -1,5 +1,4 @@
 import { lazy, Suspense, useMemo, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import {
   Users, UserCheck, Tag, ArrowRight,
@@ -11,7 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { useAuth } from '../../context/AuthContext'
 import { useAllOrders } from '../../hooks/useOrders'
 import { AvisoDatosTruncados } from '../../components/admin/AvisoDatosTruncados'
-import { getClientesConHistoria, approveUser, updateUserStatus } from '../../services/userService'
+import { approveUser, updateUserStatus } from '../../services/userService'
 import { useClientesIndexTodos } from '@/hooks/useClientesIndex'
 import { reportError } from '@/services/observability'
 import { Order, ClienteIndex, UserStatus } from '../../types'
@@ -45,20 +44,11 @@ export default function ComercialDashboard() {
   // Índice liviano de clientes (2026-09-22): pendientes, activos y las
   // coordenadas del mapa salen de acá, sin bajar la ficha con precios.
   const { clientes: indice, loading: usersLoading } = useClientesIndexTodos()
-  // "Sin lista" y "sin pedir hace N días" descartan a las cuentas de Tango que
-  // nunca pidieron, y eso necesita aprobadoPor / fechaCreacion / ultimoPedidoAt,
-  // que el índice todavía no trae: se piden solo los clientes con historia
-  // (~970 de 2.226), no toda la cartera.
-  const { data: conHistoria = [], isLoading: historiaLoading } = useQuery({
-    queryKey: ['clientes', 'con-historia'],
-    queryFn:  getClientesConHistoria,
-    staleTime: 300_000,
-  })
   // Estado cambiado en esta sesión (aprobar / rechazar): el índice lo refleja
   // cuando corre el trigger; hasta entonces se pisa a mano.
   const [estadoLocal, setEstadoLocal] = useState<Readonly<Record<string, UserStatus>>>({})
 
-  const isLoading = ordersLoading || usersLoading || historiaLoading
+  const isLoading = ordersLoading || usersLoading
 
   // ── Derived data ─────────────────────────────────────────────────────────
 
@@ -69,24 +59,24 @@ export default function ComercialDashboard() {
   const pendientes = useMemo(() => clientes.filter((u) => u.estado === 'pendiente'), [clientes])
   // Las cuentas que la sync de Tango dio de alta y todavía no pidieron nunca
   // (padrón maestro, 2026-09-06) no cuentan como "sin lista" ni "inactivos":
-  // son miles y taparían a los clientes reales de la cartera. Ya vienen
-  // descartadas de getClientesConHistoria.
-  // Sin lista = Tango no le asignó lista en Redonhielo (o no está vinculado a Tango).
-  const sinLista   = useMemo(
-    () => conHistoria.filter((u) => u.estado === 'activo' && !u.listaTango?.redonhielo && estadoLocal[u.uid] !== 'inactivo'),
-    [conHistoria, estadoLocal],
+  // son miles (1.256 de 2.226 al medirlo) y taparían a los clientes reales de
+  // la cartera. Desde el 2026-09-22 el índice trae aprobadoPor, fechaCreacion y
+  // ultimoPedidoAt, así que la cartera "con historia" sale de la caché.
+  const conHistoria = useMemo(
+    () => clientes.filter((u) => u.estado === 'activo' && !(u.aprobadoPor === 'tango' && !u.ultimoPedidoAt)),
+    [clientes],
   )
+  // Sin lista = Tango no le asignó lista en Redonhielo (o no está vinculado a Tango).
+  const sinLista   = useMemo(() => conHistoria.filter((u) => !u.listas?.redonhielo), [conHistoria])
 
   // Clientes inactivos: usa users.ultimoPedidoAt (lo mantiene el trigger
   // onOrderRollup), así el dato es exacto y no depende del stream de 30 días que
   // se truncaba a escala (auditoría H5).
-  const inactivos = useMemo(() => {
-    return conHistoria.filter((u) => {
-      if (u.estado !== 'activo' || estadoLocal[u.uid] === 'inactivo' || daysSince(u.fechaCreacion) <= INACTIVE_DAYS) return false
-      if (!u.ultimoPedidoAt) return true
-      return Math.floor((Date.now() / 1000 - u.ultimoPedidoAt.seconds) / 86400) >= INACTIVE_DAYS
-    })
-  }, [conHistoria, estadoLocal])
+  const inactivos = useMemo(() => conHistoria.filter((u) => {
+    if (daysSince(u.fechaCreacion) <= INACTIVE_DAYS) return false
+    if (!u.ultimoPedidoAt) return true
+    return Math.floor((Date.now() / 1000 - u.ultimoPedidoAt.seconds) / 86400) >= INACTIVE_DAYS
+  }), [conHistoria])
 
   const todayOrders = useMemo(() => orders.filter(isToday), [orders])
 
@@ -181,7 +171,7 @@ export default function ComercialDashboard() {
                     <div className="space-y-1">
                       {sinLista.slice(0, 3).map((u) => (
                         <p key={u.uid} className="text-xs text-secundario truncate">
-                          {u.razonSocial || u.nombre} — {u.email}
+                          {u.razonSocial} — {u.email}
                         </p>
                       ))}
                       {sinLista.length > 3 && (
@@ -206,7 +196,7 @@ export default function ComercialDashboard() {
                     <div className="space-y-1">
                       {inactivos.slice(0, 3).map((u) => (
                         <p key={u.uid} className="text-xs text-secundario truncate">
-                          {u.razonSocial || u.nombre}
+                          {u.razonSocial}
                         </p>
                       ))}
                       {inactivos.length > 3 && (

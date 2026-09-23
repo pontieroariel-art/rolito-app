@@ -68,6 +68,17 @@ describe('inhabilitado en Tango por empresa (2026-09-11)', () => {
     expect(mismoIndice(i, indiceDeCliente('u1', { ...p, preciosTango: { redonhielo: { x: 1 } } } as never))).toBe(true)
   })
 
+  it('segunda vuelta 2026-09-22: aprobadoPor, fechas (admin o cliente) y vendedor; cambiar el último pedido cambia el índice', () => {
+    const p = { ...perfil, aprobadoPor: 'tango', codVendedor: 'MV', fechaCreacion: { _seconds: 1700000000, _nanoseconds: 5 }, ultimoPedidoAt: { seconds: 1758000000, nanoseconds: 0 } }
+    const i = indiceDeCliente('u1', p)!
+    expect(i).toMatchObject({ aprobadoPor: 'tango', codVendedor: 'MV', fechaCreacion: { seconds: 1700000000, nanoseconds: 5 }, ultimoPedidoAt: { seconds: 1758000000, nanoseconds: 0 } })
+    expect('ultimoPedidoAt' in indiceDeCliente('u1', perfil)!).toBe(false)
+    expect('fechaCreacion' in indiceDeCliente('u1', { ...p, fechaCreacion: null })!).toBe(false)
+    expect(mismoIndice(i, indiceDeCliente('u1', { ...p, ultimoPedidoAt: { seconds: 1758100000, nanoseconds: 0 } }))).toBe(false)
+    expect(mismoIndice(i, indiceDeCliente('u1', { ...p, codVendedor: 'AD' }))).toBe(false)
+    expect(mismoIndice(i, indiceDeCliente('u1', { ...p }))).toBe(true)
+  })
+
   it('cambiar la habilitación cambia el índice', () => {
     const a = indiceDeCliente('u', perfil)!
     const b = indiceDeCliente('u', { ...perfil, habilitadoTango: { rolito: false } })!

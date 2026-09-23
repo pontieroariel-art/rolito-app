@@ -37,7 +37,30 @@ export interface ClienteIndex {
   listas?:    { redonhielo?: number; rolito?: number }
   /** Todos los domicilios (sucursales) con sus coordenadas, para los mapas. */
   domicilios?: { id: string; nombre: string; direccion: string; lat: number | null; lng: number | null }[]
+  // ── Segunda vuelta (2026-09-22): lo que el tablero comercial y el mapa de
+  // clientes necesitaban para descartar las cuentas del padrón de Tango que
+  // nunca pidieron y para pintar por vendedor. Los Timestamps se copian tal
+  // cual (el índice se lee desde la caché con el mismo tipo que la ficha).
+  /** Quién aprobó la cuenta ('tango' = la dio de alta la sync del padrón). */
+  aprobadoPor?:    string
+  fechaCreacion?:  Marca
+  ultimoPedidoAt?: Marca
+  codVendedor?:    string
 }
+
+/** Un Timestamp de Firestore (admin o cliente), sin importar la librería: este módulo es puro. */
+export interface Marca { seconds: number; nanoseconds: number }
+const marca = (v: unknown): Marca | undefined => {
+  const m = v as { seconds?: unknown; nanoseconds?: unknown; _seconds?: unknown; _nanoseconds?: unknown } | null | undefined
+  if (!m || typeof m !== 'object') return undefined
+  // Un Timestamp de verdad se devuelve TAL CUAL (el Admin SDK lo escribe como
+  // Timestamp; una copia {seconds, nanoseconds} saldría como mapa y la app no
+  // podría hacer toDate()). La forma serializada {_seconds} solo aparece en tests.
+  if (typeof m.seconds === 'number') return m as Marca
+  if (typeof m._seconds === 'number') return { seconds: m._seconds, nanoseconds: typeof m._nanoseconds === 'number' ? m._nanoseconds : 0 }
+  return undefined
+}
+const mismaMarca = (a?: Marca, b?: Marca) => (a?.seconds ?? null) === (b?.seconds ?? null) && (a?.nanoseconds ?? null) === (b?.nanoseconds ?? null)
 
 interface TangoId { idGva14?: number; codigo?: string }
 interface Perfil {
@@ -61,6 +84,10 @@ interface Perfil {
   phone?:          string
   esVisita?:       boolean
   listaTango?:     { redonhielo?: number; rolito?: number }
+  aprobadoPor?:    string | null
+  fechaCreacion?:  unknown
+  ultimoPedidoAt?: unknown
+  codVendedor?:    string
 }
 
 const num = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null)
@@ -99,16 +126,21 @@ export function indiceDeCliente(uid: string, p: Perfil | undefined | null): Clie
     ...(p.addresses?.length
       ? { domicilios: p.addresses.map((a) => ({ id: txt(a?.id), nombre: txt(a?.nombre), direccion: txt(a?.address), lat: num(a?.lat), lng: num(a?.lng) })) }
       : {}),
+    ...(txt(p.aprobadoPor) ? { aprobadoPor: txt(p.aprobadoPor) } : {}),
+    ...(marca(p.fechaCreacion) ? { fechaCreacion: marca(p.fechaCreacion) } : {}),
+    ...(marca(p.ultimoPedidoAt) ? { ultimoPedidoAt: marca(p.ultimoPedidoAt) } : {}),
+    ...(txt(p.codVendedor) ? { codVendedor: txt(p.codVendedor) } : {}),
   }
 }
 
 /** ¿Cambió algo del índice? (para no reescribirlo cuando solo cambiaron precios u otros campos). */
 export function mismoIndice(a: ClienteIndex | null | undefined, b: ClienteIndex | null | undefined): boolean {
   if (!a || !b) return a === b
-  const claves: (keyof ClienteIndex)[] = ['uid', 'razonSocial', 'nombreContacto', 'cuit', 'sinCuit', 'codigoCliente', 'direccion', 'localidad', 'estado', 'vinculadoTango', 'telefono', 'email', 'esVisita']
+  const claves: (keyof ClienteIndex)[] = ['uid', 'razonSocial', 'nombreContacto', 'cuit', 'sinCuit', 'codigoCliente', 'direccion', 'localidad', 'estado', 'vinculadoTango', 'telefono', 'email', 'esVisita', 'aprobadoPor', 'codVendedor']
   for (const k of claves) if ((a[k] ?? null) !== (b[k] ?? null)) return false
   return a.codigos.join('|') === b.codigos.join('|') && a.sucursales.join('|') === b.sucursales.join('|')
     && (a.inhabilitadoEn ?? []).join('|') === (b.inhabilitadoEn ?? []).join('|')
     && JSON.stringify(a.listas ?? null) === JSON.stringify(b.listas ?? null)
     && JSON.stringify(a.domicilios ?? null) === JSON.stringify(b.domicilios ?? null)
+    && mismaMarca(a.fechaCreacion, b.fechaCreacion) && mismaMarca(a.ultimoPedidoAt, b.ultimoPedidoAt)
 }

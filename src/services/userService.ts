@@ -194,39 +194,6 @@ export const getClientesActivos = async (): Promise<UserProfile[]> => {
   return snap.docs.map((d) => ({ uid: d.id, ...d.data() } as UserProfile))
 }
 
-/**
- * Clientes activos "con historia" (2026-09-22, auditoría de getAllUsers): los
- * que el Tablero comercial mira para "sin lista" y "sin pedir hace N días",
- * que descartan a las cuentas que la sync de Tango dio de alta y nunca
- * pidieron (`aprobadoPor === 'tango' && !ultimoPedidoAt`, 1.256 de 2.226 al
- * medirlo). Ese descarte necesita `aprobadoPor`, `fechaCreacion` y
- * `ultimoPedidoAt`, que el índice liviano todavía no tiene, así que se traen
- * SOLO esos docs con dos consultas de un campo (sin índice compuesto): los
- * que no nacieron en Tango y los que alguna vez pidieron por la app. Cuando
- * el índice lleve esos campos, esto se reemplaza por useClientesIndex.
- *
- * Medido el 2026-09-22: 1.028 + 150 docs (~4 MB) contra 2.226 (~5,8 MB); si
- * Usuarios acaba de bajar todo (caché de getAllUsers vigente), se filtra en
- * memoria y no se vuelve a pedir nada.
- */
-export const getClientesConHistoria = async (): Promise<UserProfile[]> => {
-  if (_usersCache && Date.now() - _usersCacheTime < CACHE_TTL) {
-    return _usersCache.filter((u) => u.rol === 'cliente' && u.estado === 'activo' && !(u.aprobadoPor === 'tango' && !u.ultimoPedidoAt))
-  }
-  const [noTango, conPedido] = await Promise.all([
-    getDocs(query(collection(db, 'users'), where('aprobadoPor', '!=', 'tango'), limit(LIMITE_USUARIOS))),
-    getDocs(query(collection(db, 'users'), orderBy('ultimoPedidoAt', 'desc'), limit(LIMITE_USUARIOS))),
-  ])
-  const porUid = new Map<string, UserProfile>()
-  for (const snap of [noTango, conPedido]) {
-    for (const d of snap.docs) {
-      const u = { uid: d.id, ...d.data() } as UserProfile
-      if (u.rol === 'cliente' && u.estado === 'activo') porUid.set(d.id, u)
-    }
-  }
-  return [...porUid.values()]
-}
-
 /** Clientes activos marcados como visita (ficha completa: frecuencia y domicilios), para el seguimiento de Visitas. */
 export const getClientesVisita = async (): Promise<UserProfile[]> => {
   const snap = await getDocs(query(collection(db, 'users'), where('esVisita', '==', true), limit(LIMITE_USUARIOS)))

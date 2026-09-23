@@ -17,6 +17,9 @@ const require = createRequire(import.meta.url)
 const admin = require('../functions/node_modules/firebase-admin/lib/index.js')
 const { indiceDeCliente, mismoIndice } = require('../functions/lib/services/clientesIndex.js')
 const COMMIT = process.argv.includes('--commit')
+// --forzar: reescribe todos aunque el índice "no cambie" (p. ej. para que un campo
+// guardado como mapa vuelva a escribirse como Timestamp, 2026-09-22).
+const FORZAR = process.argv.includes('--forzar')
 
 const sa = JSON.parse(readFileSync(path.join(__dirname, 'serviceAccount.json'), 'utf8'))
 admin.initializeApp({ credential: admin.credential.cert(sa) })
@@ -32,7 +35,7 @@ for (const d of users.docs) {
   const nuevo = indiceDeCliente(d.id, d.data())
   if (!nuevo) continue
   if (nuevo.estado === 'activo') activos++
-  if (mismoIndice(existentes.get(d.id), nuevo)) { iguales++; continue }
+  if (!FORZAR && mismoIndice(existentes.get(d.id), nuevo)) { iguales++; continue }
   escribir++
   if (COMMIT) {
     batch.set(db.doc(`clientesIndex/${d.id}`), { ...nuevo, actualizadoEn: admin.firestore.FieldValue.serverTimestamp() })

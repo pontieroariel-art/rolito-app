@@ -10,6 +10,20 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.indiceDeCliente = indiceDeCliente;
 exports.mismoIndice = mismoIndice;
+const marca = (v) => {
+    const m = v;
+    if (!m || typeof m !== 'object')
+        return undefined;
+    // Un Timestamp de verdad se devuelve TAL CUAL (el Admin SDK lo escribe como
+    // Timestamp; una copia {seconds, nanoseconds} saldría como mapa y la app no
+    // podría hacer toDate()). La forma serializada {_seconds} solo aparece en tests.
+    if (typeof m.seconds === 'number')
+        return m;
+    if (typeof m._seconds === 'number')
+        return { seconds: m._seconds, nanoseconds: typeof m._nanoseconds === 'number' ? m._nanoseconds : 0 };
+    return undefined;
+};
+const mismaMarca = (a, b) => (a?.seconds ?? null) === (b?.seconds ?? null) && (a?.nanoseconds ?? null) === (b?.nanoseconds ?? null);
 const num = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
 const txt = (v) => String(v ?? '').trim();
 /** Índice de un perfil de cliente; null si no es un cliente (rol distinto). */
@@ -48,19 +62,24 @@ function indiceDeCliente(uid, p) {
         ...(p.addresses?.length
             ? { domicilios: p.addresses.map((a) => ({ id: txt(a?.id), nombre: txt(a?.nombre), direccion: txt(a?.address), lat: num(a?.lat), lng: num(a?.lng) })) }
             : {}),
+        ...(txt(p.aprobadoPor) ? { aprobadoPor: txt(p.aprobadoPor) } : {}),
+        ...(marca(p.fechaCreacion) ? { fechaCreacion: marca(p.fechaCreacion) } : {}),
+        ...(marca(p.ultimoPedidoAt) ? { ultimoPedidoAt: marca(p.ultimoPedidoAt) } : {}),
+        ...(txt(p.codVendedor) ? { codVendedor: txt(p.codVendedor) } : {}),
     };
 }
 /** ¿Cambió algo del índice? (para no reescribirlo cuando solo cambiaron precios u otros campos). */
 function mismoIndice(a, b) {
     if (!a || !b)
         return a === b;
-    const claves = ['uid', 'razonSocial', 'nombreContacto', 'cuit', 'sinCuit', 'codigoCliente', 'direccion', 'localidad', 'estado', 'vinculadoTango', 'telefono', 'email', 'esVisita'];
+    const claves = ['uid', 'razonSocial', 'nombreContacto', 'cuit', 'sinCuit', 'codigoCliente', 'direccion', 'localidad', 'estado', 'vinculadoTango', 'telefono', 'email', 'esVisita', 'aprobadoPor', 'codVendedor'];
     for (const k of claves)
         if ((a[k] ?? null) !== (b[k] ?? null))
             return false;
     return a.codigos.join('|') === b.codigos.join('|') && a.sucursales.join('|') === b.sucursales.join('|')
         && (a.inhabilitadoEn ?? []).join('|') === (b.inhabilitadoEn ?? []).join('|')
         && JSON.stringify(a.listas ?? null) === JSON.stringify(b.listas ?? null)
-        && JSON.stringify(a.domicilios ?? null) === JSON.stringify(b.domicilios ?? null);
+        && JSON.stringify(a.domicilios ?? null) === JSON.stringify(b.domicilios ?? null)
+        && mismaMarca(a.fechaCreacion, b.fechaCreacion) && mismaMarca(a.ultimoPedidoAt, b.ultimoPedidoAt);
 }
 //# sourceMappingURL=clientesIndex.js.map
