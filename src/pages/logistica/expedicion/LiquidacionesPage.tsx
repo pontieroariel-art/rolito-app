@@ -17,7 +17,7 @@ import { ventasDelViaje } from '@/utils/viajeDeVenta'
 import { valoresEnPapel } from '@/utils/valoresEnPapel'
 import ValoresEnPapel from '@/components/expedicion/ValoresEnPapel'
 import { calcularLiquidacion, plataDelViaje, referenciasDelReparto } from '@/utils/liquidacion'
-import { calcularFaltante } from '@/utils/faltantes'
+import { calcularFaltante, textoFaltante } from '@/utils/faltantes'
 import { useUmbralFaltantes } from '@/hooks/useUmbralFaltantes'
 import { pedirAutorizacionDesvio, subscribeDesvio } from '@/services/desvioDescargaService'
 import PedirAutorizacionDesvio from '@/components/expedicion/liquidacion/PedirAutorizacionDesvio'
@@ -398,7 +398,7 @@ export default function LiquidacionesPage({ base }: { base: '/caja' | '/tesoreri
             estado={estado}
             detallePlata={cerrada?.codigo ? <>Cierre {cerrada.codigo}{cerrada.buzon ? ` · del buzón (${cerrada.buzon.descargaCodigo})` : ''}</> : undefined}
             detalleMercaderia={mercaderia
-              ? <>Conteo {mercaderia.descargaCodigos.join(' · ')}{mercaderia.faltante.bolsasFaltantes > 0 ? ` · faltan ${mercaderia.faltante.bolsasFaltantes} bolsas` : ' · cuadró'}</>
+              ? <>Conteo {mercaderia.descargaCodigos.join(' · ')}{mercaderia.faltante.bolsasFaltantes > 0 ? ` · faltan ${textoFaltante(mercaderia.faltante.productos, mercaderia.faltante.bolsasFaltantes)}` : ' · cuadró'}</>
               : undefined}
           />
 
@@ -435,7 +435,7 @@ export default function LiquidacionesPage({ base }: { base: '/caja' | '/tesoreri
               <h3 className="text-xs uppercase tracking-wide text-secundario font-semibold">Mercadería · por producto, envases y cambios</h3>
               {faltante.bolsasFaltantes > 0 && (
                 <span className={`text-xs font-semibold ${faltante.grave ? 'text-red-600' : 'text-amber-700'}`}>
-                  faltan {faltante.bolsasFaltantes} bolsas
+                  faltan {textoFaltante(faltante.productos, faltante.bolsasFaltantes)}
                 </span>
               )}
             </div>

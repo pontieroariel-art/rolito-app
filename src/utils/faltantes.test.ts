@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
-  calcularFaltante, describirFaltante, normalizarUmbralFaltantes,
+  calcularFaltante, describirFaltante, normalizarUmbralFaltantes, textoFaltante,
   UMBRAL_FALTANTES_DEFAULT, type DiferenciaProducto,
 } from './faltantes'
 
@@ -80,5 +80,28 @@ describe('calcularFaltante sin descarga contada', () => {
     expect(r.bolsasFaltantes).toBe(12)
     expect(r.grave).toBe(true)
     expect(r.sinDescarga).toBeUndefined()
+  })
+})
+
+describe('textoFaltante', () => {
+  const p = (nombre: string, faltan: number) => ({ nombre, faltan })
+  it('hielo en bolsa: dice bolsas', () => {
+    expect(textoFaltante([p('Hielo bolsa 3kg', 12), p('Hielo en escamas 10kg', 8)])).toBe('20 bolsas')
+    expect(textoFaltante([p('Hielo picado bolsa 10kg', 1)])).toBe('1 bolsa')
+  })
+  it('un solo producto que no es bolsa: va con su nombre (el caso del agua, 2026-09-23)', () => {
+    expect(textoFaltante([p('Agua desmineralizada x 6 litros', 20)])).toBe('20 de Agua desmineralizada x 6 litros')
+    expect(textoFaltante([p('Bidón auxiliar 5lts (33 unidades)', 33)])).toBe('33 de Bidón auxiliar 5lts (33 unidades)')
+  })
+  it('mezcla de hielo y otra cosa: unidades', () => {
+    expect(textoFaltante([p('Hielo bolsa 3kg', 12), p('Agua de mesa x 6 litros', 3)])).toBe('15 unidades')
+    expect(textoFaltante([p('Barra de hielo', 1), p('Anticorrosivo', 0)], 1)).toBe('1 unidad')
+  })
+  it('respeta el total que le pasan (la suma ya viene calculada)', () => {
+    expect(textoFaltante([p('Hielo bolsa 2kg', 5)], 5)).toBe('5 bolsas')
+  })
+  it('describirFaltante usa la misma regla', () => {
+    const r = calcularFaltante([dif('Agua desmineralizada x 6 litros', -20)])
+    expect(describirFaltante(r)).toBe('Faltan 20 de Agua desmineralizada x 6 litros (20 Agua desmineralizada x 6 litros)')
   })
 })

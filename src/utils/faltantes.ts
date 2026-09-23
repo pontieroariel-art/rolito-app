@@ -92,10 +92,30 @@ export function normalizarUmbralFaltantes(raw: Partial<UmbralFaltantes> | null |
   }
 }
 
+/**
+ * Un producto "en bolsa" por su nombre (Hielo bolsa 3kg, Hielo picado bolsa
+ * 10kg, escamas). `bolsasFaltantes` suma TODO lo que falta, hielo o no, así
+ * que la palabra "bolsas" solo vale cuando lo que falta es hielo (2026-09-23,
+ * Ariel: "acá no faltan bolsas sino que son agua").
+ */
+export const esProductoEnBolsa = (nombre: string): boolean => /bolsa|hielo|escamas/i.test(nombre)
+
+/**
+ * Cantidad con su unidad: "20 bolsas" si todo lo que falta es hielo en bolsa,
+ * "20 de Agua desmineralizada x 6 litros" si es un solo producto de otra cosa,
+ * "35 unidades" si se mezclan. Los que llaman anteponen "faltan".
+ */
+export function textoFaltante(productos: Pick<FaltanteProducto, 'nombre' | 'faltan'>[], total?: number): string {
+  const n = total ?? productos.reduce((s, p) => s + p.faltan, 0)
+  if (productos.length > 0 && productos.every((p) => esProductoEnBolsa(p.nombre))) return `${n} bolsa${n === 1 ? '' : 's'}`
+  if (productos.length === 1) return `${n} de ${productos[0]!.nombre}`
+  return `${n} unidad${n === 1 ? '' : 'es'}`
+}
+
 /** Texto corto del desvío, para el chip de caja y la bandeja. */
 export function describirFaltante(f: FaltanteCalculado): string {
   if (f.sinDescarga) return 'Sin descarga contada todavía'
   if (f.bolsasFaltantes === 0) return 'Sin faltantes'
   const detalle = f.productos.map((p) => `${p.faltan} ${p.nombre}`).join(', ')
-  return `Faltan ${f.bolsasFaltantes} bolsas (${detalle})`
+  return `Faltan ${textoFaltante(f.productos, f.bolsasFaltantes)} (${detalle})`
 }

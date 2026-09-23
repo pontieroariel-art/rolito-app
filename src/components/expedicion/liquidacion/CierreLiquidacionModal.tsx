@@ -8,6 +8,7 @@ import { aRendidos, decisionesCompletas, resumenValores, type Decisiones, type D
 import { MOTIVOS_DESVIO_DESCARGA, MOTIVOS_DESVIO_LIQUIDACION, MOTIVOS_DIFERENCIA_LIQUIDACION, MOTIVOS_LIQUIDACION_REPARTIDOR, type ChequeRendido, type ConteoBilletes, type MotivoDesvioDescarga, type MotivoDiferenciaLiquidacion, type PlataPorEmpresa, type RetencionRendida } from '@/types'
 import { ChipEmpresa } from '@/components/common/TablaConteoBilletes'
 import { DENOMINACIONES, EMPRESAS_CONTEO, etiquetaDenominacion } from '@/utils/billetes'
+import { textoFaltante } from '@/utils/faltantes'
 
 export interface DatosCierre {
   // `denominacion` (2026-09-16): con "billete falso / dañado", cuál era (0 = menor a $500 / monedas).
@@ -181,7 +182,7 @@ export default function CierreLiquidacionModal({ repartidor, resumen, resumenTex
         {faltante && (
           <div className="space-y-2 rounded-lg border border-red-300 bg-red-50 p-3">
             <p className="text-sm font-semibold text-red-700">
-              Faltan {faltante.bolsasFaltantes} bolsas de mercadería (umbral: {faltante.umbral})
+              Faltan {textoFaltante(faltante.productos, faltante.bolsasFaltantes)} (umbral: {faltante.umbral} unidades)
             </p>
             <ul className="text-sm text-red-800 tabular-nums space-y-0.5">
               {faltante.productos.map((p) => (

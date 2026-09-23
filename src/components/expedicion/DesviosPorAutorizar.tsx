@@ -6,6 +6,7 @@ import { useAuth } from '@/context/AuthContext'
 import { resolverDesvio, subscribeDesviosPendientes } from '@/services/desvioDescargaService'
 import { reportError } from '@/services/observability'
 import { MOTIVOS_DESVIO_DESCARGA, PLANTAS, type DesvioDescarga } from '@/types'
+import { textoFaltante } from '@/utils/faltantes'
 
 // Faltantes de mercadería esperando autorización (2026-09-13, paso 7 del control
 // de fugas). Vive en la misma bandeja que las anulaciones: quien tiene el
@@ -55,7 +56,7 @@ export default function DesviosPorAutorizar({ puedeAutorizar }: { puedeAutorizar
               <div>
                 <p className="text-sm text-gray-800 flex items-center gap-1.5">
                   <PackageX size={16} className="text-red-600 shrink-0" />
-                  Faltan <b className="text-base tabular-nums">{d.bolsasFaltantes} bolsas</b> · {d.depositoTango ? `${d.depositoTango} · ` : ''}<b>{d.choferNombre}</b>
+                  Faltan <b className="text-base tabular-nums">{textoFaltante(d.productos, d.bolsasFaltantes)}</b> · {d.depositoTango ? `${d.depositoTango} · ` : ''}<b>{d.choferNombre}</b>
                 </p>
                 <p className="text-xs text-secundario">
                   {PLANTAS[d.plantaId].label} · día {d.fecha} · umbral {d.umbral} · pidió <b>{d.solicitadoPor.nombre}</b>{' '}
@@ -91,7 +92,7 @@ export default function DesviosPorAutorizar({ puedeAutorizar }: { puedeAutorizar
         <Modal open onClose={() => setResolviendo(null)} title={resolviendo.estado === 'aprobada' ? 'Autorizar el cierre con este faltante' : 'Rechazar el faltante'}>
           <div className="space-y-3">
             <p className="text-sm text-gray-700">
-              {resolviendo.d.choferNombre} · faltan <b>{resolviendo.d.bolsasFaltantes} bolsas</b> del {resolviendo.d.fecha}.
+              {resolviendo.d.choferNombre} · faltan <b>{textoFaltante(resolviendo.d.productos, resolviendo.d.bolsasFaltantes)}</b> del {resolviendo.d.fecha}.
             </p>
             <p className="text-xs text-secundario">
               {resolviendo.estado === 'aprobada'

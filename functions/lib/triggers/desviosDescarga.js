@@ -16,6 +16,7 @@
  */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.onDesvioResuelto = exports.onDesvioSolicitado = void 0;
+exports.textoFaltante = textoFaltante;
 exports.avisoDesvio = avisoDesvio;
 exports.avisoResolucion = avisoResolucion;
 const firestore_1 = require("firebase-functions/v2/firestore");
@@ -25,11 +26,24 @@ const push_1 = require("../services/push");
 const vapidPublicKey = (0, params_1.defineSecret)('VAPID_PUBLIC_KEY');
 const vapidPrivateKey = (0, params_1.defineSecret)('VAPID_PRIVATE_KEY');
 const claves = () => ({ vapidPublicKey: vapidPublicKey.value(), vapidPrivateKey: vapidPrivateKey.value() });
+/**
+ * "20 bolsas" solo si todo lo que falta es hielo en bolsa; un solo producto de
+ * otra cosa va con su nombre; mezcla, "unidades" (espejo de utils/faltantes.ts).
+ */
+function textoFaltante(d) {
+    const n = Number(d.bolsasFaltantes ?? 0);
+    const productos = (d.productos ?? []).map((p) => String(p.nombre ?? ''));
+    if (productos.length > 0 && productos.every((nombre) => /bolsa|hielo|escamas/i.test(nombre)))
+        return `${n} bolsa${n === 1 ? '' : 's'}`;
+    if (productos.length === 1)
+        return `${n} de ${productos[0]}`;
+    return `${n} unidad${n === 1 ? '' : 'es'}`;
+}
 /** Texto de la push a los autorizantes. Pura. */
 function avisoDesvio(d) {
     const productos = (d.productos ?? []).map((p) => `${String(p.nombre ?? '')} -${Number(p.faltan ?? 0)}`).join(', ');
     return {
-        titulo: `Faltan ${Number(d.bolsasFaltantes ?? 0)} bolsas: ${String(d.choferNombre ?? 'un repartidor')}`,
+        titulo: `Faltan ${textoFaltante(d)}: ${String(d.choferNombre ?? 'un repartidor')}`,
         cuerpo: `${d.depositoTango ? `Depósito ${String(d.depositoTango)} · ` : ''}día ${String(d.fecha ?? '')}`
             + `${productos ? ` · ${productos}` : ''} · lo pidió ${String(d.solicitadoPor?.nombre ?? 'caja')}`
             + `${d.nota ? ` · ${String(d.nota)}` : ''}. Caja espera para cerrar.`,

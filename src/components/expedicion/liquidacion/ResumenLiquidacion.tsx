@@ -7,7 +7,7 @@ import { MOTIVOS_DESVIO_DESCARGA } from '@/types'
 import TablaConteoBilletes, { ChipEmpresa, COLOR_EMPRESA } from '@/components/common/TablaConteoBilletes'
 import { NOMBRE_EMPRESA } from '@/utils/inhabilitadoTango'
 import { conteoCompleto, desgloseContado, EMPRESAS_CONTEO, totalConteo } from '@/utils/billetes'
-import type { FaltanteCalculado } from '@/utils/faltantes'
+import { textoFaltante, type FaltanteCalculado } from '@/utils/faltantes'
 import { TH as th, TD as td } from '@/components/common/tabla'
 
 // Barra de estado, tarjetas de plata con el cuadre, y los plegables de resumen
@@ -43,7 +43,7 @@ export function BarraEstado({ remitos, descargas, reparto, cerrada, onProblemas,
         <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold ${cerrada.desvio.autorizadoPor ? 'bg-amber-100 text-amber-800' : 'bg-red-600 text-white'}`}
           title={`${cerrada.desvio.productos.map((p) => `${p.nombre} −${p.faltan}`).join(' · ')}${cerrada.desvio.nota ? ` · ${cerrada.desvio.nota}` : ''} · cerró ${cerrada.desvio.observadoPor.nombre}${cerrada.desvio.autorizadoPor ? ` · autorizó ${cerrada.desvio.autorizadoPor.nombre}${cerrada.desvio.notaAutorizacion ? ` (${cerrada.desvio.notaAutorizacion})` : ''}` : ' · SIN autorización'}`}>
           <PackageX size={12} />
-          {cerrada.desvio.autorizadoPor ? 'Faltante autorizado' : 'Desvío observado'}: faltan {cerrada.desvio.bolsasFaltantes} bolsas · {MOTIVOS_DESVIO_DESCARGA[cerrada.desvio.motivo]}
+          {cerrada.desvio.autorizadoPor ? 'Faltante autorizado' : 'Desvío observado'}: faltan {textoFaltante(cerrada.desvio.productos, cerrada.desvio.bolsasFaltantes)} · {MOTIVOS_DESVIO_DESCARGA[cerrada.desvio.motivo]}
         </span>
       )}
       {/* Sin descarga contada no hay control que mostrar: el camión sigue en la
@@ -59,7 +59,7 @@ export function BarraEstado({ remitos, descargas, reparto, cerrada, onProblemas,
       {!cerrada && faltante && faltante.bolsasFaltantes > 0 && (
         <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold ${faltante.grave ? 'bg-red-600 text-white' : 'bg-amber-100 text-amber-800'}`}
           title={faltante.productos.map((p) => `${p.nombre} −${p.faltan}`).join(' · ')}>
-          <PackageX size={12} /> Faltan {faltante.bolsasFaltantes} bolsas
+          <PackageX size={12} /> Faltan {textoFaltante(faltante.productos, faltante.bolsasFaltantes)}
         </span>
       )}
       {reparto.problemas.length > 0 && (

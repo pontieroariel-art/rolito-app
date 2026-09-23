@@ -3,7 +3,7 @@ import { Check, Clock, PackageX, ShieldCheck, X } from 'lucide-react'
 import Button from '@/components/ui/Button'
 import { reportError } from '@/services/observability'
 import { MOTIVOS_DESVIO_DESCARGA, MOTIVOS_DESVIO_LIQUIDACION, type DesvioDescarga, type MotivoDesvioDescarga } from '@/types'
-import type { FaltanteCalculado } from '@/utils/faltantes'
+import { textoFaltante, type FaltanteCalculado } from '@/utils/faltantes'
 
 // El faltante de mercadería del día, en la pantalla de caja (2026-09-13).
 //
@@ -46,7 +46,7 @@ export default function PedirAutorizacionDesvio({ faltante, umbral, desvio, onPe
     <div className="w-full text-sm text-red-800 bg-red-50 border border-red-300 rounded-lg px-3 py-2 space-y-2">
       <p className="font-semibold flex items-center gap-1.5">
         <PackageX size={16} className="shrink-0" />
-        Faltan {faltante.bolsasFaltantes} bolsas de mercadería (umbral: {umbral}).
+        Faltan {textoFaltante(faltante.productos, faltante.bolsasFaltantes)} (umbral: {umbral} unidades).
       </p>
       <p className="tabular-nums">
         {faltante.productos.map((p) => `${p.nombre} −${p.faltan}`).join(' · ')}

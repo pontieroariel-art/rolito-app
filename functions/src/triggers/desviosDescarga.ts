@@ -37,11 +37,23 @@ interface Desvio {
   notaResolucion?: unknown
 }
 
+/**
+ * "20 bolsas" solo si todo lo que falta es hielo en bolsa; un solo producto de
+ * otra cosa va con su nombre; mezcla, "unidades" (espejo de utils/faltantes.ts).
+ */
+export function textoFaltante(d: Desvio): string {
+  const n = Number(d.bolsasFaltantes ?? 0)
+  const productos = (d.productos ?? []).map((p) => String(p.nombre ?? ''))
+  if (productos.length > 0 && productos.every((nombre) => /bolsa|hielo|escamas/i.test(nombre))) return `${n} bolsa${n === 1 ? '' : 's'}`
+  if (productos.length === 1) return `${n} de ${productos[0]}`
+  return `${n} unidad${n === 1 ? '' : 'es'}`
+}
+
 /** Texto de la push a los autorizantes. Pura. */
 export function avisoDesvio(d: Desvio): { titulo: string; cuerpo: string } {
   const productos = (d.productos ?? []).map((p) => `${String(p.nombre ?? '')} -${Number(p.faltan ?? 0)}`).join(', ')
   return {
-    titulo: `Faltan ${Number(d.bolsasFaltantes ?? 0)} bolsas: ${String(d.choferNombre ?? 'un repartidor')}`,
+    titulo: `Faltan ${textoFaltante(d)}: ${String(d.choferNombre ?? 'un repartidor')}`,
     cuerpo: `${d.depositoTango ? `Depósito ${String(d.depositoTango)} · ` : ''}día ${String(d.fecha ?? '')}`
       + `${productos ? ` · ${productos}` : ''} · lo pidió ${String(d.solicitadoPor?.nombre ?? 'caja')}`
       + `${d.nota ? ` · ${String(d.nota)}` : ''}. Caja espera para cerrar.`,

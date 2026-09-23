@@ -12,6 +12,7 @@ import { useDiaActual } from '@/hooks/useDiaActual'
 import { Liquidacion, MOTIVOS_DESVIO_DESCARGA, MOTIVOS_DIFERENCIA_LIQUIDACION, PLANTAS } from '@/types'
 import AnuladasDespuesDeCerrar from '@/components/expedicion/AnuladasDespuesDeCerrar'
 import HistorialTable, { BarraHistorial, type ColumnaHistorial } from '@/components/common/HistorialTable'
+import { textoFaltante } from '@/utils/faltantes'
 
 // Historial de liquidaciones (2026-09-06): mes × repartidor, con la diferencia
 // de efectivo de cada cierre y los totales por repartidor, para ver quién
@@ -97,7 +98,7 @@ export default function LiquidacionesHistorialPage({ base }: { base: '/caja' | '
     { titulo: 'Valores faltantes', alinear: 'der', csv: (r) => r.valoresFaltantes, celda: (r) => (
       r.valoresFaltantes ? <span className="text-red-600 font-semibold">{r.valoresFaltantes}</span> : <span className="text-secundario">0</span>
     ) },
-    { titulo: 'Bolsas faltantes', alinear: 'der', csv: (r) => r.bolsasFaltantes, celda: (r) => (
+    { titulo: 'Unidades faltantes', alinear: 'der', csv: (r) => r.bolsasFaltantes, celda: (r) => (
       r.bolsasFaltantes
         ? <span className="text-red-600 font-semibold" title={`${r.conDesvio} cierre(s) con desvío observado`}>{r.bolsasFaltantes}</span>
         : <span className="text-secundario">0</span>
@@ -137,7 +138,7 @@ export default function LiquidacionesHistorialPage({ base }: { base: '/caja' | '
       celda: (l) => l.desvio
         ? <span className={`font-semibold whitespace-nowrap ${l.desvio.autorizadoPor ? 'text-amber-700' : 'text-red-600'}`}
             title={`${l.desvio.productos.map((p) => `${p.nombre} −${p.faltan}`).join(' · ')} · ${MOTIVOS_DESVIO_DESCARGA[l.desvio.motivo]}${l.desvio.nota ? ` · ${l.desvio.nota}` : ''} · cerró ${l.desvio.observadoPor.nombre}${l.desvio.autorizadoPor ? ` · autorizó ${l.desvio.autorizadoPor.nombre}` : ' · SIN autorización'}`}>
-            −{l.desvio.bolsasFaltantes} bolsas{l.desvio.autorizadoPor ? '' : ' !'}
+            −{textoFaltante(l.desvio.productos, l.desvio.bolsasFaltantes)}{l.desvio.autorizadoPor ? '' : ' !'}
           </span>
         : <span className="text-secundario">—</span> },
     // Una nota larga partía la fila en varios renglones y dejaba un hueco en
