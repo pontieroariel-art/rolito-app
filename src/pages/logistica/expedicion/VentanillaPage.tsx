@@ -27,7 +27,7 @@ import { getPreciosIncluyenIva, getTopeConsumidorFinalSinIdentificar } from '@/s
 import { desgloseFactura, percepcionVigenteDe } from '@/utils/totalFacturado'
 import { nombreSucursalVenta } from '@/utils/sucursalesTango'
 import { armarNotaCreditoDeVenta } from '@/utils/facturaDeVenta'
-import { partesTicketDeVenta } from '@/utils/ticketDeVenta'
+import { partesTicketDeVenta, ventanillaComoVentaCamion } from '@/utils/ticketDeVenta'
 import { generateTicketsVentanilla, generateTicketsVentanillaSeparados } from '@/utils/ventanillaTicket'
 import { imprimirPdf, leerModoImpresion, guardarModoImpresion, MODOS_IMPRESION, type ModoImpresion } from '@/utils/ticketTermico'
 import { usePreciosTango } from '@/hooks/usePreciosTango'
@@ -40,7 +40,6 @@ import { facturaAnulable } from '@/utils/anulacionVenta'
 import { armarNotaCreditoX, type CaiRemito } from '@/utils/comprobanteInterno'
 import { caiRemitoOficialCacheado, getCaiRemitoOficial } from '@/services/remitoOficialConfigService'
 import { generateComprobanteInternoPdf } from '@/utils/comprobanteInternoPdf'
-import type { VentaCamion } from '@/types'
 import { admiteCuentaCorriente } from '@/utils/condicionVenta'
 import {
   CanalVenta, FormaPago, PLANTAS, VentaCamionItem, VentaVentanilla, type AnulacionEnVenta, type Rendicion,
@@ -297,7 +296,7 @@ export default function VentanillaPage() {
     try {
       // Promo: nota de crédito X interna (papel A4 de Rolito, 2026-09-11).
       if (v.anulacion?.notaCreditoInterna) {
-        const armadoX = armarNotaCreditoX(v as unknown as VentaCamion, v.clienteId ? clientePorId.get(v.clienteId) : undefined)
+        const armadoX = armarNotaCreditoX(ventanillaComoVentaCamion(v), v.clienteId ? clientePorId.get(v.clienteId) : undefined)
         if (!armadoX.ok) { setError(armadoX.motivo); return }
         const blobX = await generateComprobanteInternoPdf(armadoX.datos, { descargar: false })
         if (blobX instanceof Blob) await imprimirPdf(blobX, armadoX.datos.archivo, modoImpresion)

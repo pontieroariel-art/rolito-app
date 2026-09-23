@@ -42,11 +42,28 @@ export interface PartesTicketDeVenta {
 
 /**
  * La venta de ventanilla con la forma de la del camión, para los armadores de
- * comprobantes que son comunes a los dos (`armarRemito`, `armarFacturaX`…):
- * quien vendió es el cajero y no hay camión.
+ * comprobantes que son comunes a los dos (`armarRemito`, `armarFacturaX`,
+ * `armarNotaCreditoX`…): quien vendió es el cajero y no hay camión. Tipado de
+ * verdad (auditoría 2026-09-22, antes eran cuatro copias con `as unknown as`):
+ * si VentaCamion gana un campo obligatorio, esto deja de compilar en vez de
+ * salir con undefined en el papel. Una venta ocasional no tiene clienteId.
+ *
+ * `quienEntrega`: en el papel va el muellero que entregó en vez del cajero
+ * (Tesorería en vivo lo usa así).
  */
-export const ventanillaComoVentaCamion = (v: VentaVentanilla): VentaCamion =>
-  ({ ...v, choferId: v.cajaId, choferNombre: v.cajaNombre, camionId: '' }) as unknown as VentaCamion
+export function ventanillaComoVentaCamion(v: VentaVentanilla, opts: { quienEntrega?: boolean } = {}): VentaCamion {
+  return {
+    ...v,
+    camionId:     '',
+    choferId:     v.cajaId,
+    choferNombre: opts.quienEntrega ? (v.entregadoPor?.nombre ?? v.cajaNombre) : v.cajaNombre,
+    clienteId:    v.clienteId ?? '',
+  }
+}
+
+/** Lo que llega de cualquiera de las dos colecciones, con la forma del camión. */
+export const comoVentaCamion = (v: VentaCamion | VentaVentanilla): VentaCamion =>
+  'cajaId' in v ? ventanillaComoVentaCamion(v) : v
 
 export function partesTicketDeVenta(v: VentaVentanilla, opts: OpcionesTicketDeVenta): PartesTicketDeVenta {
   const out: PartesTicketDeVenta = {}

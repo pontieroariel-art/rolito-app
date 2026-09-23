@@ -18,10 +18,10 @@ import { formatoARS } from '@/utils/money'
 import { importeCobrado } from '@/utils/importeCobrado'
 import { nombreClienteVenta } from '@/utils/nombreClienteVenta'
 import { generateReciboCobranza } from '@/utils/pdf'
-import { partesTicketDeVenta } from '@/utils/ticketDeVenta'
+import { partesTicketDeVenta, ventanillaComoVentaCamion } from '@/utils/ticketDeVenta'
 import type { FilaVentanilla } from '@/utils/tesoreriaLive'
 import { generateTicketsVentanilla } from '@/utils/ventanillaTicket'
-import type { Cobranza, VentaCamion, VentaVentanilla } from '@/types'
+import type { Cobranza, VentaVentanilla } from '@/types'
 
 // Las ventas y las cobranzas de mostrador de UN cajero, una por una, dentro
 // del tablero de Tesorería en vivo (2026-09-14, pedido de Ariel): qué llevó
@@ -76,8 +76,7 @@ const mediosDetalle = (c: Cobranza): string => [
 // La generación del comprobante (factura, factura X, remito) es la del camión:
 // la venta de ventanilla tiene la misma forma salvo quién vendió (cajero) y
 // quién entregó (muelle), que van a los campos del chofer del papel.
-const comoVentaCamion = (v: VentaVentanilla): VentaCamion =>
-  ({ ...v, choferId: v.cajaId, choferNombre: v.entregadoPor?.nombre ?? v.cajaNombre, camionId: '' } as unknown as VentaCamion)
+const comoVentaCamion = (v: VentaVentanilla) => ventanillaComoVentaCamion(v, { quienEntrega: true })
 
 const tieneComprobante = (v: VentaVentanilla): boolean => v.factura?.estado === 'emitida' || !!v.comprobanteInterno
 

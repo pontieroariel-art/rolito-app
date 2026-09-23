@@ -8,9 +8,9 @@ import { useDiaActual } from '@/hooks/useDiaActual'
 import { resolverAnulacion, subscribeAnulacionesEnRango, subscribeAnulacionesPendientes } from '@/services/anulacionService'
 import { getVentaVentanilla } from '@/services/ventaVentanillaService'
 import { getVentaCamion } from '@/services/ventaCamionService'
+import { comoVentaCamion } from '@/utils/ticketDeVenta'
 import { armarNotaCreditoX } from '@/utils/comprobanteInterno'
 import { generateComprobanteInternoPdf } from '@/utils/comprobanteInternoPdf'
-import type { VentaCamion } from '@/types'
 import { getUserDocument } from '@/services/userService'
 import { reportError } from '@/services/observability'
 import { addDaysStr } from '@/utils/helpers'
@@ -84,7 +84,7 @@ export default function AnulacionesPage() {
       const cliente = venta.clienteId ? await getUserDocument(venta.clienteId).catch(() => null) ?? undefined : undefined
       // Promo: nota de crédito X interna (papel de Rolito, 2026-09-11).
       if (a.notaCreditoInterna) {
-        const armadoX = armarNotaCreditoX(venta as unknown as VentaCamion, cliente)
+        const armadoX = armarNotaCreditoX(comoVentaCamion(venta), cliente)
         if (!armadoX.ok) { setAviso(armadoX.motivo); return }
         const blobX = await generateComprobanteInternoPdf(armadoX.datos, { descargar: false })
         const tituloX = `Nota de crédito X ${armadoX.datos.numero ?? ''}`.trim()
