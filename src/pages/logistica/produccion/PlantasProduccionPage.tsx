@@ -4,6 +4,7 @@ import Input from '@/components/ui/Input'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
 import { inicializarContador, getProximoNumero, BATCH_SIZE } from '@/services/produccionCounterService'
 import { getUltimoPallet } from '@/services/produccionService'
+import { reportError } from '@/services/observability'
 import { PalletProduccion, PLANTAS, PlantaId } from '@/types'
 
 // Configuración por planta (correlativo de pallets) — vivía incrustada
@@ -30,7 +31,8 @@ function ContadorPlanta({ plantaId }: { plantaId: PlantaId }) {
     try {
       await inicializarContador(plantaId, n)
       await cargar()
-    } catch {
+    } catch (err) {
+      reportError(err, { origen: 'PlantasProduccionPage', accion: 'inicializar contador', plantaId })
       setError('No se pudo inicializar. ¿Ya tiene un número asignado?')
     } finally {
       setSaving(false)

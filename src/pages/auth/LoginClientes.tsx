@@ -8,6 +8,7 @@ import Button from '../../components/ui/Button'
 import { useAuth } from '../../context/AuthContext'
 import { loginWithCuit } from '../../services/authService'
 import { resetPasswordByCuit } from '../../services/authService'
+import { reportError } from '../../services/observability'
 
 export default function LoginClientes() {
   const navigate = useNavigate()
@@ -52,9 +53,11 @@ export default function LoginClientes() {
         } else if (err.code === 'auth/too-many-requests') {
           setError('Demasiados intentos. Esperá unos minutos o restablecé tu contraseña.')
         } else {
+          reportError(err, { origen: 'LoginClientes', accion: 'login', code: err.code })
           setError(`Error al ingresar (${err.code})`)
         }
       } else {
+        reportError(err, { origen: 'LoginClientes', accion: 'login' })
         setError('Error al ingresar. Verificá tus datos.')
       }
     } finally {
@@ -73,6 +76,7 @@ export default function LoginClientes() {
       if (err instanceof Error && err.message === 'cuit-not-found') {
         setResetError('No encontramos una cuenta con ese CUIT')
       } else {
+        reportError(err, { origen: 'LoginClientes', accion: 'resetPasswordByCuit' })
         setResetError('Error al enviar el email. Intentá de nuevo.')
       }
     } finally {

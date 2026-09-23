@@ -4,6 +4,7 @@ import { CalendarRange, FileText } from 'lucide-react'
 import Button from '@/components/ui/Button'
 import { useVisorComprobante } from '@/components/ui/VisorComprobante'
 import { useAuth } from '@/context/AuthContext'
+import { reportError } from '@/services/observability'
 import { armarResumen, movimientosDe, sucursalesDe, type ComprobanteIndice } from '@/utils/resumenCuenta'
 import { generateResumenCuentaPdf, nombreArchivoResumenCuenta } from '@/utils/resumenCuentaPdf'
 import { envioDeCliente } from '@/utils/envioComprobante'
@@ -126,7 +127,8 @@ export default function ResumenCuentaPanel({ cliente, indices, saldo, datosAl }:
           mensaje: `Hola, te mando el resumen de cuenta del ${fechaCorta(desde)} al ${fechaCorta(hasta)}.`,
         }),
       })
-    } catch {
+    } catch (err) {
+      reportError(err, { origen: 'ResumenCuentaPanel', accion: 'generar PDF del resumen de cuenta' })
       setError('No se pudo armar el PDF. Probá de nuevo.')
     } finally {
       setGenerando(false)

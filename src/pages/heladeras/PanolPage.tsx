@@ -51,7 +51,8 @@ function NuevoArticuloModal({ onClose }: { onClose: () => void }) {
         }).catch((err) => reportError(err, { origen: 'PanolPage', accion: 'no se pudo registrar alta de artículo' }))
       }
       onClose()
-    } catch {
+    } catch (err) {
+      reportError(err, { origen: 'PanolPage', accion: 'crear artículo' })
       setError('No se pudo crear el artículo. Intentá de nuevo.')
       setSaving(false)
     }
@@ -210,6 +211,7 @@ function EntregaModal({ articulos, actor, onClose }: { articulos: PanolArticulo[
       onClose()
       abrir({ blob, nombre: `entrega-panol-${new Date().toISOString().slice(0, 10)}.pdf`, titulo: 'Entrega de pañol', subtitulo: tecnico.nombre })
     } catch (err) {
+      reportError(err, { origen: 'PanolPage', accion: 'registrar entrega de pañol' })
       setError(err instanceof StockInsuficienteError ? err.message : 'No se pudo registrar la entrega.')
       setSaving(false)
     }
@@ -251,7 +253,8 @@ function RecepcionModal({ articulos, actor, onClose }: { articulos: PanolArticul
     try {
       await registrarRecepcion(carrito.items, actor)
       onClose()
-    } catch {
+    } catch (err) {
+      reportError(err, { origen: 'PanolPage', accion: 'registrar recepción de pañol' })
       setError('No se pudo registrar la recepción.')
       setSaving(false)
     }

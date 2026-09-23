@@ -4,6 +4,7 @@ import { Plus, Trash2, Star, ImagePlus } from 'lucide-react'
 import Button from '@/components/ui/Button'
 import { useCatalogo } from '@/hooks/useCatalogo'
 import { saveCatalogo, subirFotoProducto } from '@/services/catalogoService'
+import { reportError } from '@/services/observability'
 import ProductoThumb from '@/components/ventas/ProductoThumb'
 import SyncPreciosTangoPanel from '@/components/admin/SyncPreciosTangoPanel'
 import ListasTangoPanel from '@/components/admin/ListasTangoPanel'
@@ -87,7 +88,8 @@ function CatalogoEditor({
       const fotoUrl = await subirFotoProducto(p.id, file)
       await saveCatalogo(catalogo.map((x) => (x.id === p.id ? { ...x, fotoUrl } : x)))
       onSaved()
-    } catch {
+    } catch (err) {
+      reportError(err, { origen: 'PriceListsPage', accion: 'subir foto de producto', productoId: p.id })
       alert('No se pudo subir la foto. Probá con otra imagen.')
     } finally {
       setUploadingId(null)

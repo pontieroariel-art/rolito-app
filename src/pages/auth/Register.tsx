@@ -6,6 +6,7 @@ import AuthLayout from '../../components/layout/AuthLayout'
 import Input from '../../components/ui/Input'
 import Button from '../../components/ui/Button'
 import { registerUser, CuitTakenError } from '../../services/authService'
+import { reportError } from '../../services/observability'
 
 interface RegisterForm {
   razonSocial:    string
@@ -80,6 +81,7 @@ export default function Register() {
       } else if (err instanceof CuitTakenError) {
         setError('Ya existe una cuenta registrada con ese CUIT. Si es tu empresa, contactá al administrador.')
       } else {
+        reportError(err, { origen: 'Register', accion: 'registerUser' })
         setError('Error al registrarse. Intentá de nuevo.')
       }
     } finally {

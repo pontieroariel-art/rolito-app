@@ -54,7 +54,8 @@ function ModeloForm({
         fotoUrl:         fotoUrl.trim(),
         prefijoCodigo:   prefijoCodigo.trim().toUpperCase(),
       })
-    } catch {
+    } catch (err) {
+      reportError(err, { origen: 'ModelosHeladeraPage', accion: 'guardar modelo' })
       setError('No se pudo guardar. Revisá tu conexión y reintentá.')
       setSaving(false)
     }
@@ -160,7 +161,8 @@ export default function ModelosHeladeraPage() {
     try {
       await actualizarModeloHeladera(m.id, { activo: !m.activo })
       logModelo(m.id, m.activo ? 'desactivado' : 'activado', m.nombre)
-    } catch {
+    } catch (err) {
+      reportError(err, { origen: 'ModelosHeladeraPage', accion: 'activar/desactivar modelo', modeloId: m.id })
       setToggleError('No se pudo actualizar. Revisá tu conexión y reintentá.')
     } finally {
       setTogglingId(null)

@@ -304,6 +304,7 @@ export default function CobranzaCompleta({ origen, plantaId, cajaSesionId, clien
       setModal(null)
       setClienteId('')
     } catch (e) {
+      reportError(e, { origen: 'CobranzaCompleta', accion: 'crearCobranzaCompleta' })
       setError(e instanceof Error ? e.message : 'No se pudo registrar la cobranza. Intentá de nuevo.')
       setModal(null)
     } finally {

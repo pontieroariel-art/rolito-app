@@ -5,6 +5,7 @@ import { UserProfile, UserRole, DeliveryAddress, PLANTAS, PlantaId } from '../..
 import { GRUPOS_ROLES_EXTRA, pidePlanta } from '../../../utils/roles'
 import { abrirVistaComo } from '../../../services/impersonacionService'
 import { resetearPasswordStaff } from '@/services/staffPasswordService'
+import { reportError } from '@/services/observability'
 import { ALL_ROLES, ROLE_LABELS, STATUS_STYLES, STATUS_LABELS } from './shared'
 import { FichaClienteModal } from './FichaClienteModal'
 import { PermisosUsuarioModal } from './PermisosUsuarioModal'
@@ -69,6 +70,7 @@ export function UserRow({ user, currentUser, onRoleChange, onSubrolChange, onRol
         const r = await resetearPasswordStaff(user.uid)
         setResetHecho(r.password)
       } catch (err) {
+        reportError(err, { origen: 'UserRow', accion: 'restablecer contraseña de staff' })
         setResetError((err as { message?: string })?.message ?? 'No se pudo restablecer')
       }
     })
@@ -81,6 +83,7 @@ export function UserRow({ user, currentUser, onRoleChange, onSubrolChange, onRol
       const r = await abrirVistaComo(user.uid)
       if (!r.abierta) setVerComoLink(r.url)
     } catch (err) {
+      reportError(err, { origen: 'UserRow', accion: 'abrir Ver como' })
       setVerComoError((err as { message?: string })?.message ?? 'No se pudo abrir la vista')
     }
   })

@@ -4,6 +4,7 @@ import { doc, onSnapshot } from 'firebase/firestore'
 import { signInAnonymously } from 'firebase/auth'
 import { Bell, CheckCircle2 } from 'lucide-react'
 import { auth, db } from '../../services/firebase'
+import { reportError } from '../../services/observability'
 import { PLANTAS, PlantaId } from '../../types'
 
 interface TurnoPublico { n: number; estado: string; darsena?: number }
@@ -36,9 +37,10 @@ export default function TurnosVentanillaPage() {
         unsub = onSnapshot(
           doc(db, 'turnosPublicos', plantaId),
           (snap) => setTurnos((snap.data()?.turnos as TurnoPublico[]) ?? []),
-          () => setError(true),
+          (err) => { reportError(err, { origen: 'TurnosVentanillaPage', accion: 'onSnapshot turnosPublicos', plantaId }); setError(true) },
         )
-      } catch {
+      } catch (err) {
+        reportError(err, { origen: 'TurnosVentanillaPage', accion: 'conectar al turno público', plantaId })
         setError(true)
       }
     }

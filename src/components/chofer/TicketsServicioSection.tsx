@@ -3,6 +3,7 @@ import Button from '../ui/Button'
 import Modal from '../ui/Modal'
 import { useTicketsAsignadosAMi } from '../../hooks/useTicketsAsignadosAMi'
 import { marcarHechoChofer, Actor } from '../../services/ticketServicioService'
+import { reportError } from '../../services/observability'
 import { TicketServicio } from '../../types'
 import { tsToDate } from '../../utils/helpers'
 
@@ -18,7 +19,8 @@ function MarcarHechoModal({ ticket, actor, onClose }: { ticket: TicketServicio; 
     try {
       await marcarHechoChofer(ticket.id, actor, detalle.trim())
       onClose()
-    } catch {
+    } catch (err) {
+      reportError(err, { origen: 'TicketsServicioSection', accion: 'marcar ticket hecho', ticketId: ticket.id })
       setError('No se pudo guardar. Intentá de nuevo.')
       setSaving(false)
     }

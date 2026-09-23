@@ -7,6 +7,7 @@ import Input from '../../components/ui/Input'
 import Button from '../../components/ui/Button'
 import { useAuth } from '../../context/AuthContext'
 import { loginWithStaffDni } from '../../services/authService'
+import { reportError } from '../../services/observability'
 import { ROLE_HOME } from '../../utils/sistemas'
 
 export default function LoginEmpresa() {
@@ -44,9 +45,11 @@ export default function LoginEmpresa() {
         } else if (err.code === 'auth/too-many-requests') {
           setError('Demasiados intentos. Esperá unos minutos.')
         } else {
+          reportError(err, { origen: 'LoginEmpresa', accion: 'login', code: err.code })
           setError(`Error al ingresar (${err.code})`)
         }
       } else {
+        reportError(err, { origen: 'LoginEmpresa', accion: 'login' })
         setError('Error al ingresar. Verificá tus datos.')
       }
     } finally {

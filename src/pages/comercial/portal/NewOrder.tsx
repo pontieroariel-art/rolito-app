@@ -9,6 +9,7 @@ import { preciosClienteTango } from '@/utils/precioTango'
 import { useAuth } from '@/context/AuthContext'
 import { Order } from '@/types'
 import { createOrder, cancelAndRecreateOrder, OrderNotEditableError } from '@/services/orderService'
+import { reportError } from '@/services/observability'
 import { useOnline } from '@/hooks/useOnline'
 import { useCatalogo } from '@/hooks/useCatalogo'
 import { getPrimaryAddress } from '@/types'
@@ -112,6 +113,7 @@ export default function NewOrder() {
       // envía el trigger onOrderCreated server-side; no se disparan desde acá.
       navigate('/dashboard')
     } catch (err) {
+      reportError(err, { origen: 'NewOrder', accion: modifyOrder ? 'modificar pedido' : 'crear pedido' })
       if (err instanceof OrderNotEditableError) {
         setError('Este pedido ya no se puede modificar — logística ya empezó a procesarlo. Volvé al inicio para ver su estado actual.')
       } else {

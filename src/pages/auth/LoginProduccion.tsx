@@ -6,6 +6,7 @@ import Input from '../../components/ui/Input'
 import Button from '../../components/ui/Button'
 import { useAuth } from '../../context/AuthContext'
 import { loginProduccion, logoutUser } from '../../services/authService'
+import { reportError } from '../../services/observability'
 import { marcarDispositivoProduccion } from '../../services/produccionDeviceService'
 import { PLANTAS, PlantaId } from '../../types'
 
@@ -67,9 +68,11 @@ export default function LoginProduccion({ planta }: Props) {
         } else if (err.code === 'auth/too-many-requests') {
           setError('Demasiados intentos. Esperá unos minutos.')
         } else {
+          reportError(err, { origen: 'LoginProduccion', accion: 'login', code: err.code })
           setError(`Error al ingresar (${err.code})`)
         }
       } else {
+        reportError(err, { origen: 'LoginProduccion', accion: 'login' })
         setError('Error al ingresar. Verificá el legajo.')
       }
     } finally {

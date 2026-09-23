@@ -6,6 +6,7 @@ import { AddressAutocomplete, AddressMapPicker } from '../../../components/ui/Ad
 import { useGoogleMapsLoader } from '../../../hooks/useGoogleMapsLoader'
 import { useAuth } from '../../../context/AuthContext'
 import { createClientUser } from '../../../services/userService'
+import { reportError } from '../../../services/observability'
 import { UserProfile } from '../../../types'
 
 export function CrearClienteModal({
@@ -86,6 +87,7 @@ export function CrearClienteModal({
       if (err?.code === 'auth/email-already-in-use') {
         setError('Ya existe una cuenta con ese email')
       } else {
+        reportError(err, { origen: 'CrearClienteModal', accion: 'crear cliente' })
         setError(err?.message ?? 'Error al crear el cliente. Intentá de nuevo.')
       }
     } finally {

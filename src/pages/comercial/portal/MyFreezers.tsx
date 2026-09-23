@@ -10,6 +10,7 @@ import { useTicketsPorCliente } from '@/hooks/useTicketsPorCliente'
 import { useAsignacionesPorCliente } from '@/hooks/useAsignacionesPorCliente'
 import { useMotivosReparacion } from '@/hooks/useReparacionCatalogos'
 import { crearTicket } from '@/services/ticketServicioService'
+import { reportError } from '@/services/observability'
 import { ESTADO_TICKET_LABELS, ESTADO_TICKET_STYLES } from '@/utils/heladeraLabels'
 import { formatShortDate } from '@/utils/helpers'
 import { AsignacionHeladera, Heladera, TicketServicio } from '@/types'
@@ -114,7 +115,8 @@ export default function MyFreezers() {
         urgente:        !!motivo.urgente,
       }, { uid: user.uid, nombre: user.nombre })
       cerrarModal()
-    } catch {
+    } catch (err) {
+      reportError(err, { origen: 'MyFreezers', accion: 'pedir service' })
       setError('No se pudo pedir el service. Intentá de nuevo.')
       setSaving(false)
     }

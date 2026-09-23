@@ -38,7 +38,8 @@ function MotivosIngresoEditor({ motivos, onSaved }: { motivos: MotivoIngreso[]; 
       await saveMotivosIngreso([...motivos, nuevo])
       onSaved()
       setNombre('')
-    } catch {
+    } catch (err) {
+      reportError(err, { origen: 'MotivosIngresoEditor', accion: 'guardar' })
       setError('No se pudo guardar. Revisá tu conexión y reintentá.')
     } finally {
       setSaving(false)
@@ -50,7 +51,8 @@ function MotivosIngresoEditor({ motivos, onSaved }: { motivos: MotivoIngreso[]; 
     try {
       await saveMotivosIngreso(motivos.map((m) => (m.id === id ? { ...m, ...patch } : m)))
       onSaved()
-    } catch {
+    } catch (err) {
+      reportError(err, { origen: 'MotivosIngresoEditor', accion: 'guardar' })
       setError('No se pudo guardar. Revisá tu conexión y reintentá.')
     }
   }
@@ -61,7 +63,8 @@ function MotivosIngresoEditor({ motivos, onSaved }: { motivos: MotivoIngreso[]; 
     try {
       await saveMotivosIngreso(motivos.filter((m) => m.id !== id))
       onSaved()
-    } catch {
+    } catch (err) {
+      reportError(err, { origen: 'MotivosIngresoEditor', accion: 'eliminar' })
       setError('No se pudo eliminar. Revisá tu conexión y reintentá.')
     }
   }
@@ -146,7 +149,8 @@ function MotivosEditor({ motivos, onSaved }: { motivos: MotivoReparacion[]; onSa
       await saveMotivosReparacion([...motivos, nuevo])
       onSaved()
       setNombre('')
-    } catch {
+    } catch (err) {
+      reportError(err, { origen: 'MotivosEditor', accion: 'guardar' })
       setError('No se pudo guardar. Revisá tu conexión y reintentá.')
     } finally {
       setSaving(false)
@@ -158,7 +162,8 @@ function MotivosEditor({ motivos, onSaved }: { motivos: MotivoReparacion[]; onSa
     try {
       await saveMotivosReparacion(motivos.map((m) => (m.id === id ? { ...m, ...patch } : m)))
       onSaved()
-    } catch {
+    } catch (err) {
+      reportError(err, { origen: 'MotivosEditor', accion: 'guardar' })
       setError('No se pudo guardar. Revisá tu conexión y reintentá.')
     }
   }
@@ -169,7 +174,8 @@ function MotivosEditor({ motivos, onSaved }: { motivos: MotivoReparacion[]; onSa
     try {
       await saveMotivosReparacion(motivos.filter((m) => m.id !== id))
       onSaved()
-    } catch {
+    } catch (err) {
+      reportError(err, { origen: 'MotivosEditor', accion: 'eliminar' })
       setError('No se pudo eliminar. Revisá tu conexión y reintentá.')
     }
   }
@@ -251,7 +257,8 @@ function TiposEditor({ tipos, onSaved }: { tipos: TipoReparacion[]; onSaved: () 
       await saveTiposReparacion([...tipos, nuevo])
       onSaved()
       setNombre('')
-    } catch {
+    } catch (err) {
+      reportError(err, { origen: 'TiposEditor', accion: 'guardar' })
       setError('No se pudo guardar. Revisá tu conexión y reintentá.')
     } finally {
       setSaving(false)
@@ -263,7 +270,8 @@ function TiposEditor({ tipos, onSaved }: { tipos: TipoReparacion[]; onSaved: () 
     try {
       await saveTiposReparacion(tipos.map((t) => (t.id === id ? { ...t, ...patch } : t)))
       onSaved()
-    } catch {
+    } catch (err) {
+      reportError(err, { origen: 'TiposEditor', accion: 'guardar' })
       setError('No se pudo guardar. Revisá tu conexión y reintentá.')
     }
   }
@@ -274,7 +282,8 @@ function TiposEditor({ tipos, onSaved }: { tipos: TipoReparacion[]; onSaved: () 
     try {
       await saveTiposReparacion(tipos.filter((t) => t.id !== id))
       onSaved()
-    } catch {
+    } catch (err) {
+      reportError(err, { origen: 'TiposEditor', accion: 'eliminar' })
       setError('No se pudo eliminar. Revisá tu conexión y reintentá.')
     }
   }
@@ -376,7 +385,8 @@ function PasosTallerEditor({ pasos, onSaved }: { pasos: Record<string, PasoTalle
       onSaved()
       setNombre('')
       setRequiereAprobacion(false)
-    } catch {
+    } catch (err) {
+      reportError(err, { origen: 'PasosTallerEditor', accion: 'guardar' })
       setError('No se pudo guardar. Revisá tu conexión y reintentá.')
     } finally {
       setSaving(false)
@@ -388,7 +398,8 @@ function PasosTallerEditor({ pasos, onSaved }: { pasos: Record<string, PasoTalle
     try {
       await savePasosTaller({ ...pasos, [id]: { ...pasos[id], ...cambios } })
       onSaved()
-    } catch {
+    } catch (err) {
+      reportError(err, { origen: 'PasosTallerEditor', accion: 'guardar' })
       setError('No se pudo guardar. Revisá tu conexión y reintentá.')
     }
   }
@@ -401,7 +412,8 @@ function PasosTallerEditor({ pasos, onSaved }: { pasos: Record<string, PasoTalle
       delete resto[id]
       await savePasosTaller(resto)
       onSaved()
-    } catch {
+    } catch (err) {
+      reportError(err, { origen: 'PasosTallerEditor', accion: 'eliminar' })
       setError('No se pudo eliminar. Revisá tu conexión y reintentá.')
     }
   }
@@ -420,7 +432,8 @@ function PasosTallerEditor({ pasos, onSaved }: { pasos: Record<string, PasoTalle
         [vecino.id]:  { ...vecino, orden: actual.orden },
       })
       onSaved()
-    } catch {
+    } catch (err) {
+      reportError(err, { origen: 'PasosTallerEditor', accion: 'guardar el orden' })
       setError('No se pudo guardar el orden. Revisá tu conexión y reintentá.')
     }
   }

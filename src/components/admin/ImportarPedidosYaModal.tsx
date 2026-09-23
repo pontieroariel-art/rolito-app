@@ -202,6 +202,7 @@ export default function ImportarPedidosYaModal({ open, onClose }: Props) {
         })
         ok++
       } catch (err) {
+        reportError(err, { origen: 'ImportarPedidosYaModal', accion: 'crear pedido externo', oc: row.oc })
         errs.push(`OC ${row.oc} (${fecha}): ${(err as Error).message ?? 'Error desconocido'}`)
       }
       setProgress(i + 1)

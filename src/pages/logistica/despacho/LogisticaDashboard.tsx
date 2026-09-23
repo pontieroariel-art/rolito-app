@@ -7,6 +7,7 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import { FileText, Plus, Pencil, XCircle, ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
+import AvisoErrorCarga from '@/components/common/AvisoErrorCarga'
 import Modal from '@/components/ui/Modal'
 import PedidoManualModal from '@/components/admin/PedidoManualModal'
 import MapaPlanificacion from '@/components/admin/MapaPlanificacion'
@@ -576,8 +577,8 @@ export default function LogisticaDashboard() {
     highlightTimerRef.current = setTimeout(() => setHighlightedOrderId(null), 2500)
   }
 
-  const { orders,   loading: loadO } = useKanbanOrders()
-  const { choferes, loading: loadC } = useChoferes()
+  const { orders,   loading: loadO, error: errorPedidos  } = useKanbanOrders()
+  const { choferes, loading: loadC, error: errorChoferes } = useChoferes()
   const loading = loadO || loadC
 
   // Cargar clientes al abrir cualquier tab que los necesite (una sola vez):
@@ -764,6 +765,14 @@ export default function LogisticaDashboard() {
             <PedidoSearchBar onJumpAndHighlight={handleSearchJump} onOpenDetail={setDetailOrder} codigoByClientId={codigoByClientId} />
           </div>
         </div>
+
+        {/* Error de carga: sin esto un stream caído se ve igual que una semana sin pedidos */}
+        {(errorPedidos || errorChoferes) && (
+          <AvisoErrorCarga
+            className="mt-2"
+            mensaje={errorPedidos ? 'No pudimos cargar los pedidos. Revisá tu conexión.' : 'No pudimos cargar los choferes. Revisá tu conexión.'}
+          />
+        )}
       </div>
 
       {/* Contenido (ocupa el resto de la pantalla) */}

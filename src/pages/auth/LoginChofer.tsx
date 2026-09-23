@@ -6,6 +6,7 @@ import Input from '../../components/ui/Input'
 import Button from '../../components/ui/Button'
 import { useAuth } from '../../context/AuthContext'
 import { loginChofer } from '../../services/authService'
+import { reportError } from '../../services/observability'
 
 export default function LoginChofer() {
   const navigate = useNavigate()
@@ -44,9 +45,11 @@ export default function LoginChofer() {
         } else if (err.code === 'auth/too-many-requests') {
           setError('Demasiados intentos. Esperá unos minutos.')
         } else {
+          reportError(err, { origen: 'LoginChofer', accion: 'login', code: err.code })
           setError(`Error al ingresar (${err.code})`)
         }
       } else {
+        reportError(err, { origen: 'LoginChofer', accion: 'login' })
         setError('Error al ingresar. Verificá tus datos.')
       }
     } finally {

@@ -3,6 +3,7 @@ import { Eye, Search } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { getAllUsers } from '@/services/userService'
 import { abrirVistaComo } from '@/services/impersonacionService'
+import { reportError } from '@/services/observability'
 import { coincideBusqueda } from '@/utils/busqueda'
 import { ROLE_LABELS } from '@/utils/roles'
 import type { UserProfile } from '@/types'
@@ -46,6 +47,7 @@ export default function VerComoUsuario() {
       const r = await abrirVistaComo(u.uid)
       if (!r.abierta) setAviso({ uid: u.uid, texto: 'El navegador bloqueó la pestaña nueva.', link: r.url })
     } catch (err) {
+      reportError(err, { origen: 'VerComoUsuario', accion: 'abrir Ver como', uid: u.uid })
       setAviso({ uid: u.uid, texto: (err as { message?: string })?.message ?? 'No se pudo abrir la vista' })
     } finally {
       setAbriendo(null)

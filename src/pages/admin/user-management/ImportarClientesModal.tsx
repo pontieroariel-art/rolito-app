@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from 'react'
 import Button from '../../../components/ui/Button'
 import Modal from '../../../components/ui/Modal'
 import { createClienteImportado } from '../../../services/userService'
+import { reportError } from '../../../services/observability'
 import { isSucursalCode } from '../../../utils/helpers'
 import { ClientePreview, parseExcelFile } from './importarClientesExcel'
 
@@ -23,7 +24,8 @@ export function ImportarClientesModal({ onClose, onDone }: { onClose: () => void
       const parsed = await parseExcelFile(file)
       setClientes(parsed)
       setStep('preview')
-    } catch {
+    } catch (err) {
+      reportError(err, { origen: 'ImportarClientesModal', accion: 'leer el Excel' })
       setParseError('No se pudo leer el archivo. Verificá que sea un Excel válido (.xlsx).')
     }
   }
@@ -62,6 +64,7 @@ export function ImportarClientesModal({ onClose, onDone }: { onClose: () => void
         if (code === 'auth/email-already-in-use') {
           skip++
         } else {
+          reportError(err, { origen: 'ImportarClientesModal', accion: 'crear cliente importado', cuit: c.cuit })
           errs.push(`${c.razonSocial} (${c.cuit}): ${(err as Error).message ?? 'Error desconocido'}`)
         }
       }

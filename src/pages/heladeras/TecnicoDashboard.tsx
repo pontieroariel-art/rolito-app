@@ -12,6 +12,7 @@ import { usePanolMovimientosAsignadosA } from '../../hooks/usePanolMovimientos'
 import { useTiposReparacion } from '../../hooks/useReparacionCatalogos'
 import { registrarTrabajoTecnico } from '../../services/ticketServicioService'
 import { confirmarRecepcionTecnico } from '../../services/panolService'
+import { reportError } from '../../services/observability'
 import { toggleTipoFavorito } from '../../services/userService'
 import { AREA_HELADERA_LABELS } from '../../utils/heladeraLabels'
 import { TicketServicio, PanolMovimiento } from '../../types'
@@ -30,7 +31,8 @@ function ConfirmarMaterialesModal({ movimiento, onClose }: { movimiento: PanolMo
     try {
       await confirmarRecepcionTecnico(movimiento.id, firma)
       onClose()
-    } catch {
+    } catch (err) {
+      reportError(err, { origen: 'TecnicoDashboard', accion: 'confirmar recepción de pañol' })
       setError('No se pudo confirmar. Intentá de nuevo.')
       setSaving(false)
     }
@@ -77,7 +79,8 @@ function RegistrarTrabajoModal({ ticket, onClose }: { ticket: TicketServicio; on
       const trabajos = tiposDeMiSector.filter((t) => seleccionados.includes(t.id)).map((t) => ({ tipoId: t.id, tipoNombre: t.nombre }))
       await registrarTrabajoTecnico(ticket.id, { uid: user.uid, nombre: user.nombre }, trabajos, notas.trim() || undefined)
       onClose()
-    } catch {
+    } catch (err) {
+      reportError(err, { origen: 'TecnicoDashboard', accion: 'registrar trabajo del técnico' })
       setError('No se pudo guardar. Intentá de nuevo.')
       setSaving(false)
     }

@@ -4,6 +4,7 @@ import AuthLayout from '../../components/layout/AuthLayout'
 import Input from '../../components/ui/Input'
 import Button from '../../components/ui/Button'
 import { resetPassword } from '../../services/authService'
+import { reportError } from '../../services/observability'
 
 export default function ForgotPassword() {
   const [email, setEmail]     = useState('')
@@ -18,7 +19,8 @@ export default function ForgotPassword() {
     try {
       await resetPassword(email)
       setSent(true)
-    } catch {
+    } catch (err) {
+      reportError(err, { origen: 'ForgotPassword', accion: 'resetPassword' })
       setError('No encontramos una cuenta con ese email')
     } finally {
       setLoading(false)

@@ -9,6 +9,7 @@ import { useHeladerasPorCliente } from '../../hooks/useHeladerasPorCliente'
 import { useMotivosReparacion } from '../../hooks/useReparacionCatalogos'
 import { useTicketsPorCliente } from '../../hooks/useTicketsPorCliente'
 import { crearTicket } from '../../services/ticketServicioService'
+import { reportError } from '../../services/observability'
 import { getHeladera } from '../../services/heladeraService'
 import { getUserDocument } from '../../services/userService'
 import { Heladera, UserProfile } from '../../types'
@@ -130,7 +131,8 @@ export default function TomaServicePage() {
       setOk(true)
       setHeladera(null)
       setMotivoId('')
-    } catch {
+    } catch (err) {
+      reportError(err, { origen: 'TomaServicePage', accion: 'crear ticket de service' })
       setError('No se pudo crear el ticket. Intentá de nuevo.')
     } finally {
       setSaving(false)

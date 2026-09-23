@@ -17,6 +17,7 @@ import {
   Actor, TicketNoDisponibleError,
 } from '../../services/ticketServicioService'
 import { getHeladera } from '../../services/heladeraService'
+import { reportError } from '../../services/observability'
 import { getUserDocument } from '../../services/userService'
 import { generatePedidoReparacion } from '../../utils/pdf'
 import { TicketServicio, getPrimaryAddress } from '../../types'
@@ -42,6 +43,7 @@ function AsignarModal({ ticket, actor, onClose }: { ticket: TicketServicio; acto
       else await asignarATecnico(ticket.id, persona, actor)
       onClose()
     } catch (err) {
+      reportError(err, { origen: 'ConsultaServicePage', accion: 'asignar ticket' })
       setError(err instanceof TicketNoDisponibleError ? err.message : 'No se pudo asignar. Intentá de nuevo.')
       setSaving(false)
     }
@@ -86,7 +88,8 @@ function CerrarModal({ ticket, actor, onClose }: { ticket: TicketServicio; actor
     try {
       await cerrarTicket(ticket.id, actor, firma, nombre.trim(), ticket.clientId)
       onClose()
-    } catch {
+    } catch (err) {
+      reportError(err, { origen: 'ConsultaServicePage', accion: 'cerrar ticket' })
       setError('No se pudo cerrar. Intentá de nuevo.')
       setSaving(false)
     }
@@ -129,7 +132,8 @@ function AnularModal({ ticket, actor, onClose }: { ticket: TicketServicio; actor
     try {
       await anularTicket(ticket.id, actor, motivo.trim())
       onClose()
-    } catch {
+    } catch (err) {
+      reportError(err, { origen: 'ConsultaServicePage', accion: 'anular ticket' })
       setError('No se pudo anular. Intentá de nuevo.')
       setSaving(false)
     }

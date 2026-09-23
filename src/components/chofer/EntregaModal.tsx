@@ -2,6 +2,7 @@
 import Modal from '../ui/Modal'
 import Button from '../ui/Button'
 import { Order, OrderProduct } from '../../types'
+import { reportError } from '../../services/observability'
 
 interface Props {
   order:     Order
@@ -35,7 +36,8 @@ export default function EntregaModal({ order, onConfirm, onClose }: Props) {
     try {
       await onConfirm(entregados, parcial, nota.trim())
       // Éxito: el padre desmonta el modal (setModal(false)).
-    } catch {
+    } catch (err) {
+      reportError(err, { origen: 'EntregaModal', accion: 'confirmar entrega', orderId: order.id })
       setError('No se pudo registrar la entrega. Revisá tu conexión y reintentá.')
       setSaving(false)
     }

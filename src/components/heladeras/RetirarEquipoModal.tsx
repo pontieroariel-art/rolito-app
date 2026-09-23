@@ -3,6 +3,7 @@ import Modal from '../ui/Modal'
 import Button from '../ui/Button'
 import SignaturePad, { SignaturePadHandle } from './SignaturePad'
 import { retirarHeladera, Actor } from '../../services/asignacionHeladeraService'
+import { reportError } from '../../services/observability'
 import { getUserDocument } from '../../services/userService'
 import { generateRemitoComodato } from '../../utils/pdf'
 import { useVisorComprobante } from '@/components/ui/VisorComprobante'
@@ -54,6 +55,7 @@ export default function RetirarEquipoModal({
       abrir({ blob, nombre: `remito-comodato-${asignacion.numero}.pdf`, titulo: `Remito de retiro Nº ${asignacion.numero}`, subtitulo: `${asignacion.clientName} · ${heladera.codigoInterno}`,
         envio: envioDeCliente(clientePrevio, { tipo: 'RETIRO', numero: String(asignacion.numero), titulo: `Remito de retiro Nº ${asignacion.numero}`, mensaje: `Te enviamos el remito del retiro de la heladera ${heladera.codigoInterno}.`, clienteNombre: asignacion.clientName }) })
     } catch (err) {
+      reportError(err, { origen: 'RetirarEquipoModal', accion: 'retirar heladera' })
       setError(err instanceof Error ? err.message : 'No se pudo retirar. Intentá de nuevo.')
     } finally {
       setSaving(false)

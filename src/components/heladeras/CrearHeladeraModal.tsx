@@ -6,6 +6,7 @@ import { useModelosHeladera } from '../../hooks/useModelosHeladera'
 import { useMotivosIngreso } from '../../hooks/useMotivosIngreso'
 import { usePasosTaller } from '../../hooks/usePasosTaller'
 import { CodigoHeladeraDuplicadoError, slugModelo } from '../../services/heladeraService'
+import { reportError } from '../../services/observability'
 import { primerPasoActivo } from '../../utils/heladeraPipeline'
 import { TIPO_OPERACION_LABELS, TIPO_PIPELINE_LABELS } from '../../utils/heladeraLabels'
 import { TipoOperacionIngreso, TipoPipelineHeladera } from '../../types'
@@ -96,6 +97,7 @@ export default function CrearHeladeraModal({
       })
       onClose()
     } catch (err) {
+      reportError(err, { origen: 'CrearHeladeraModal', accion: 'crear heladera' })
       setError(err instanceof CodigoHeladeraDuplicadoError ? err.message : 'No se pudo cargar la heladera. Intentá de nuevo.')
     } finally {
       setSaving(false)

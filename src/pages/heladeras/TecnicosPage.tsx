@@ -39,6 +39,7 @@ function CrearTecnicoModal({ onClose, onCreated }: { onClose: () => void; onCrea
       onCreated()
       onClose()
     } catch (err) {
+      reportError(err, { origen: 'TecnicosPage', accion: 'crear técnico' })
       setError(err instanceof Error ? err.message : 'No se pudo crear el técnico. Intentá de nuevo.')
     } finally {
       setSaving(false)

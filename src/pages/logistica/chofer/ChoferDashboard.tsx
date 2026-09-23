@@ -169,6 +169,7 @@ export default function ChoferDashboard() {
       if (code === 'auth/invalid-credential' || code === 'auth/wrong-password') {
         setPinError('PIN actual incorrecto')
       } else {
+        reportError(err, { origen: 'ChoferDashboard', accion: 'cambiar PIN', code })
         setPinError('Error al cambiar el PIN. Intentá de nuevo.')
       }
     } finally {

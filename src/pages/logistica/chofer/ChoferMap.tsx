@@ -298,7 +298,8 @@ export default function ChoferMap() {
       })
       if (requestId !== routeRequestIdRef.current) return // respuesta obsoleta, se pidió otro cálculo después
       setDirections(result)
-    } catch {
+    } catch (err) {
+      reportError(err, { origen: 'ChoferMap', accion: 'calcular ruta' })
       if (requestId !== routeRequestIdRef.current) return
       setRouteError('No se pudo calcular la ruta. Verificá que las direcciones sean correctas.')
     } finally {

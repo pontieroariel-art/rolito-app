@@ -10,6 +10,7 @@ import { useGoogleMapsLoader } from '@/hooks/useGoogleMapsLoader'
 import { useCatalogo } from '@/hooks/useCatalogo'
 import { preciosClienteTango } from '@/utils/precioTango'
 import { auth } from '@/services/firebase'
+import { reportError } from '@/services/observability'
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
@@ -62,6 +63,7 @@ export default function ClientProfile() {
       } else if (code === 'auth/too-many-requests') {
         setPassError('Demasiados intentos fallidos. Esperá unos minutos.')
       } else {
+        reportError(err, { origen: 'ClientProfile', accion: 'cambiar contraseña', code })
         setPassError('No se pudo cambiar la contraseña. Intentá de nuevo.')
       }
     } finally {

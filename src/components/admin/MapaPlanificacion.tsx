@@ -516,6 +516,7 @@ export default function MapaPlanificacion({ orders, choferes, allClients, weekDa
         })
         setRouteUnassigned((prev) => ({ ...prev, [driverEmail]: [] }))
       } catch (fallbackErr) {
+        reportError(fallbackErr, { origen: 'MapaPlanificacion', accion: 'calcular ruta (ORS y Google fallaron)', driverEmail })
         console.warn('Fallback a Google Maps también falló:', fallbackErr)
       } finally {
         setRouteCalculating((prev) => ({ ...prev, [driverEmail]: false }))

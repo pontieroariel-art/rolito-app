@@ -308,7 +308,8 @@ export default function VentaCamion({ volverA = '/chofer' }: { volverA?: string 
       })
       reset()
       setResumenOpen(false)
-    } catch {
+    } catch (err) {
+      reportError(err, { origen: 'VentaCamion', accion: 'crearVentaCamion' })
       setError('No se pudo registrar la venta. Intentá de nuevo.')
       setResumenOpen(false)
     } finally {

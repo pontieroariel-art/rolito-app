@@ -4,8 +4,10 @@ import { useNavigate } from 'react-router-dom'
 import { Marker } from '@react-google-maps/api'
 import { ArrowLeft, Search, MapPin, Users, AlertCircle, CheckCircle, Loader2, X } from 'lucide-react'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
+import AvisoErrorCarga from '@/components/common/AvisoErrorCarga'
 import { useGoogleMapsLoader } from '@/hooks/useGoogleMapsLoader'
 import { getAllUsers, updateUserDocument, approveCoord, rejectCoord } from '@/services/userService'
+import { reportError } from '@/services/observability'
 import { UserProfile, DeliveryAddress } from '@/types'
 import MapaBase from '@/components/common/map/MapaBase'
 import { pinCliente } from '@/components/common/map/pines'
@@ -287,9 +289,13 @@ export default function ClientesMapPage() {
   const [geoProgress, setGeoProgress]       = useState({ done: 0, total: 0 })
   const [selectedKey, setSelectedKey]       = useState<string | null>(null)
   const geocodingRef = useRef(false)
+  const [errorCarga, setErrorCarga] = useState(false)
+  const [reintento, setReintento]   = useState(0)
 
   useEffect(() => {
     let cancelled = false
+    setLoading(true)
+    setErrorCarga(false)
     getAllUsers().then((all) => {
       if (cancelled) return
       const clientes = all.filter((u) => u.rol === 'cliente')
@@ -322,9 +328,14 @@ export default function ClientesMapPage() {
       }
       setGeoResults(new Map(initial))
       setLoading(false)
+    }).catch((err) => {
+      if (cancelled) return
+      reportError(err, { origen: 'ClientesMapPage', accion: 'cargar clientes' })
+      setErrorCarga(true)
+      setLoading(false)
     })
     return () => { cancelled = true }
-  }, [])
+  }, [reintento])
 
   const sectors = useMemo(() => {
     const set = new Set<string>()
@@ -437,6 +448,17 @@ export default function ClientesMapPage() {
   const stopGeocoding = () => { geocodingRef.current = false }
 
   if (loading) return <LoadingSpinner fullScreen />
+  if (errorCarga) {
+    return (
+      <div className="min-h-dvh bg-[#F8F7F2] flex items-center justify-center p-6">
+        <AvisoErrorCarga
+          className="w-full max-w-md"
+          mensaje="No pudimos cargar los clientes. Revisá tu conexión."
+          onReintentar={() => setReintento((n) => n + 1)}
+        />
+      </div>
+    )
+  }
 
   const pct = geoProgress.total > 0 ? Math.round((geoProgress.done / geoProgress.total) * 100) : 0
 

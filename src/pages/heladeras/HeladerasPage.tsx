@@ -1,5 +1,6 @@
 import { useState, useMemo, FormEvent } from 'react'
 import { tieneAlgunRol } from '@/utils/roles'
+import { reportError } from '@/services/observability'
 import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
@@ -66,7 +67,8 @@ function SoltarModal({
       const tipos = opciones.filter((t) => seleccionados.includes(t.id)).map((t) => ({ tipoId: t.id, tipoNombre: t.nombre }))
       await onSave({ tipos, notas: notas.trim() || undefined })
       onClose()
-    } catch {
+    } catch (err) {
+      reportError(err, { origen: 'HeladerasPage', accion: 'guardar paso' })
       setError('No se pudo guardar. Intentá de nuevo.')
     } finally {
       setSaving(false)
@@ -124,14 +126,14 @@ function AprobacionModal({
       const tipos = opciones.filter((t) => seleccionados.includes(t.id)).map((t) => ({ tipoId: t.id, tipoNombre: t.nombre }))
       await onAprobar({ tipos, notas: notas.trim() || undefined })
       onClose()
-    } catch { setError('No se pudo aprobar. Intentá de nuevo.') } finally { setSaving(false) }
+    } catch (err) { reportError(err, { origen: 'HeladerasPage', accion: 'aprobar paso' }); setError('No se pudo aprobar. Intentá de nuevo.') } finally { setSaving(false) }
   }
 
   const handleRechazar = async (e: FormEvent) => {
     e.preventDefault()
     if (!motivo.trim()) { setError('Contá por qué se rechaza'); return }
     setSaving(true); setError('')
-    try { await onRechazar(motivo.trim()); onClose() } catch { setError('No se pudo rechazar. Intentá de nuevo.') } finally { setSaving(false) }
+    try { await onRechazar(motivo.trim()); onClose() } catch (err) { reportError(err, { origen: 'HeladerasPage', accion: 'rechazar paso' }); setError('No se pudo rechazar. Intentá de nuevo.') } finally { setSaving(false) }
   }
 
   return (
@@ -256,6 +258,7 @@ export default function HeladerasPage() {
     try {
       await fn()
     } catch (err) {
+      reportError(err, { origen: 'HeladerasPage', accion: 'acción sobre heladera' })
       setError(err instanceof HeladeraNoDisponibleError ? err.message : 'No se pudo completar la acción. Intentá de nuevo.')
     }
   }

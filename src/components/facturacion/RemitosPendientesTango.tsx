@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Ban, RefreshCw } from 'lucide-react'
 import { subscribeRemitosPendientesEnTango } from '@/services/ventaCamionService'
 import { verificarAnuladosEnTango } from '@/services/anuladosTangoService'
+import { reportError } from '@/services/observability'
 import { useComprobantesTango } from '@/hooks/useComprobantesTango'
 import { useAuth } from '@/context/AuthContext'
 import { claveDetalle, lecturaRemito } from '@/utils/estadoEnTango'
@@ -53,7 +54,8 @@ export default function RemitosPendientesTango() {
       setAviso(r.remitos.confirmados > 0
         ? `${r.remitos.confirmados} ${r.remitos.confirmados === 1 ? 'remito salió' : 'remitos salieron'} de la lista.`
         : 'Tango todavía no muestra ninguno de estos como anulado.')
-    } catch {
+    } catch (err) {
+      reportError(err, { origen: 'RemitosPendientesTango', accion: 'verificarAnuladosEnTango' })
       setAviso('No se pudo preguntarle a Tango. Probá de nuevo en un rato.')
     } finally {
       setVerificando(false)

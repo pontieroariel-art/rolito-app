@@ -5,6 +5,7 @@ import SignaturePad, { SignaturePadHandle } from './SignaturePad'
 import ClienteCombobox from '@/components/common/ClienteCombobox'
 import { getUserDocument } from '../../services/userService'
 import { asignarHeladera, Actor } from '../../services/asignacionHeladeraService'
+import { reportError } from '../../services/observability'
 import { generateContratoComodato, generateOrdenEntrega, nombreArchivoComodato } from '../../utils/pdf'
 import { useVisorComprobante } from '@/components/ui/VisorComprobante'
 import { envioDeCliente } from '@/utils/envioComprobante'
@@ -99,6 +100,7 @@ export default function AsignarEquipoModal({
           envio: envioDeCliente(clienteElegido, { tipo: 'ORDEN_ENTREGA', numero: String(asignacion.numero), titulo: `Orden de entrega Nº ${asignacion.numero}`, mensaje: 'Te enviamos la orden de entrega de la heladera.' }) }),
       })
     } catch (err) {
+      reportError(err, { origen: 'AsignarEquipoModal', accion: 'asignar heladera' })
       setError(err instanceof Error ? err.message : 'No se pudo asignar. Intentá de nuevo.')
     } finally {
       setSaving(false)

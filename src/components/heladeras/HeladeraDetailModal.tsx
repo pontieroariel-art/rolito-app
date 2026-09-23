@@ -10,6 +10,7 @@ import { useAuth } from '../../context/AuthContext'
 import { useModelosHeladera } from '../../hooks/useModelosHeladera'
 import { usePasosTaller } from '../../hooks/usePasosTaller'
 import { marcarBaja } from '../../services/heladeraService'
+import { reportError } from '../../services/observability'
 import { pasoActual } from '../../utils/heladeraPipeline'
 import { Heladera } from '../../types'
 import { tsToDate } from '../../utils/helpers'
@@ -60,7 +61,8 @@ export default function HeladeraDetailModal({ heladera, clienteCodigo, onClose }
       await marcarBaja(heladera.id, { uid: user.uid, nombre: user.nombre }, motivoBaja.trim())
       setBajaAbierta(false)
       onClose()
-    } catch {
+    } catch (err) {
+      reportError(err, { origen: 'HeladeraDetailModal', accion: 'dar de baja heladera', heladeraId: heladera.id })
       setError('No se pudo dar de baja. Intentá de nuevo.')
     } finally {
       setSaving(false)

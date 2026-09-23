@@ -57,6 +57,7 @@ export function CrearStaffModal({ onClose, onCreated }: { onClose: () => void; o
       } else if (err instanceof Error && err.message.includes('ya está en uso')) {
         setError(err.message)
       } else {
+        reportError(err, { origen: 'CrearStaffModal', accion: 'crear usuario de staff' })
         setError('Error al crear el usuario. Intentá de nuevo.')
       }
     } finally {

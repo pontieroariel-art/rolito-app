@@ -5,6 +5,7 @@ import Modal from '../ui/Modal'
 import Button from '../ui/Button'
 import MultiDatePicker from './MultiDatePicker'
 import { createOrderManual, findActiveOrdersSameDay, findActiveOrdersInRange } from '../../services/orderService'
+import { reportError } from '../../services/observability'
 import { useCatalogo } from '../../hooks/useCatalogo'
 import { useSucursales, SucursalItem } from '../../hooks/useSucursales'
 import { UserProfile, Order } from '../../types'
@@ -255,7 +256,8 @@ function StepProductos({
         }
         invalidateOrderQueries()
         onConfirm(total, fechas)
-      } catch {
+      } catch (err) {
+        reportError(err, { origen: 'PedidoManualModal', accion: 'crear pedidos en varias fechas', creados: ok, total })
         if (ok > 0) invalidateOrderQueries()
         setError(`Se crearon ${ok} de ${total} pedidos. Las fechas creadas ya se sacaron de la selección — reintentá para el resto.`)
         setLoading(false)
@@ -286,7 +288,8 @@ function StepProductos({
       })
       invalidateOrderQueries()
       onConfirm(1, [date])
-    } catch {
+    } catch (err) {
+      reportError(err, { origen: 'PedidoManualModal', accion: 'createOrderManual' })
       setError('Error al crear el pedido. Intentá de nuevo.')
       setLoading(false)
     }

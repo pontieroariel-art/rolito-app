@@ -3,6 +3,7 @@ import Modal from '../ui/Modal'
 import Button from '../ui/Button'
 import SignaturePad, { SignaturePadHandle } from './SignaturePad'
 import { renovarComodato, Actor } from '../../services/asignacionHeladeraService'
+import { reportError } from '../../services/observability'
 import { generateContratoComodato, nombreArchivoComodato } from '../../utils/pdf'
 import { compartirArchivo } from '../../utils/compartir'
 import { useVisorComprobante } from '@/components/ui/VisorComprobante'
@@ -65,6 +66,7 @@ export default function RenovarComodatoModal({
       }
       onClose(true)
     } catch (err) {
+      reportError(err, { origen: 'RenovarComodatoModal', accion: 'renovar comodato' })
       setError(err instanceof Error ? err.message : 'No se pudo renovar. Intentá de nuevo.')
     } finally {
       setSaving(false)

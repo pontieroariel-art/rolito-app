@@ -1,5 +1,6 @@
 ﻿import { useState, useEffect, useMemo } from 'react'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
+import AvisoErrorCarga from '@/components/common/AvisoErrorCarga'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import { LiveMap, driverColor, gpsAge } from '@/components/admin/LiveMap'
@@ -482,8 +483,8 @@ function DriverSideCard({
 // ── Página principal ───────────────────────────────────────────────────────────
 
 export default function MonitoreoPage() {
-  const { orders,   loading: loadO } = useAllOrders()
-  const { choferes, loading: loadC } = useChoferes()
+  const { orders,   loading: loadO, error: errorPedidos  } = useAllOrders()
+  const { choferes, loading: loadC, error: errorChoferes } = useChoferes()
   const [activeDrivers, setActiveDrivers]   = useState<ActiveDriver[]>([])
   const [selectedDriver, setSelectedDriver] = useState<string | null>(null)
   const [reprogramarOrder, setReprogramarOrder] = useState<Order | null>(null)
@@ -538,6 +539,12 @@ export default function MonitoreoPage() {
               {totalEntregados} entregados · {totalPendientes} pendientes · {activeDrivers.length} con GPS
             </p>
           </div>
+
+          {(errorPedidos || errorChoferes) && (
+            <div className="px-3 pt-3">
+              <AvisoErrorCarga mensaje={errorPedidos ? 'No pudimos cargar los pedidos. Revisá tu conexión.' : 'No pudimos cargar los choferes. Revisá tu conexión.'} />
+            </div>
+          )}
 
           <div className="px-4 py-2.5 border-b border-[#D3D1C7] flex gap-3 text-xs text-secundario flex-wrap">
             <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-[#4b5563]" />Pendiente</span>

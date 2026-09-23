@@ -10,6 +10,7 @@ import { useAuth } from '@/context/AuthContext'
 import { updateUserDocument } from '@/services/userService'
 import { logoutUser } from '@/services/authService'
 import { auth } from '@/services/firebase'
+import { reportError } from '@/services/observability'
 import { ROLE_LABELS } from '@/utils/roles'
 import { PLANTAS } from '@/types'
 
@@ -73,7 +74,8 @@ export default function PerfilStaffPage() {
       setUser({ ...user, telefono })
       setTelGuardado(true)
       setTimeout(() => setTelGuardado(false), 4000)
-    } catch {
+    } catch (err) {
+      reportError(err, { origen: 'PerfilStaffPage', accion: 'guardar teléfono' })
       setTelError('No se pudo guardar. Intentá de nuevo.')
     } finally {
       setTelSaving(false)
@@ -110,6 +112,7 @@ export default function PerfilStaffPage() {
       } else if (code === 'auth/weak-password') {
         setPassError('Esa contraseña es muy débil. Probá con una más larga.')
       } else {
+        reportError(err, { origen: 'PerfilStaffPage', accion: 'cambiar contraseña', code })
         setPassError('No se pudo cambiar la contraseña. Intentá de nuevo.')
       }
     } finally {

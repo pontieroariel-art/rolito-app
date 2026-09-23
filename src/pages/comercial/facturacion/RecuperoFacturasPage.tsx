@@ -172,6 +172,7 @@ export default function RecuperoFacturasPage() {
         if (percDetectada && !previo?.percCaba) item.avisos.push(`Percepción IIBB CABA precargada con ${money(percDetectada)} (lo que faltaba para llegar al total): revisala.`)
         nuevos.push(item)
       } catch (err) {
+        reportError(err, { origen: 'RecuperoFacturasPage', accion: 'leer PDF de factura', archivo: archivo.name })
         nuevos.push({
           id: `error-${archivo.name}-${nuevos.length}`,
           archivo: archivo.name,

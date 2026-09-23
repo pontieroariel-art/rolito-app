@@ -6,6 +6,7 @@ import LoadingSpinner from '@/components/ui/LoadingSpinner'
 import { useOperariosProduccion } from '@/hooks/useOperariosProduccion'
 import { createOperarioProduccionUser, updateUserStatus } from '@/services/userService'
 import { resetPinProduccion } from '@/services/produccionAuthService'
+import { reportError } from '@/services/observability'
 import { PLANTAS, PlantaId, UserProfile } from '@/types'
 
 function CrearOperarioModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
@@ -36,6 +37,7 @@ function CrearOperarioModal({ onClose, onCreated }: { onClose: () => void; onCre
       onCreated()
       onClose()
     } catch (err) {
+      reportError(err, { origen: 'OperariosProduccionPage', accion: 'crear operario' })
       setError(err instanceof Error ? err.message : 'No se pudo crear el operario. Intentá de nuevo.')
     } finally {
       setSaving(false)
@@ -108,6 +110,7 @@ function ResetPinModal({ operario, onClose }: { operario: UserProfile; onClose: 
     try {
       setPin(await resetPinProduccion(operario.uid))
     } catch (err) {
+      reportError(err, { origen: 'OperariosProduccionPage', accion: 'resetear PIN' })
       setError(err instanceof Error ? err.message : 'No se pudo resetear el PIN. Intentá de nuevo.')
     } finally {
       setResetting(false)

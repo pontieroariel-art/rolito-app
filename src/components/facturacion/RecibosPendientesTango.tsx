@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Receipt, RefreshCw } from 'lucide-react'
 import { subscribeRecibosPendientesEnTango } from '@/services/cobranzaService'
 import { verificarAnuladosEnTango } from '@/services/anuladosTangoService'
+import { reportError } from '@/services/observability'
 import { useComprobantesTango } from '@/hooks/useComprobantesTango'
 import { useAuth } from '@/context/AuthContext'
 import { claveDetalle, lecturaRecibo } from '@/utils/estadoEnTango'
@@ -50,7 +51,8 @@ export default function RecibosPendientesTango() {
       setAviso(r.recibos.confirmados > 0
         ? `${r.recibos.confirmados} ${r.recibos.confirmados === 1 ? 'recibo salió' : 'recibos salieron'} de la lista.`
         : 'Tango todavía no muestra ninguno de estos como anulado.')
-    } catch {
+    } catch (err) {
+      reportError(err, { origen: 'RecibosPendientesTango', accion: 'verificarAnuladosEnTango' })
       setAviso('No se pudo preguntarle a Tango. Probá de nuevo en un rato.')
     } finally {
       setVerificando(false)
