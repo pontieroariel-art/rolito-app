@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app'
-import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check'
+import { initializeAppCheck, CustomProvider, ReCaptchaV3Provider } from 'firebase/app-check'
 import { getAuth, initializeAuth, inMemoryPersistence, connectAuthEmulator } from 'firebase/auth'
 import {
   initializeFirestore, persistentLocalCache, persistentMultipleTabManager, memoryLocalCache,
@@ -109,17 +109,47 @@ if (import.meta.env.DEV) {
 // key no se inicializa nada — ningún cliente/build actual se ve afectado. No
 // se activa en dev/emulador (los tokens de App Check no aplican ahí).
 //
-// En una TELE no se inicializa (2026-09-21): en la Samsung real el diagnóstico
-// mostró que Firestore conecta en apps de Firebase sin App Check (long polling,
-// fetch streams, WebChannel: todas OK) y falla solo en la app principal, con
-// "client is offline" a los 10 s. El reCAPTCHA no resuelve en ese navegador y
-// Firestore se queda esperando el token de App Check que nunca llega. Está en
-// modo observación, así que sin token no se pierde nada; el día que se pase a
-// enforcement, la tele necesita un debug token o quedarse afuera.
+// En una TELE el reCAPTCHA no resuelve nunca (2026-09-21, Samsung real:
+// Firestore se quedaba esperando el token de App Check y caía en "client is
+// offline"). Con App Check en enforcement (2026-09-22) la tele necesita un
+// token igual, así que en modo tele el proveedor es propio: le pide el token
+// al servidor (callable tokenAppCheckTele) con la CLAVE de la tele, que llega
+// una sola vez por la URL (?claveTele=...) y queda en localStorage. Sin clave
+// no se inicializa App Check y la tele queda afuera hasta que se cargue.
 const recaptchaSiteKey = import.meta.env.VITE_RECAPTCHA_SITE_KEY
-if (recaptchaSiteKey && !import.meta.env.DEV && !ES_TELE) {
-  initializeAppCheck(app, {
-    provider: new ReCaptchaV3Provider(recaptchaSiteKey),
-    isTokenAutoRefreshEnabled: true,
+if (recaptchaSiteKey && !import.meta.env.DEV) {
+  const claveTele = ES_TELE ? claveDeLaTele() : null
+  if (!ES_TELE) {
+    initializeAppCheck(app, {
+      provider: new ReCaptchaV3Provider(recaptchaSiteKey),
+      isTokenAutoRefreshEnabled: true,
+    })
+  } else if (claveTele) {
+    initializeAppCheck(app, {
+      provider: new CustomProvider({ getToken: () => pedirTokenTele(claveTele) }),
+      isTokenAutoRefreshEnabled: true,
+    })
+  }
+}
+
+function claveDeLaTele(): string | null {
+  const deUrl = new URLSearchParams(window.location.search).get('claveTele')?.trim()
+  try {
+    if (deUrl) localStorage.setItem('claveTele', deUrl)
+    return deUrl || localStorage.getItem('claveTele')
+  } catch {
+    return deUrl || null
+  }
+}
+
+/** Por fetch y no por httpsCallable: corre antes de que exista cualquier otro servicio de Firebase. */
+async function pedirTokenTele(clave: string): Promise<{ token: string; expireTimeMillis: number }> {
+  const r = await fetch(`https://us-central1-${firebaseConfig.projectId}.cloudfunctions.net/tokenAppCheckTele`, {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify({ data: { clave, appId: firebaseConfig.appId } }),
   })
+  const json = (await r.json()) as { result?: { token: string; expireTimeMillis: number }; error?: { message?: string } }
+  if (!r.ok || !json.result) throw new Error(json.error?.message ?? `tokenAppCheckTele HTTP ${r.status}`)
+  return json.result
 }
