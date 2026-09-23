@@ -27,7 +27,10 @@ async function correr(origen, uid) {
     const resumen = await (0, precios_1.sincronizarPreciosTango)(db, tango, cfg);
     await db.doc('config/tango').set({
         preciosSync: { ultimaCorrida: firestore_1.FieldValue.serverTimestamp(), origen, uid: uid ?? null, duracionMs: Date.now() - inicio, resumen },
-    }, { merge: true });
+        // mergeFields y no merge: el mapa se REEMPLAZA entero. Con merge:true un `error` escrito por
+        // una corrida fallida sobrevivía a todas las corridas limpias siguientes (el "timeout" de saldos
+        // que se persiguió el 22 y 23/09 era un resto de días atrás, no un error vivo).
+    }, { mergeFields: ['preciosSync'] });
     v2_1.logger.info(`[tango] precios sincronizados (${origen}) en ${Date.now() - inicio}ms: ${JSON.stringify(resumen)}`);
     return resumen;
 }

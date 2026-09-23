@@ -7,8 +7,7 @@
     "messagingSenderId": "889590488530",
     "appId": "1:889590488530:web:b19695e1945f9e0922fc0b"
   },
-  "tangoBridgeEmail": "tango-bridge@rolito.internal",
-  "tangoBridgePassword": "PASSWORD_AQUI",
+  "serviceAccount": "rolito-bridge.json",
   "sql": {
     "server": "RHIELOTG",
     "port": 1433,

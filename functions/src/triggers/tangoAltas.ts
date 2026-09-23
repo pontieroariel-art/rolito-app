@@ -151,7 +151,10 @@ async function correrAltas(origen: string, uid?: string): Promise<ResumenAltas> 
   const resumen = await procesarAltasTango(db, { crear })
   await db.doc('config/tango').set({
     altasSync: { ultimaCorrida: FieldValue.serverTimestamp(), origen, uid: uid ?? null, duracionMs: Date.now() - inicio, resumen },
-  }, { merge: true })
+    // mergeFields y no merge: el mapa se REEMPLAZA entero. Con merge:true un `error` escrito por
+    // una corrida fallida sobrevivía a todas las corridas limpias siguientes (el "timeout" de saldos
+    // que se persiguió el 22 y 23/09 era un resto de días atrás, no un error vivo).
+  }, { mergeFields: ['altasSync'] })
   logger.info(`[tango] altas (${origen}, crear=${crear}) en ${Date.now() - inicio}ms: ${JSON.stringify({ ...resumen, detalleErrores: resumen.detalleErrores.length })}`)
   return resumen
 }

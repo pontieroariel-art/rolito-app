@@ -35,11 +35,11 @@ import { readFileSync, appendFileSync } from 'fs'
 import { fileURLToPath } from 'url'
 import path from 'path'
 import { createRequire } from 'module'
-import { initializeApp } from 'firebase/app'
-import { getAuth, signInWithEmailAndPassword } from 'firebase/auth'
+// Firestore con el Admin SDK y la cuenta de servicio rolito-bridge (2026-09-23,
+// App Check en enforcement: el SDK de navegador ya no puede entrar desde Node).
 import {
-  getFirestore, collection, query, where, onSnapshot, getDocs, getDoc, doc, updateDoc, serverTimestamp,
-} from 'firebase/firestore'
+  abrirFirestore, collection, query, where, onSnapshot, getDocs, getDoc, doc, updateDoc, serverTimestamp,
+} from './firestore-admin.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const require = createRequire(import.meta.url)
@@ -494,19 +494,17 @@ function programarComprobantes(db) {
 }
 
 async function main() {
-  const app = initializeApp(cfg.firebaseConfig)
-  const auth = getAuth(app)
-  const db = getFirestore(app)
+  const { db, cuenta } = abrirFirestore(cfg, __dirname)
   if (PROBAR_SQL) {
-    // Con sesión, además chequea los tipos fijos de la fase B contra config/tango; sin ella, solo SQL.
+    // Además chequea los tipos fijos de la fase B contra config/tango; si Firestore no responde, solo SQL.
     let tcfgProbar = null
-    try { await signInWithEmailAndPassword(auth, cfg.tangoBridgeEmail, cfg.tangoBridgePassword); tcfgProbar = await configTango(db) }
+    try { tcfgProbar = await configTango(db) }
     catch (e) { log(`  (sin config/tango para chequear los tipos de la fase B: ${e.message})`) }
     return probarSql(tcfgProbar)
   }
-  log(`Iniciando sesión como bridge (${DRY_RUN ? 'DRY-RUN: nada queda en Tango ni en la cola' : 'modo real'}${SOLO ? `, solo ${[...SOLO].join(', ')}` : ''})...`)
-  await signInWithEmailAndPassword(auth, cfg.tangoBridgeEmail, cfg.tangoBridgePassword)
-  log(`Sesión OK. SQL Server ${cfg.sql.server}, bases ${JSON.stringify(cfg.sql.bases)}.`)
+  log(`Abriendo Firestore como ${cuenta} (${DRY_RUN ? 'DRY-RUN: nada queda en Tango ni en la cola' : 'modo real'}${SOLO ? `, solo ${[...SOLO].join(', ')}` : ''})...`)
+  await configTango(db) // primera lectura: si la cuenta de servicio no sirve, falla acá y no a mitad de un comprobante
+  log(`Firestore OK. SQL Server ${cfg.sql.server}, bases ${JSON.stringify(cfg.sql.bases)}.`)
 
   await barrido(db)
   if (UNA_VEZ || DRY_RUN || SOLO) { log('Listo (una sola pasada).'); for (const p of pools.values()) await p.close(); process.exit(0) }

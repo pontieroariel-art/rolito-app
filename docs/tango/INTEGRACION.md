@@ -2083,3 +2083,33 @@ bonificación = Σ(cantidad × precio) − Σ importe, percepciones = `otros` + 
 `usaFormatoTango(detalle.fecha)` (`FORMATO_TANGO_DESDE = '2026-08-20'`). Los tres llamadores (ficha del
 supervisor, Comprobantes de clientes y el envío en bloque) pasan `fechaVencimiento`. Smoke visual:
 `FAC_SMOKE_OUT=<dir> npx vitest run src/utils/facturaArcaPdf.smoke.test.ts`.
+
+## 37. El bridge entra a Firestore con una cuenta de servicio (Admin SDK) para poder aplicar App Check (2026-09-23)
+
+**Por qué.** Al mirar la métrica de App Check antes de pasar Cloud Firestore a enforcement, el 5 % de
+solicitudes "de clientes desactualizados" era constante (unas 10 por minuto) y no bajaba con la tele ya
+con su token: era `bridge-sql.mjs` en la VM, que entraba con el SDK de navegador (`firebase/app` +
+`firebase/auth` + `firebase/firestore`) y el usuario `tango-bridge@rolito.internal`. Ese SDK corriendo
+en Node no puede conseguir un token de App Check (no hay reCAPTCHA), así que con enforcement el bridge
+quedaba afuera y con él remitos, recibos, transferencias, comprobantes y consultas de saldo.
+
+**Qué se hizo.** `scripts/tango/firestore-admin.mjs` abre Firestore con el **Admin SDK** y la cuenta de
+servicio `rolito-bridge` (rol único "Usuario de Cloud Datastore": lee y escribe Firestore, nada de
+Auth, Storage ni IAM), y expone la misma forma de llamada que usaban los scripts (`doc`, `collection`,
+`query`, `where`, `getDoc`, `getDocs`, `updateDoc`, `onSnapshot`, `writeBatch`, `serverTimestamp`,
+`deleteField`), así `bridge-sql.mjs` y `comprobantes-sync.mjs` cambiaron solo el import y el arranque
+(`abrirFirestore(cfg, __dirname)` en vez de `signInWithEmailAndPassword`). El Admin SDK no pasa por App
+Check ni por las reglas: las cláusulas de `tangoBridge` en `firestore.rules` quedan para el usuario
+viejo, que se puede desactivar cuando el bridge nuevo lleve unos días. OJO si se agrega código: en el
+Admin SDK `snap.exists` es propiedad, no método.
+
+**Config de la VM** (`bridge-sql.config.json`): `"serviceAccount": "rolito-bridge.json"` (ruta relativa a
+la carpeta del config). `tangoBridgeEmail` / `tangoBridgePassword` ya no se leen. Hace falta
+`npm install firebase-admin@14` en `C:\RolitoSync\sql` (Node 20+). Paquete con el paso a paso:
+Escritorio `RolitoSync-admin-sdk/LEEME-VM.txt` (crear la cuenta y su clave JSON en la consola de GCP,
+copiar los tres archivos y la clave, instalar, probar con `--dry-run --once`, reiniciar).
+
+**Orden de puesta en marcha.** Cloud **Storage** ya está en enforcement (aplicado el 23/09 ~10:50,
+verificado por REST: sin token 401, con token 200). Cloud **Firestore** se aplica recién cuando el
+bridge nuevo esté corriendo y el gráfico de la última hora dé 0 % no verificadas. Pendiente:
+`bridge-sync-comprobantes.mjs` (corrida manual del lector) sigue con el usuario viejo.

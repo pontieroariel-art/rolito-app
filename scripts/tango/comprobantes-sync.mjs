@@ -30,7 +30,7 @@ import { readFileSync, writeFileSync, existsSync } from 'fs'
 import { fileURLToPath } from 'url'
 import path from 'path'
 import { createRequire } from 'module'
-import { doc, writeBatch, serverTimestamp, deleteField } from 'firebase/firestore'
+import { doc, writeBatch, serverTimestamp, deleteField } from './firestore-admin.mjs'
 import {
   MESES_HISTORIAL, aPodar, actualizarCache, diferencias, iso, mapearFacturas, mapearRemitos, relacionDeFilas,
   restarDias, restarMeses, seccionesIndice,

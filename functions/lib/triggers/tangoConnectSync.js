@@ -275,7 +275,10 @@ async function correrClientes(origen, uid) {
     const resumen = await sincronizarClientes(db, tango, cfg);
     await db.doc('config/tango').set({
         clientesSync: { ultimaCorrida: firestore_2.FieldValue.serverTimestamp(), origen, uid: uid ?? null, duracionMs: Date.now() - inicio, resumen },
-    }, { merge: true });
+        // mergeFields y no merge: el mapa se REEMPLAZA entero. Con merge:true un `error` escrito por
+        // una corrida fallida sobrevivía a todas las corridas limpias siguientes (el "timeout" de saldos
+        // que se persiguió el 22 y 23/09 era un resto de días atrás, no un error vivo).
+    }, { mergeFields: ['clientesSync'] });
     v2_1.logger.info(`[tango] clientes sincronizados (${origen}) en ${Date.now() - inicio}ms: ${JSON.stringify({ ...resumen, empresas: undefined, errores: resumen.errores.length, altas: resumen.altas && { ...resumen.altas, ejemplosDescartados: undefined }, bajas: resumen.bajas && { ...resumen.bajas, ejemplos: undefined } })}`);
     return resumen;
 }
@@ -494,7 +497,10 @@ async function correrSaldos(origen, uid) {
     const resumen = await sincronizarSaldos(db, tango, cfg);
     await db.doc('config/tango').set({
         saldosSync: { ultimaCorrida: firestore_2.FieldValue.serverTimestamp(), origen, uid: uid ?? null, duracionMs: Date.now() - inicio, resumen },
-    }, { merge: true });
+        // mergeFields y no merge: el mapa se REEMPLAZA entero. Con merge:true un `error` escrito por
+        // una corrida fallida sobrevivía a todas las corridas limpias siguientes (el "timeout" de saldos
+        // que se persiguió el 22 y 23/09 era un resto de días atrás, no un error vivo).
+    }, { mergeFields: ['saldosSync'] });
     v2_1.logger.info(`[tango] saldos sincronizados (${origen}) en ${Date.now() - inicio}ms: ${JSON.stringify(resumen)}`);
     return resumen;
 }
