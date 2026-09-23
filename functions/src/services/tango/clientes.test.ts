@@ -137,7 +137,17 @@ describe('upsertDireccionTango (direcciones por sucursal, 2026-09-10)', () => {
       ...existente(),
       domicilioTango: 'Ruta 8 km 40', localidadTango: 'Tortuguitas', provinciaTango: 'Buenos Aires', codigoPostalTango: '1667',
       razonSocialTango: 'SUCURSAL 2', nombreComercialTango: 'YPF RUTA 8',
+      // Mail y teléfono de ESTE código (2026-09-23, caso San Joaquín: un mail por estación).
+      emailTango: 'cliente@ejemplo.com', telefonoTango: '011 4444-5555',
     })
+  })
+
+  it('el mail de la sucursal viene de la ficha de ESE código; un E_MAIL que no es mail no se guarda', () => {
+    const conMail = upsertDireccionTango([existente()], fila({ codGva14: 'FC.901', email: ' Estacion@SanJoaquin.com.ar ' }), { principal: false, manda: true })
+    expect(conMail.addresses[0].emailTango).toBe('estacion@sanjoaquin.com.ar')
+    const sinMail = upsertDireccionTango([existente()], fila({ codGva14: 'FC.901', email: 'sin arroba', telefono1: '' }), { principal: false, manda: true })
+    expect(sinMail.addresses[0].emailTango).toBeUndefined()
+    expect(sinMail.addresses[0].telefonoTango).toBeUndefined()
   })
 
   it('es idempotente: la segunda pasada no marca cambio ni crea un array nuevo', () => {

@@ -58,14 +58,16 @@ async function envioHabilitado(): Promise<boolean> {
   return habilitadoCache.valor
 }
 
-function mailDelCliente(clienteId: string): Promise<string> {
-  let p = mailPorCliente.get(clienteId)
+// Por cliente Y sucursal (2026-09-23): San Joaquín tiene un mail por estación.
+function mailDelCliente(clienteId: string, codigoTango?: string | null): Promise<string> {
+  const clave = `${clienteId}|${codigoTango ?? ''}`
+  let p = mailPorCliente.get(clave)
   if (!p) {
-    p = getEmailClienteTango(clienteId).catch(() => '')
-    mailPorCliente.set(clienteId, p)
+    p = getEmailClienteTango(clienteId, codigoTango).catch(() => '')
+    mailPorCliente.set(clave, p)
     // Un fallo de red no se cachea: se vuelve a buscar en la próxima pasada.
     // (`p` ya tiene su catch, nunca rechaza.)
-    void p.then((e) => { if (!e) mailPorCliente.delete(clienteId) })
+    void p.then((e) => { if (!e) mailPorCliente.delete(clave) })
   }
   return p
 }
@@ -96,7 +98,7 @@ export async function procesarEnviosAutomaticos(ventas: VentaCamion[], opts: { o
     if (enviando.has(venta.id)) continue
     enviando.add(venta.id)
     try {
-      const para = (await mailDelCliente(venta.clienteId)).trim().toLowerCase()
+      const para = (await mailDelCliente(venta.clienteId, venta.clienteCodigoTango)).trim().toLowerCase()
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(para)) { guardarLocal(venta.id, { estado: 'sin_mail' }); continue }
       const g = await generarComprobanteVenta(venta, undefined, cai)
       if (!g.ok) { guardarLocal(venta.id, { estado: 'error', intentos: MAX_INTENTOS, motivo: g.motivo }); continue }

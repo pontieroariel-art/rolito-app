@@ -9,6 +9,7 @@ import type { ArmadoInterno, RemitoData } from './comprobanteInterno'
 import { codigoComprobanteInterno } from './numeracionInterna'
 import { EMISOR_REDONHIELO, EMISOR_ROLITO } from './emisores'
 import { empresaDe, type GrupoRecibo, mismoGrupo } from './composicionSaldos'
+import type { DeliveryAddress } from '@/types'
 import { EMPRESAS_TANGO, NOMBRE_EMPRESA_CORTO, tangoIdsDe } from './tangoEmpresas'
 import { nombreSucursal } from './sucursalesTango'
 
@@ -414,11 +415,29 @@ const DOMINIOS_INTERNOS = ['rolito.app', 'rolito.internal', 'staff.rolito.intern
  * sucursal elegida, después cualquiera) y, si Tango no lo tiene, el de la app
  * siempre que sea un mail real y no el de login.
  */
-export function emailDelCliente(cliente: Pick<UserProfile, 'email'> | null | undefined, indices: TangoComprobantesDoc[], grupo?: GrupoRecibo | null): string {
+export function emailDelCliente(
+  cliente: Pick<UserProfile, 'email'> & { addresses?: Pick<DeliveryAddress, 'id' | 'emailTango'>[] } | null | undefined,
+  indices: TangoComprobantesDoc[],
+  grupo?: GrupoRecibo | null,
+  /**
+   * Código de Tango de la sucursal cuando no se sabe la empresa (la venta del
+   * camión guarda `clienteCodigoTango`, 2026-09-23: San Joaquín tiene un mail
+   * por estación y todo iba al de la casa central).
+   */
+  codigo?: string | null,
+): string {
   const valido = (e: string | undefined) => !!e && EMAIL_RE.test(e) && !DOMINIOS_INTERNOS.some((d) => e.toLowerCase().endsWith(`@${d}`))
-  const ordenados = grupo ? [...indices].sort((a, b) => (mismoGrupo(a, grupo) ? -1 : 0) - (mismoGrupo(b, grupo) ? -1 : 0)) : indices
-  for (const i of ordenados) if (valido(i.email)) return i.email!.trim().toLowerCase()
-  return valido(cliente?.email) ? cliente!.email.trim().toLowerCase() : ''
+  const limpio = (e: string) => e.trim().toLowerCase()
+  const cod = grupo?.codigo ?? codigo ?? null
+  const deLaSucursal = (i: TangoComprobantesDoc) => (grupo ? mismoGrupo(i, grupo) : !!cod && i.codigo === cod)
+  // 1. El índice de comprobantes de ESA sucursal (mail de la ficha de Tango del código).
+  if (cod) for (const i of indices) if (deLaSucursal(i) && valido(i.email)) return limpio(i.email!)
+  // 2. El mail que la sync de clientes dejó en la dirección de esa sucursal.
+  if (cod) { const a = cliente?.addresses?.find((x) => x.id === cod); if (valido(a?.emailTango)) return limpio(a!.emailTango!) }
+  // 3. Cualquier índice del cliente (la casa central, normalmente) y, si Tango no
+  //    tiene nada, el de la app siempre que sea un mail real y no el de login.
+  for (const i of indices) if (valido(i.email)) return limpio(i.email!)
+  return valido(cliente?.email) ? limpio(cliente!.email) : ''
 }
 
 /**

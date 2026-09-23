@@ -17,7 +17,7 @@ export default function MenuComprobanteVenta({ venta, cai, compacto = false }: {
   // puede cambiar el destinatario. El server anota el envío en la venta.
   const mail: DatosMail = {
     para: '',
-    resolverPara: venta.clienteId ? () => getEmailClienteTango(venta.clienteId) : undefined,
+    resolverPara: venta.clienteId ? () => getEmailClienteTango(venta.clienteId, venta.clienteCodigoTango) : undefined,
     asunto: m.asunto, mensaje: m.mensaje, comprobante: m.comprobante,
     clienteUid: m.clienteUid, clienteNombre: m.clienteNombre, presentacion: m.presentacion,
     venta: { coleccion: 'ventasCamion', id: venta.id },

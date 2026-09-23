@@ -103,11 +103,17 @@ const pareceEmail = (e) => !!e && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e.trim());
 function direccionDe(f) {
     return [f.domicilio, f.localidad, f.provinciaDesc].map((x) => (x ?? '').trim()).filter(Boolean).join(', ');
 }
-const CLAVES_TANGO = ['domicilioTango', 'localidadTango', 'provinciaTango', 'codigoPostalTango', 'razonSocialTango', 'nombreComercialTango'];
+const CLAVES_TANGO = ['domicilioTango', 'localidadTango', 'provinciaTango', 'codigoPostalTango', 'razonSocialTango', 'nombreComercialTango', 'emailTango', 'telefonoTango'];
 /** Solo los campos de Tango no vacíos de la fila, con trim. */
 function camposTangoDeFila(f) {
     const t = (v) => (v ?? '').trim();
     const out = {};
+    // Mail y teléfono POR SUCURSAL (2026-09-23): San Joaquín tiene un mail por
+    // estación en Tango y la app solo guardaba el de la casa central.
+    if (pareceEmail(f.email))
+        out.emailTango = t(f.email).toLowerCase();
+    if (telefonoDe(f))
+        out.telefonoTango = telefonoDe(f);
     if (t(f.domicilio))
         out.domicilioTango = t(f.domicilio);
     if (t(f.localidad))

@@ -28,7 +28,9 @@ export default function SeccionContacto({ c }: { c: UserProfile }) {
   const principal = c.telefono || c.phone
   const saludo = `Hola, soy de Rolito. Le escribo por su cuenta de ${c.razonSocial}.`
   const sucursales = (c.addresses ?? []).filter((a) => a.contactoTelefono && a.contactoTelefono !== principal)
-  const vacio = !principal && !c.email && sucursales.length === 0
+  const mailPrincipal = (c.email ?? '').trim().toLowerCase()
+  const mailsSucursales = (c.addresses ?? []).filter((a) => a.emailTango && a.emailTango !== mailPrincipal)
+  const vacio = !principal && !c.email && sucursales.length === 0 && mailsSucursales.length === 0
   return (
     <Plegable titulo="Contacto" abiertoInicial>
       {vacio && <p className="text-sm text-secundario">Sin teléfono ni mail cargados.</p>}
@@ -49,6 +51,12 @@ export default function SeccionContacto({ c }: { c: UserProfile }) {
           <Mail size={15} /> {c.email}
         </a>
       )}
+      {/* Mail propio de cada sucursal, de la ficha de Tango (2026-09-23): a ese va el comprobante de una venta a esa sucursal. */}
+      {mailsSucursales.map((a) => (
+        <a key={a.id} href={`mailto:${a.emailTango}`} className="mt-2 flex items-center gap-2 text-sm text-accent">
+          <Mail size={15} /> <span className="min-w-0 truncate">{a.emailTango}</span><span className="text-secundario shrink-0 text-xs">· {a.nombreComercialTango || a.nombre || a.id}</span>
+        </a>
+      ))}
     </Plegable>
   )
 }

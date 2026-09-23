@@ -42,7 +42,12 @@ export async function getRemitoTangoDetalle(empresa: EmpresaTango, numero: strin
  * tiene, el de la app salvo que sea el de login. Para pantallas que no tienen
  * la ficha cargada (Mis ventas del chofer): se resuelve al elegir "Mail".
  */
-export async function getEmailClienteTango(clienteUid: string): Promise<string> {
+/**
+ * Mail al que se le manda un comprobante. Con `codigoTango` (la sucursal de la
+ * venta) prefiere el mail de ESA sucursal: San Joaquín tiene uno por estación
+ * y hasta el 2026-09-23 todo iba al de la casa central.
+ */
+export async function getEmailClienteTango(clienteUid: string, codigoTango?: string | null): Promise<string> {
   const { getUserDocument } = await import('./userService')
   const { tangoIdsDe } = await import('@/utils/tangoEmpresas')
   const { emailDelCliente } = await import('@/utils/comprobantesTango')
@@ -56,5 +61,5 @@ export async function getEmailClienteTango(clienteUid: string): Promise<string> 
       if (snap?.exists()) indices.push({ id: snap.id, facturas: {}, remitos: {}, ...snap.data() } as TangoComprobantesDoc)
     }
   }
-  return emailDelCliente(perfil, indices)
+  return emailDelCliente(perfil, indices, null, codigoTango ?? null)
 }

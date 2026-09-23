@@ -160,15 +160,22 @@ export interface DireccionDoc {
   codigoPostalTango?:    string
   razonSocialTango?:     string
   nombreComercialTango?: string
+  /** E_MAIL y teléfono de la ficha de Tango de ESTE código (2026-09-23). */
+  emailTango?:           string
+  telefonoTango?:        string
 }
 
-export type CamposTangoDireccion = Pick<DireccionDoc, 'domicilioTango' | 'localidadTango' | 'provinciaTango' | 'codigoPostalTango' | 'razonSocialTango' | 'nombreComercialTango'>
-const CLAVES_TANGO: (keyof CamposTangoDireccion)[] = ['domicilioTango', 'localidadTango', 'provinciaTango', 'codigoPostalTango', 'razonSocialTango', 'nombreComercialTango']
+export type CamposTangoDireccion = Pick<DireccionDoc, 'domicilioTango' | 'localidadTango' | 'provinciaTango' | 'codigoPostalTango' | 'razonSocialTango' | 'nombreComercialTango' | 'emailTango' | 'telefonoTango'>
+const CLAVES_TANGO: (keyof CamposTangoDireccion)[] = ['domicilioTango', 'localidadTango', 'provinciaTango', 'codigoPostalTango', 'razonSocialTango', 'nombreComercialTango', 'emailTango', 'telefonoTango']
 
 /** Solo los campos de Tango no vacíos de la fila, con trim. */
 export function camposTangoDeFila(f: FilaClienteTango): CamposTangoDireccion {
   const t = (v?: string) => (v ?? '').trim()
   const out: CamposTangoDireccion = {}
+  // Mail y teléfono POR SUCURSAL (2026-09-23): San Joaquín tiene un mail por
+  // estación en Tango y la app solo guardaba el de la casa central.
+  if (pareceEmail(f.email)) out.emailTango = t(f.email).toLowerCase()
+  if (telefonoDe(f)) out.telefonoTango = telefonoDe(f)
   if (t(f.domicilio)) out.domicilioTango = t(f.domicilio)
   if (t(f.localidad)) out.localidadTango = t(f.localidad)
   if (t(f.provinciaDesc)) out.provinciaTango = t(f.provinciaDesc)

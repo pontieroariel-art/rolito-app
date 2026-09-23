@@ -1780,6 +1780,14 @@ export interface DeliveryAddress {
   razonSocialTango?:     string
   /** NOM_COM de Tango: el nombre propio de la sucursal ("YPF RUTA 8 KM 40"). */
   nombreComercialTango?: string
+  /**
+   * E_MAIL y teléfono de la ficha de Tango de ESTE código (2026-09-23): San
+   * Joaquín tiene un mail por estación y todo iba al de la casa central. Los
+   * comprobantes de una venta a la sucursal van a `emailTango` de esa entrada
+   * (utils/comprobantesTango.emailDelCliente).
+   */
+  emailTango?:           string
+  telefonoTango?:        string
 }
 
 export interface UserProfile {
