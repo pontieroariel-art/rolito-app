@@ -40,6 +40,13 @@ jobs:
       - name: Lint (functions)
         run: npm run lint:functions
 
+      # functions/lib está commiteado y el deploy no compila (ver CLAUDE.md):
+      # si src cambió y lib no, el próximo deploy subiría JS viejo.
+      - name: functions/lib al día con functions/src
+        run: |
+          npm --prefix functions run build
+          git diff --exit-code --stat -- functions/lib || (echo "functions/lib no coincide con functions/src: corré npm --prefix functions run build y commiteá lib/" && exit 1)
+
   rules-tests:
     runs-on: ubuntu-latest
     steps:
