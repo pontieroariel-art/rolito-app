@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { createElement, useState } from 'react'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { LogOut, Menu, X, ArrowLeftRight } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
@@ -9,6 +9,7 @@ import { UserRole } from '../../types'
 import { SISTEMA_LABELS } from '../../utils/sistemas'
 import { ROLE_LABELS, ROLES } from '../../utils/roles'
 import { linksNavbarDe, linkDe } from '@/rutas/catalogo'
+import { iconoDe } from '@/rutas/iconos'
 
 type NavLinkItem = ReturnType<typeof linksNavbarDe>[number]
 
@@ -96,7 +97,7 @@ export default function Navbar() {
             >
               {({ isActive }) => (
                 <>
-                  <l.icon size={22} strokeWidth={isActive ? 2.2 : 1.75} />
+                  {createElement(iconoDe(l.icon), { size: 22, strokeWidth: isActive ? 2.2 : 1.75 })}
                   <span className="text-[11px] font-semibold leading-none whitespace-nowrap">{l.label}</span>
                 </>
               )}
@@ -179,7 +180,7 @@ export default function Navbar() {
               >
                 {({ isActive }) => (
                   <>
-                    <l.icon size={24} strokeWidth={isActive ? 2.2 : 1.75} />
+                    {createElement(iconoDe(l.icon), { size: 24, strokeWidth: isActive ? 2.2 : 1.75 })}
                     <span className="text-[11px] font-semibold leading-none">{l.label}</span>
                   </>
                 )}
@@ -239,7 +240,7 @@ export default function Navbar() {
           >
             {({ isActive }) => (
               <>
-                <l.icon size={20} strokeWidth={isActive ? 2.2 : 1.75} />
+                {createElement(iconoDe(l.icon), { size: 20, strokeWidth: isActive ? 2.2 : 1.75 })}
                 <span>{l.label}</span>
               </>
             )}

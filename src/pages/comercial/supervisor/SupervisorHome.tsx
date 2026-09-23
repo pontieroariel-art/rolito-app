@@ -11,6 +11,7 @@ import { subscribeCobranzasChoferEnRango } from '@/services/cobranzaService'
 import { formatoARS } from '@/utils/money'
 import { SISTEMA_LABELS, sistemasDeUsuario } from '@/utils/sistemas'
 import { pantallasVisiblesDe } from '@/rutas/catalogo'
+import { iconoDe } from '@/rutas/iconos'
 import { Cobranza } from '@/types'
 import { resumenPorMedio } from '@/pages/comercial/supervisor/resumenCobranzas'
 
@@ -90,7 +91,7 @@ export default function SupervisorHome() {
             Liquidaciones), ya recortadas por el super_admin: mismas tarjetas que el
             resto, en la misma lista (2026-09-15, Ariel no quiso una sección aparte). */}
         {accesosOficina.map((a) => {
-          const Icono = a.icon
+          const Icono = iconoDe(a.icon)
           return (
             <Tarjeta key={a.to} to={RUTA_EN_APP[a.to] ?? a.to} icono={<Icono size={22} className="text-accent" />}
               titulo={a.label} bajada={BAJADA_OFICINA[a.to] ?? `${SISTEMA_LABELS[a.sistema]} · pantalla de la oficina`} />

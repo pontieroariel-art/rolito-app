@@ -1,10 +1,4 @@
-import type { LucideIcon } from 'lucide-react'
-import {
-  Activity, AlertTriangle, Ban, BarChart2, CalendarDays, ClipboardList, Cloud, DollarSign, Factory, FileText, Files,
-  Gauge, HandCoins, History, Home, Inbox, Landmark, LayoutDashboard, Layers, Map as MapIcon, Navigation, Package, Plus, Scale, Search,
-  Settings, ShieldCheck, ShoppingCart, Snowflake, Tag, Timer, TrendingUp, Truck, Tv, UserCheck, UserCircle, UserCog,
-  Users, Wallet, Warehouse, Wrench,
-} from 'lucide-react'
+import type { NombreIcono } from './iconos'
 import type { Sistema, UserProfile, UserRole } from '@/types'
 import { STAFF_ROLES, tieneAlgunRol } from '@/utils/roles'
 
@@ -55,7 +49,7 @@ export interface RutaConfig {
   path: string
   /** Nombre canónico de la pantalla, el mismo en todos los menús. */
   label: string
-  icon?: LucideIcon
+  icon?: NombreIcono
   dominio: Dominio
   /** Roles autorizados: lo que exige <ProtectedRoute>. Vacío = pública. */
   roles: UserRole[]
@@ -120,115 +114,115 @@ export const CATALOGO: RutaConfig[] = [
 
   // ── Portal del cliente ────────────────────────────────────────────────────
   R('/sucursal',       'Elegir sucursal', 'portal', ['cliente'], { deepLink: true }),
-  R('/dashboard',      'Inicio',          'portal', ['cliente'], { icon: Home }),
-  R('/nuevo-pedido',   'Nuevo pedido',    'portal', ['cliente'], { icon: Plus }),
-  R('/historial',      'Historial',       'portal', ['cliente'], { icon: History }),
-  R('/mis-heladeras',  'Mis heladeras',   'portal', ['cliente'], { icon: Snowflake }),
-  R('/perfil',         'Mi perfil',       'portal', ['cliente'], { icon: UserCircle }),
+  R('/dashboard',      'Inicio',          'portal', ['cliente'], { icon: 'Home' }),
+  R('/nuevo-pedido',   'Nuevo pedido',    'portal', ['cliente'], { icon: 'Plus' }),
+  R('/historial',      'Historial',       'portal', ['cliente'], { icon: 'History' }),
+  R('/mis-heladeras',  'Mis heladeras',   'portal', ['cliente'], { icon: 'Snowflake' }),
+  R('/perfil',         'Mi perfil',       'portal', ['cliente'], { icon: 'UserCircle' }),
 
   // ── Logística: despacho y rutas ───────────────────────────────────────────
-  R('/logistica/resumen',        'Resumen',          'logistica', LOGISTICA_OPERATIVA, { icon: LayoutDashboard, menuGroup: 'despacho' }),
-  R('/logistica',                'Planificación',    'logistica', LOGISTICA_OPERATIVA, { icon: CalendarDays, menuGroup: 'despacho' }),
+  R('/logistica/resumen',        'Resumen',          'logistica', LOGISTICA_OPERATIVA, { icon: 'LayoutDashboard', menuGroup: 'despacho' }),
+  R('/logistica',                'Planificación',    'logistica', LOGISTICA_OPERATIVA, { icon: 'CalendarDays', menuGroup: 'despacho' }),
   R('/admin/planificacion',      'Planificación (alias viejo)', 'logistica', LOGISTICA_OPERATIVA, { deepLink: true }),
-  R('/admin/monitoreo',          'Monitoreo',        'logistica', ['super_admin', 'logistica', 'gerente_general', 'gerente_comercial'], { icon: Activity, menuGroup: 'despacho' }),
-  R('/admin/historial-despacho', 'Hist. despacho',   'logistica', LOGISTICA_OPERATIVA, { icon: History, menuGroup: 'despacho' }),
-  R('/comercial/mapa',           'Reparto en vivo',  'logistica', ['super_admin', 'comercial', 'logistica'], { icon: Navigation, menuGroup: 'despacho' }),
+  R('/admin/monitoreo',          'Monitoreo',        'logistica', ['super_admin', 'logistica', 'gerente_general', 'gerente_comercial'], { icon: 'Activity', menuGroup: 'despacho' }),
+  R('/admin/historial-despacho', 'Hist. despacho',   'logistica', LOGISTICA_OPERATIVA, { icon: 'History', menuGroup: 'despacho' }),
+  R('/comercial/mapa',           'Reparto en vivo',  'logistica', ['super_admin', 'comercial', 'logistica'], { icon: 'Navigation', menuGroup: 'despacho' }),
   // ── Logística: operaciones y flota ────────────────────────────────────────
-  R('/admin/flota',              'Flota',            'logistica', ['super_admin', 'logistica'], { icon: Truck, menuGroup: 'flota' }),
-  R('/admin/incidencias',        'Incidencias',      'logistica', ['super_admin', 'logistica'], { icon: AlertTriangle, menuGroup: 'flota' }),
-  R('/movimientos',              'Movimientos',      'comercial', ['super_admin', 'gerente_general', 'gerente_comercial', 'logistica', 'comercial', 'facturacion'], { icon: BarChart2, menuGroup: 'facturacion' }),
-  R('/admin/clima',              'Clima',            'logistica', ['super_admin', 'logistica', 'gerente_comercial', 'comercial'], { icon: Cloud, menuGroup: 'flota' }),
+  R('/admin/flota',              'Flota',            'logistica', ['super_admin', 'logistica'], { icon: 'Truck', menuGroup: 'flota' }),
+  R('/admin/incidencias',        'Incidencias',      'logistica', ['super_admin', 'logistica'], { icon: 'AlertTriangle', menuGroup: 'flota' }),
+  R('/movimientos',              'Movimientos',      'comercial', ['super_admin', 'gerente_general', 'gerente_comercial', 'logistica', 'comercial', 'facturacion'], { icon: 'BarChart2', menuGroup: 'facturacion' }),
+  R('/admin/clima',              'Clima',            'logistica', ['super_admin', 'logistica', 'gerente_comercial', 'comercial'], { icon: 'Cloud', menuGroup: 'flota' }),
 
   // ── Logística: planta y expedición (caja / muelle / seguridad) ────────────
   R('/caja',                         'Caja',                 'tesoreria', CAJA, { deepLink: true }),
-  R('/caja/remitos',                 'Remitos de carga',     'logistica', CAJA, { icon: ClipboardList, menuGroup: 'expedicion' }),
-  R('/caja/ventanilla',              'Ventanilla',           'tesoreria', CAJA, { icon: ShoppingCart, menuGroup: 'caja', externa: true }),
-  R('/caja/cobranzas',               'Cobranzas',            'tesoreria', CAJA, { icon: HandCoins, menuGroup: 'caja' }),
-  R('/caja/liquidaciones',           'Liquidaciones',        'tesoreria', CAJA, { icon: Scale, menuGroup: 'caja', externa: true }),
-  R('/caja/rendiciones',             'Mi turno',             'tesoreria', CAJA, { icon: Wallet, menuGroup: 'caja' }),
-  R('/caja/buzon',                   'Buzón de sobres',      'tesoreria', CAJA, { icon: Inbox, menuGroup: 'caja' }),
-  R('/caja/entregas',                'Entrega a tesorería',  'tesoreria', CAJA, { icon: Landmark, menuGroup: 'caja' }),
-  R('/caja/liquidaciones/historial', 'Historial',            'tesoreria', CAJA_HISTORIAL, { icon: History, menuGroup: 'caja' }),
+  R('/caja/remitos',                 'Remitos de carga',     'logistica', CAJA, { icon: 'ClipboardList', menuGroup: 'expedicion' }),
+  R('/caja/ventanilla',              'Ventanilla',           'tesoreria', CAJA, { icon: 'ShoppingCart', menuGroup: 'caja', externa: true }),
+  R('/caja/cobranzas',               'Cobranzas',            'tesoreria', CAJA, { icon: 'HandCoins', menuGroup: 'caja' }),
+  R('/caja/liquidaciones',           'Liquidaciones',        'tesoreria', CAJA, { icon: 'Scale', menuGroup: 'caja', externa: true }),
+  R('/caja/rendiciones',             'Mi turno',             'tesoreria', CAJA, { icon: 'Wallet', menuGroup: 'caja' }),
+  R('/caja/buzon',                   'Buzón de sobres',      'tesoreria', CAJA, { icon: 'Inbox', menuGroup: 'caja' }),
+  R('/caja/entregas',                'Entrega a tesorería',  'tesoreria', CAJA, { icon: 'Landmark', menuGroup: 'caja' }),
+  R('/caja/liquidaciones/historial', 'Historial',            'tesoreria', CAJA_HISTORIAL, { icon: 'History', menuGroup: 'caja' }),
   // Camiones y cobradores sin liquidar de cualquier fecha (2026-09-16, pedido de la oficina).
-  R('/caja/liquidaciones/abiertas',  'Liquidaciones abiertas', 'tesoreria', CAJA_HISTORIAL, { icon: ClipboardList, menuGroup: 'caja' }),
+  R('/caja/liquidaciones/abiertas',  'Liquidaciones abiertas', 'tesoreria', CAJA_HISTORIAL, { icon: 'ClipboardList', menuGroup: 'caja' }),
   R('/caja/rendiciones/historial',   'Historial de cierres', 'tesoreria', CAJA_HISTORIAL, { deepLink: true }),
-  R('/muelle',                       'Muelle',               'logistica', ['muelle', 'super_admin'], { icon: Warehouse, menuGroup: 'expedicion', rolesMenu: ['muelle'] }),
-  R('/muelle/tv',                    'Muelle · pantalla',    'logistica', ['muelle', 'super_admin'], { icon: Tv }),
+  R('/muelle',                       'Muelle',               'logistica', ['muelle', 'super_admin'], { icon: 'Warehouse', menuGroup: 'expedicion', rolesMenu: ['muelle'] }),
+  R('/muelle/tv',                    'Muelle · pantalla',    'logistica', ['muelle', 'super_admin'], { icon: 'Tv' }),
   // MAQUETA DESCARTABLE del TV del muelle (2026-09-13): pública, con datos
   // inventados, para verla en el televisor real. Se borra al aprobar el diseño.
   R('/mockup-muelle-tv',             'Maqueta del TV de muelle', 'logistica', [], { deepLink: true }),
   R('/diagnostico-tele',             'Diagnóstico de la tele',   'logistica', [], { deepLink: true }),
-  R('/seguridad',                    'Seguridad (salidas)',  'logistica', ['seguridad', 'super_admin'], { icon: Truck, menuGroup: 'expedicion', rolesMenu: ['seguridad'] }),
+  R('/seguridad',                    'Seguridad (salidas)',  'logistica', ['seguridad', 'super_admin'], { icon: 'Truck', menuGroup: 'expedicion', rolesMenu: ['seguridad'] }),
   // Reporte de gestión (2026-09-13): mide al muelle, a los choferes y a la
   // ventanilla, así que lo ven los mismos que Monitoreo — nunca los medidos.
-  R('/logistica/tiempos-muelle',     'Tiempos del muelle',   'logistica', ['super_admin', 'logistica', 'gerente_general', 'gerente_comercial'], { icon: Timer, menuGroup: 'expedicion' }),
+  R('/logistica/tiempos-muelle',     'Tiempos del muelle',   'logistica', ['super_admin', 'logistica', 'gerente_general', 'gerente_comercial'], { icon: 'Timer', menuGroup: 'expedicion' }),
 
   // ── Logística: producción de hielo ────────────────────────────────────────
-  R('/produccion',                  'Cargar producción',  'produccion', ['produccion_hielo'], { icon: Package }),
-  R('/produccion/resumen',          'Resumen',            'produccion', PRODUCCION_ENCARGADO, { icon: LayoutDashboard, menuGroup: 'produccion' }),
-  R('/produccion/listado',          'Listado',            'produccion', ['gerente_general', 'gerente_comercial', 'comercial', 'logistica', 'produccion_encargado', 'super_admin'], { icon: ClipboardList, menuGroup: 'produccion' }),
-  R('/produccion/partes',           'Partes de máquinas', 'produccion', PRODUCCION_ENCARGADO, { icon: Gauge, menuGroup: 'produccion' }),
-  R('/produccion/operarios',        'Operarios',          'produccion', PRODUCCION_ENCARGADO, { icon: Users, menuGroup: 'configuracion' }),
-  R('/produccion/plantas',          'Plantas',            'produccion', PRODUCCION_ENCARGADO, { icon: Factory, menuGroup: 'configuracion' }),
+  R('/produccion',                  'Cargar producción',  'produccion', ['produccion_hielo'], { icon: 'Package' }),
+  R('/produccion/resumen',          'Resumen',            'produccion', PRODUCCION_ENCARGADO, { icon: 'LayoutDashboard', menuGroup: 'produccion' }),
+  R('/produccion/listado',          'Listado',            'produccion', ['gerente_general', 'gerente_comercial', 'comercial', 'logistica', 'produccion_encargado', 'super_admin'], { icon: 'ClipboardList', menuGroup: 'produccion' }),
+  R('/produccion/partes',           'Partes de máquinas', 'produccion', PRODUCCION_ENCARGADO, { icon: 'Gauge', menuGroup: 'produccion' }),
+  R('/produccion/operarios',        'Operarios',          'produccion', PRODUCCION_ENCARGADO, { icon: 'Users', menuGroup: 'configuracion' }),
+  R('/produccion/plantas',          'Plantas',            'produccion', PRODUCCION_ENCARGADO, { icon: 'Factory', menuGroup: 'configuracion' }),
   R('/produccion/ticket/:palletId', 'Ticket de pallet',   'produccion', PALLET, { deepLink: true, externa: true }),
   R('/produccion/ficha/:palletId',  'Ficha de pallet',    'produccion', PALLET, { deepLink: true, externa: true }),
 
   // ── Logística: tesorería ──────────────────────────────────────────────────
-  R('/tesoreria/ventas',                  'Ventas en vivo',     'tesoreria', VENTAS_LIVE, { icon: ShoppingCart, menuGroup: 'tesoreria' }),
-  R('/tesoreria',                         'Tesorería en vivo',  'tesoreria', TESORERIA, { icon: Activity, menuGroup: 'tesoreria' }),
-  R('/tesoreria/liquidaciones',           'Liquidaciones',      'tesoreria', LIQUIDACIONES_LECTURA, { icon: Scale, menuGroup: 'tesoreria' }),
-  R('/tesoreria/recepcion',               'Recepción',          'tesoreria', TESORERIA, { icon: ShieldCheck, menuGroup: 'tesoreria' }),
+  R('/tesoreria/ventas',                  'Ventas en vivo',     'tesoreria', VENTAS_LIVE, { icon: 'ShoppingCart', menuGroup: 'tesoreria' }),
+  R('/tesoreria',                         'Tesorería en vivo',  'tesoreria', TESORERIA, { icon: 'Activity', menuGroup: 'tesoreria' }),
+  R('/tesoreria/liquidaciones',           'Liquidaciones',      'tesoreria', LIQUIDACIONES_LECTURA, { icon: 'Scale', menuGroup: 'tesoreria' }),
+  R('/tesoreria/recepcion',               'Recepción',          'tesoreria', TESORERIA, { icon: 'ShieldCheck', menuGroup: 'tesoreria' }),
   // Alias viejo (validación de cierres, circuito anterior): redirige a Recepción.
   R('/tesoreria/rendiciones',             'Rendiciones',        'tesoreria', TESORERIA, { deepLink: true }),
-  R('/tesoreria/entregas',                'Entregas de caja',   'tesoreria', TESORERIA, { icon: Landmark, menuGroup: 'tesoreria' }),
-  R('/tesoreria/anulaciones',             'Anulaciones y faltantes', 'tesoreria', TESORERIA, { icon: Ban, menuGroup: 'tesoreria' }),
-  R('/tesoreria/rendiciones/historial',   'Historial',          'tesoreria', TESORERIA, { icon: History, menuGroup: 'tesoreria' }),
+  R('/tesoreria/entregas',                'Entregas de caja',   'tesoreria', TESORERIA, { icon: 'Landmark', menuGroup: 'tesoreria' }),
+  R('/tesoreria/anulaciones',             'Anulaciones y faltantes', 'tesoreria', TESORERIA, { icon: 'Ban', menuGroup: 'tesoreria' }),
+  R('/tesoreria/rendiciones/historial',   'Historial',          'tesoreria', TESORERIA, { icon: 'History', menuGroup: 'tesoreria' }),
   R('/tesoreria/liquidaciones/historial', 'Historial de liquidaciones', 'tesoreria', LIQUIDACIONES_LECTURA, { deepLink: true }),
-  R('/tesoreria/liquidaciones/abiertas',  'Liquidaciones abiertas',     'tesoreria', LIQUIDACIONES_LECTURA, { icon: ClipboardList, menuGroup: 'tesoreria' }),
+  R('/tesoreria/liquidaciones/abiertas',  'Liquidaciones abiertas',     'tesoreria', LIQUIDACIONES_LECTURA, { icon: 'ClipboardList', menuGroup: 'tesoreria' }),
 
   // ── Chofer (calle) ────────────────────────────────────────────────────────
-  R('/chofer',                   'Inicio',          'logistica', ['chofer'], { icon: Home }),
-  R('/chofer/venta',             'Vender',          'logistica', ['chofer'], { icon: Package }),
-  R('/chofer/ventas',            'Facturas',        'logistica', ['chofer'], { icon: FileText, externa: true }),
-  R('/chofer/map',               'Ruta',            'logistica', ['chofer'], { icon: Navigation }),
+  R('/chofer',                   'Inicio',          'logistica', ['chofer'], { icon: 'Home' }),
+  R('/chofer/venta',             'Vender',          'logistica', ['chofer'], { icon: 'Package' }),
+  R('/chofer/ventas',            'Facturas',        'logistica', ['chofer'], { icon: 'FileText', externa: true }),
+  R('/chofer/map',               'Ruta',            'logistica', ['chofer'], { icon: 'Navigation' }),
   R('/chofer/cobrar',            'Cobrar',          'logistica', ['chofer'], { deepLink: true }),
   R('/chofer/entregar/:orderId', 'Entregar pedido', 'logistica', ['chofer'], { deepLink: true }),
 
   // ── Heladeras y taller ────────────────────────────────────────────────────
-  R('/heladeras',                  'Heladeras',             'heladeras', ['super_admin', 'heladeras', 'heladeras_encargado', 'gerente_comercial', 'comercial'], { icon: Snowflake }),
-  R('/heladeras/taller',           'Tablero de taller',     'heladeras', ['super_admin', 'heladeras', 'heladeras_encargado', 'gerente_comercial'], { icon: Snowflake, menuGroup: 'taller' }),
-  R('/heladeras/asignacion',       'Asignación de equipos', 'heladeras', ['super_admin', 'heladeras_encargado', 'gerente_comercial', 'comercial'], { icon: Truck, menuGroup: 'taller' }),
-  R('/heladeras/toma-service',     'Toma de service',       'heladeras', HELADERAS_SERVICE, { icon: Wrench, menuGroup: 'service' }),
-  R('/heladeras/consulta-service', 'Consulta de service',   'heladeras', HELADERAS_SERVICE, { icon: Search, menuGroup: 'service' }),
-  R('/heladeras/mapa',             'Mapa y preventivos',    'heladeras', HELADERAS_REPORTES, { icon: MapIcon, menuGroup: 'service' }),
-  R('/heladeras/equipos',          'Padrón de equipos',     'heladeras', HELADERAS_MAESTROS, { icon: Package, menuGroup: 'stock' }),
-  R('/heladeras/panol',            'Pañol de repuestos',    'heladeras', HELADERAS_MAESTROS, { icon: Package, menuGroup: 'stock' }),
-  R('/heladeras/informes',         'Informes y métricas',   'heladeras', HELADERAS_REPORTES, { icon: BarChart2, menuGroup: 'reportes' }),
-  R('/heladeras/ranking',          'Ranking de consumo',    'heladeras', ['super_admin', 'heladeras_encargado', 'gerente_comercial', 'comercial'], { icon: TrendingUp, menuGroup: 'reportes' }),
-  R('/heladeras/modelos',          'Modelos',               'heladeras', HELADERAS_MAESTROS, { icon: Layers, menuGroup: 'configuracion' }),
-  R('/heladeras/tecnicos',         'Técnicos',              'heladeras', HELADERAS_MAESTROS, { icon: Users, menuGroup: 'configuracion' }),
-  R('/heladeras/catalogos',        'Catálogos de service',  'heladeras', HELADERAS_MAESTROS, { icon: ClipboardList, menuGroup: 'configuracion' }),
+  R('/heladeras',                  'Heladeras',             'heladeras', ['super_admin', 'heladeras', 'heladeras_encargado', 'gerente_comercial', 'comercial'], { icon: 'Snowflake' }),
+  R('/heladeras/taller',           'Tablero de taller',     'heladeras', ['super_admin', 'heladeras', 'heladeras_encargado', 'gerente_comercial'], { icon: 'Snowflake', menuGroup: 'taller' }),
+  R('/heladeras/asignacion',       'Asignación de equipos', 'heladeras', ['super_admin', 'heladeras_encargado', 'gerente_comercial', 'comercial'], { icon: 'Truck', menuGroup: 'taller' }),
+  R('/heladeras/toma-service',     'Toma de service',       'heladeras', HELADERAS_SERVICE, { icon: 'Wrench', menuGroup: 'service' }),
+  R('/heladeras/consulta-service', 'Consulta de service',   'heladeras', HELADERAS_SERVICE, { icon: 'Search', menuGroup: 'service' }),
+  R('/heladeras/mapa',             'Mapa y preventivos',    'heladeras', HELADERAS_REPORTES, { icon: 'Map', menuGroup: 'service' }),
+  R('/heladeras/equipos',          'Padrón de equipos',     'heladeras', HELADERAS_MAESTROS, { icon: 'Package', menuGroup: 'stock' }),
+  R('/heladeras/panol',            'Pañol de repuestos',    'heladeras', HELADERAS_MAESTROS, { icon: 'Package', menuGroup: 'stock' }),
+  R('/heladeras/informes',         'Informes y métricas',   'heladeras', HELADERAS_REPORTES, { icon: 'BarChart2', menuGroup: 'reportes' }),
+  R('/heladeras/ranking',          'Ranking de consumo',    'heladeras', ['super_admin', 'heladeras_encargado', 'gerente_comercial', 'comercial'], { icon: 'TrendingUp', menuGroup: 'reportes' }),
+  R('/heladeras/modelos',          'Modelos',               'heladeras', HELADERAS_MAESTROS, { icon: 'Layers', menuGroup: 'configuracion' }),
+  R('/heladeras/tecnicos',         'Técnicos',              'heladeras', HELADERAS_MAESTROS, { icon: 'Users', menuGroup: 'configuracion' }),
+  R('/heladeras/catalogos',        'Catálogos de service',  'heladeras', HELADERAS_MAESTROS, { icon: 'ClipboardList', menuGroup: 'configuracion' }),
   R('/heladeras/ficha/:heladeraId',    'Ficha de heladera',    'heladeras', ['super_admin', 'heladeras', 'heladeras_encargado', 'gerente_comercial', 'comercial', 'tecnico', 'supervisor'], { deepLink: true, externa: true }),
   R('/heladeras/etiqueta/:heladeraId', 'Etiqueta de heladera', 'heladeras', HELADERAS_SERVICE, { deepLink: true }),
-  R('/tecnico',                    'Mis service',           'heladeras', ['tecnico'], { icon: Wrench }),
+  R('/tecnico',                    'Mis service',           'heladeras', ['tecnico'], { icon: 'Wrench' }),
 
   // ── Comercial ─────────────────────────────────────────────────────────────
-  R('/comercial',                 'Tablero comercial',        'comercial', ['super_admin', 'comercial'], { icon: LayoutDashboard, menuGroup: 'tablero' }),
+  R('/comercial',                 'Tablero comercial',        'comercial', ['super_admin', 'comercial'], { icon: 'LayoutDashboard', menuGroup: 'tablero' }),
   R('/comercial/pedidos',         'Pedidos',                  'comercial', ['super_admin', 'comercial'], { deepLink: true }),
-  R('/comercial/ventas',          'Ventas',                   'comercial', REPORTES, { icon: TrendingUp, menuGroup: 'tablero' }),
-  R('/usuarios',                  'Clientes',                 'comercial', OFICINA_CLIENTES, { icon: Users, menuGroup: 'clientes' }),
-  R('/admin/mapa-clientes',       'Mapa de clientes',         'comercial', OFICINA_CLIENTES, { icon: MapIcon, menuGroup: 'clientes' }),
-  R('/admin/visitas',             'Visitas',                  'comercial', ['super_admin', 'logistica'], { icon: ClipboardList, menuGroup: 'clientes' }),
-  R('/admin/precios',             'Precios',                  'comercial', ['super_admin', 'logistica', 'comercial', 'gerente_comercial'], { icon: Tag, menuGroup: 'precios' }),
-  R('/comercial/reporte-precios', 'Reporte de precios',       'comercial', REPORTES, { icon: DollarSign, menuGroup: 'precios' }),
-  R('/admin/comprobantes',        'Comprobantes de clientes', 'comercial', ['super_admin', 'facturacion', 'comercial', 'gerente_comercial'], { icon: Files, menuGroup: 'facturacion', externa: true }),
-  R('/admin/recupero-facturas',   'Recupero de facturas',     'comercial', ['super_admin', 'facturacion'], { icon: FileText, menuGroup: 'facturacion' }),
+  R('/comercial/ventas',          'Ventas',                   'comercial', REPORTES, { icon: 'TrendingUp', menuGroup: 'tablero' }),
+  R('/usuarios',                  'Clientes',                 'comercial', OFICINA_CLIENTES, { icon: 'Users', menuGroup: 'clientes' }),
+  R('/admin/mapa-clientes',       'Mapa de clientes',         'comercial', OFICINA_CLIENTES, { icon: 'Map', menuGroup: 'clientes' }),
+  R('/admin/visitas',             'Visitas',                  'comercial', ['super_admin', 'logistica'], { icon: 'ClipboardList', menuGroup: 'clientes' }),
+  R('/admin/precios',             'Precios',                  'comercial', ['super_admin', 'logistica', 'comercial', 'gerente_comercial'], { icon: 'Tag', menuGroup: 'precios' }),
+  R('/comercial/reporte-precios', 'Reporte de precios',       'comercial', REPORTES, { icon: 'DollarSign', menuGroup: 'precios' }),
+  R('/admin/comprobantes',        'Comprobantes de clientes', 'comercial', ['super_admin', 'facturacion', 'comercial', 'gerente_comercial'], { icon: 'Files', menuGroup: 'facturacion', externa: true }),
+  R('/admin/recupero-facturas',   'Recupero de facturas',     'comercial', ['super_admin', 'facturacion'], { icon: 'FileText', menuGroup: 'facturacion' }),
   R('/anulaciones',               'Anulaciones y faltantes',  'comercial',
     ['super_admin', 'gerente_general', 'gerente_comercial', 'logistica', 'comercial', 'facturacion', 'tesoreria', 'supervisor', 'heladeras_encargado', 'produccion_encargado'],
-    { icon: Ban, menuGroup: 'facturacion', externa: true }),
+    { icon: 'Ban', menuGroup: 'facturacion', externa: true }),
 
   // ── Comercial: supervisor de cobranzas (calle) ────────────────────────────
-  R('/supervisor',              'Inicio',            'comercial', SUPERVISOR, { icon: Home, menuGroup: 'supervisores' }),
+  R('/supervisor',              'Inicio',            'comercial', SUPERVISOR, { icon: 'Home', menuGroup: 'supervisores' }),
   R('/supervisor/clientes',     'Clientes',          'comercial', SUPERVISOR, { deepLink: true }),
   // Alias de la pantalla vieja de búsqueda, fusionada en Clientes el 2026-09-13.
   R('/supervisor/buscar',       'Buscar cliente',    'comercial', SUPERVISOR, { deepLink: true }),
@@ -245,16 +239,16 @@ export const CATALOGO: RutaConfig[] = [
   R('/supervisor/liquidaciones/historial', 'Historial de cierres', 'comercial', ['tesoreria', 'super_admin'], { deepLink: true }),
 
   // ── Administración y gerencia ─────────────────────────────────────────────
-  R('/admin',           'Panel de control',    'administracion', ['super_admin'], { icon: LayoutDashboard, menuGroup: 'sistema' }),
-  R('/admin/usuarios',  'Usuarios & Roles',    'administracion', ['super_admin'], { icon: UserCog, menuGroup: 'sistema' }),
-  R('/admin/general',   'Ajustes generales',   'administracion', ['super_admin'], { icon: Settings, menuGroup: 'sistema' }),
-  R('/gerente',         'Panel de directores', 'administracion', ['gerente_general', 'super_admin'], { icon: LayoutDashboard, menuGroup: 'gerencia' }),
+  R('/admin',           'Panel de control',    'administracion', ['super_admin'], { icon: 'LayoutDashboard', menuGroup: 'sistema' }),
+  R('/admin/usuarios',  'Usuarios & Roles',    'administracion', ['super_admin'], { icon: 'UserCog', menuGroup: 'sistema' }),
+  R('/admin/general',   'Ajustes generales',   'administracion', ['super_admin'], { icon: 'Settings', menuGroup: 'sistema' }),
+  R('/gerente',         'Panel de directores', 'administracion', ['gerente_general', 'super_admin'], { icon: 'LayoutDashboard', menuGroup: 'gerencia' }),
 ]
 
 // ── Menús ───────────────────────────────────────────────────────────────────
 
 /** Un ítem de menú: el path, o el path con un nombre distinto al canónico (solo para entradas a otra pantalla, como "Supervisores"). */
-export type EntradaMenu = string | { path: string; label: string; icon?: LucideIcon }
+export type EntradaMenu = string | { path: string; label: string; icon?: NombreIcono }
 
 export interface GrupoSidebar { id: MenuGroup; label: string; entradas: EntradaMenu[] }
 
@@ -294,7 +288,7 @@ export const SIDEBARS: Record<Sistema, GrupoSidebar[]> = {
     { id: 'precios',      label: 'Precios',      entradas: ['/admin/precios', '/comercial/reporte-precios'] },
     // /anulaciones: DominioLayout la esconde a quien no tiene el permiso individual `autorizaAnulaciones` (salvo super_admin).
     { id: 'facturacion',  label: 'Facturación',  entradas: ['/movimientos', '/admin/comprobantes', '/admin/recupero-facturas', '/anulaciones'] },
-    { id: 'supervisores', label: 'Supervisores', entradas: [{ path: '/supervisor', label: 'Supervisores (calle)', icon: UserCheck }] },
+    { id: 'supervisores', label: 'Supervisores', entradas: [{ path: '/supervisor', label: 'Supervisores (calle)', icon: 'UserCheck' }] },
   ],
   heladeras: [
     { id: 'taller',        label: 'Taller',            entradas: ['/heladeras/taller', '/heladeras/asignacion'] },
@@ -357,7 +351,7 @@ export const PANEL: Array<{ id: string; titulo: string; entradas: EntradaMenu[] 
   { id: 'facturacion', titulo: 'Facturación',            entradas: ['/movimientos', '/admin/comprobantes', '/admin/recupero-facturas', '/anulaciones'] },
   { id: 'logistica',   titulo: 'Logística',              entradas: ['/logistica', '/admin/historial-despacho', '/admin/monitoreo', '/admin/visitas', '/admin/incidencias', '/admin/clima', '/admin/flota', '/admin/precios'] },
   { id: 'comercial',   titulo: 'Comercial',              entradas: ['/comercial', '/comercial/mapa', '/comercial/reporte-precios', '/comercial/ventas'] },
-  { id: 'expedicion',  titulo: 'Expedición y tesorería', entradas: ['/caja/remitos', '/caja/ventanilla', '/caja/liquidaciones', '/muelle', '/muelle/tv', '/logistica/tiempos-muelle', '/seguridad', '/tesoreria', '/tesoreria/recepcion', '/tesoreria/entregas', { path: '/supervisor', label: 'Supervisor (calle)', icon: UserCheck }] },
+  { id: 'expedicion',  titulo: 'Expedición y tesorería', entradas: ['/caja/remitos', '/caja/ventanilla', '/caja/liquidaciones', '/muelle', '/muelle/tv', '/logistica/tiempos-muelle', '/seguridad', '/tesoreria', '/tesoreria/recepcion', '/tesoreria/entregas', { path: '/supervisor', label: 'Supervisor (calle)', icon: 'UserCheck' }] },
   { id: 'heladeras',   titulo: 'Heladeras',              entradas: ['/heladeras', '/heladeras/taller', '/heladeras/asignacion', '/heladeras/ranking', '/heladeras/consulta-service', '/heladeras/toma-service', '/heladeras/informes', '/heladeras/mapa', '/heladeras/modelos', '/heladeras/catalogos', '/heladeras/tecnicos', '/heladeras/equipos', '/heladeras/panol'] },
   { id: 'produccion',  titulo: 'Producción',             entradas: ['/produccion/resumen', '/produccion/listado', '/produccion/operarios', '/produccion/plantas'] },
 ]
@@ -375,7 +369,7 @@ export function rutaDe(path: string): RutaConfig {
 /** `allowedRoles` del <ProtectedRoute> de esa ruta (en App.tsx). */
 export const rolesDe = (path: string): UserRole[] => rutaDe(path).roles
 
-export interface ItemMenu { to: string; label: string; icon: LucideIcon; roles: UserRole[] }
+export interface ItemMenu { to: string; label: string; icon: NombreIcono; roles: UserRole[] }
 export interface GrupoMenu { id: string; label: string; items: ItemMenu[] }
 
 export const pathDe = (e: EntradaMenu) => (typeof e === 'string' ? e : e.path)

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { createElement, useMemo, useState } from 'react'
 import { deleteField } from 'firebase/firestore'
 import { Check, ChevronDown, ChevronRight, Info, Minus, Monitor } from 'lucide-react'
 import Button from '../../../components/ui/Button'
@@ -8,6 +8,7 @@ import { Sistema, UserProfile } from '../../../types'
 import { ROLE_HOME, SISTEMA_LABELS, techoSistemasDe } from '../../../utils/sistemas'
 import { ROLE_LABELS, tieneRol } from '../../../utils/roles'
 import { gruposVisibles, type GrupoMenu, type ItemMenu } from '@/rutas/catalogo'
+import { iconoDe } from '@/rutas/iconos'
 
 /**
  * RECORTE DEL MENÚ POR USUARIO (2026-09-12, rediseño).
@@ -234,7 +235,7 @@ export function PermisosUsuarioModal({
                                   } disabled:cursor-not-allowed`}
                                 >
                                   <Caja marcada={!oculta} />
-                                  <item.icon size={14} className="shrink-0" />
+                                  {createElement(iconoDe(item.icon), { size: 14, className: 'shrink-0' })}
                                   <span className="truncate">{item.label}</span>
                                 </button>
                               )
@@ -275,7 +276,7 @@ export function PermisosUsuarioModal({
                         <p className="text-[10px] uppercase tracking-wide text-secundario font-semibold px-1.5 mb-0.5">{g.label}</p>
                         {g.items.map((i) => (
                           <p key={i.to} className="flex items-center gap-2 px-1.5 py-1 text-xs text-gray-700">
-                            <i.icon size={14} className="text-secundario shrink-0" /> <span className="truncate">{i.label}</span>
+                            {createElement(iconoDe(i.icon), { size: 14, className: 'text-secundario shrink-0' })} <span className="truncate">{i.label}</span>
                           </p>
                         ))}
                       </div>

@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useMemo, useState } from 'react'
+import { createElement, ReactNode, useEffect, useMemo, useState } from 'react'
 import { Link, NavLink, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { ChevronsLeft, ChevronsRight, LogOut, Menu, Search, UserCog, X } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
@@ -9,6 +9,7 @@ import { esDispositivoCobranza } from '@/services/expedicionDeviceService'
 import { ROLE_LABELS, tieneAlgunRol, tieneRol } from '@/utils/roles'
 import { SISTEMA_LABELS, homeDeSistema } from '@/utils/sistemas'
 import { gruposDe, sistemaDeRuta, estaEnSidebar, pantallaVisible } from '@/rutas/catalogo'
+import { iconoDe } from '@/rutas/iconos'
 import { PLANTAS, Sistema } from '@/types'
 import ClimaWidget from './ClimaWidget'
 import BuscadorRapido, { ItemBuscable } from './BuscadorRapido'
@@ -86,7 +87,7 @@ export default function DominioLayout({ children }: { children?: ReactNode }) {
       for (const g of gruposDe(s)) for (const i of g.items) {
         if (vistos.has(i.to) || !user || !tieneAlgunRol(user, i.roles) || !visible(i.to)) continue
         vistos.add(i.to)
-        out.push({ to: i.to, label: i.label, icon: i.icon, grupo: g.label, sistema: s })
+        out.push({ to: i.to, label: i.label, icon: iconoDe(i.icon), grupo: g.label, sistema: s })
       }
     }
     return out
@@ -213,7 +214,7 @@ export default function DominioLayout({ children }: { children?: ReactNode }) {
               <div className="space-y-0.5">
                 {g.items.map((item) => (
                   <NavLink key={item.to} to={item.to} end onClick={() => setOpen(false)} className={({ isActive }) => `flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm ${isActive ? 'bg-accent/10 text-accent font-medium' : 'text-gray-600'}`}>
-                    <item.icon size={16} />
+                    {createElement(iconoDe(item.icon), { size: 16 })}
                     {item.label}
                   </NavLink>
                 ))}
@@ -250,7 +251,7 @@ export default function DominioLayout({ children }: { children?: ReactNode }) {
                     // El tooltip va siempre: con el sidebar abierto, un nombre
                     // largo como "Comprobantes de clientes" igual se corta.
                     <NavLink key={item.to} to={item.to} end className={linkClass} title={colapsado ? `${item.label} · ${g.label}` : item.label}>
-                      <item.icon size={16} className="shrink-0" />
+                      {createElement(iconoDe(item.icon), { size: 16, className: 'shrink-0' })}
                       {!colapsado && <span className="truncate">{item.label}</span>}
                     </NavLink>
                   ))}

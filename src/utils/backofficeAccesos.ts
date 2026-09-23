@@ -1,4 +1,5 @@
 import { accesosDelPanel } from '@/rutas/catalogo'
+import { iconoDe } from '@/rutas/iconos'
 
 // Accesos del panel de control del super_admin (`/admin`, 2026-09-10). Antes
 // eran 37 tarjetas con descripción (BackofficeHome); ahora van compactos y
@@ -19,5 +20,5 @@ export interface GrupoAccesos {
   accesos: Acceso[]
 }
 
-export const ACCESOS: GrupoAccesos[] = accesosDelPanel()
+export const ACCESOS: GrupoAccesos[] = accesosDelPanel().map((g) => ({ ...g, accesos: g.accesos.map((a) => ({ ...a, icon: iconoDe(a.icon) })) }))
 
