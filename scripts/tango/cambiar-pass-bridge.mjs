@@ -16,7 +16,7 @@ import { fileURLToPath } from 'url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const require = createRequire(import.meta.url)
-const admin = require('../../functions/node_modules/firebase-admin/lib/index.js')
+const admin = require('../lib/firebase-admin-compat.cjs')
 
 const email = process.argv[2] ?? 'tango-bridge@rolito.internal'
 

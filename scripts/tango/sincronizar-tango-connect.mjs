@@ -18,7 +18,7 @@ import { createRequire } from 'module'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const require = createRequire(import.meta.url)
-const admin   = require('../../functions/node_modules/firebase-admin/lib/index.js')
+const admin   = require('../lib/firebase-admin-compat.cjs')
 const { TangoClient, PROCESOS } = require('../../functions/lib/services/tango/client.js')
 const sync    = require('../../functions/lib/triggers/tangoConnectSync.js')
 

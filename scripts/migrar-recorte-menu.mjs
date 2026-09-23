@@ -29,7 +29,7 @@ import path from 'path'
 
 const require   = createRequire(import.meta.url)
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const admin     = require(path.join(__dirname, '..', 'functions', 'node_modules', 'firebase-admin'))
+const admin     = require('./lib/firebase-admin-compat.cjs')
 
 const sa = JSON.parse(readFileSync(path.join(__dirname, 'serviceAccount.json'), 'utf8'))
 admin.initializeApp({ credential: admin.credential.cert(sa) })

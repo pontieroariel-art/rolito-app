@@ -124,7 +124,7 @@ export const onAnulacionResuelta = onDocumentUpdated(
     // Antes de tocar ARCA, reflejar que ya no está pendiente (la venta no se
     // anula hasta tener el CAE de la NC).
     await db.doc(`${coleccion}/${ventaId}`).set({ anulacion: { estado: 'aprobada', solicitudId: ventaId } }, { merge: true })
-    let registro = null
+    let registro: Awaited<ReturnType<typeof emitirNotaCreditoDeAnulacion>>
     try {
       registro = await emitirNotaCreditoDeAnulacion(db, ventaId)
     } catch (e) {

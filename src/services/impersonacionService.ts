@@ -35,7 +35,7 @@ export async function abrirVistaComo(uid: string): Promise<VistaComoAbierta> {
     // que la function no está desplegada o falló (en local nunca lo está).
     const e = err as { code?: string; message?: string }
     if (e?.code === 'functions/internal' || e?.message === 'internal') {
-      throw new Error('No se pudo abrir la vista: la función del servidor no respondió (¿está desplegada?)')
+      throw new Error('No se pudo abrir la vista: la función del servidor no respondió (¿está desplegada?)', { cause: err })
     }
     throw err
   }

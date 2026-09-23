@@ -30,6 +30,7 @@ exports.WSFEV1_URL = {
 };
 const NS = 'http://ar.gov.afip.dif.FEV1/';
 class ArcaError extends Error {
+    errores;
     constructor(message, errores = []) {
         super(message);
         this.errores = errores;

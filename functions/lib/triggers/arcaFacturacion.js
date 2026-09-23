@@ -256,7 +256,7 @@ exports.reconciliarFacturasArca = (0, scheduler_1.onSchedule)({ schedule: '15 * 
                         await docSnap.ref.set({ motivo, actualizadoEn: firestore_2.FieldValue.serverTimestamp() }, { merge: true }).catch(() => { });
                         await db.doc(`anulacionesVentanilla/${ventaId}`).set({ ultimoError: motivo }, { merge: true }).catch(() => { });
                         const desde = f.actualizadoEn?.toDate?.();
-                        const horas = desde ? (ahora.getTime() - desde.getTime()) / 3600000 : 0;
+                        const horas = desde ? (ahora.getTime() - desde.getTime()) / 3_600_000 : 0;
                         if (venta && horas >= HORAS_PENDIENTE_ANTES_DE_AVISAR && !f.avisadoEn) {
                             trabadas.push({ ventaId: docSnap.id, estado: 'pendiente', motivo, clienteNombre: String(venta.clienteNombre ?? ''), total: Number(venta.total ?? 0), fechaVenta: venta.fecha, tipo: 'nota_credito' });
                         }
@@ -294,7 +294,7 @@ exports.reconciliarFacturasArca = (0, scheduler_1.onSchedule)({ schedule: '15 * 
                     // Dejar el motivo actual en el doc: es lo que va a leer la oficina.
                     await docSnap.ref.set({ motivo, actualizadoEn: firestore_2.FieldValue.serverTimestamp() }, { merge: true })
                         .catch(() => { });
-                    const horas = fechaVenta ? (ahora.getTime() - fechaVenta.getTime()) / 3600000 : 0;
+                    const horas = fechaVenta ? (ahora.getTime() - fechaVenta.getTime()) / 3_600_000 : 0;
                     if (venta && horas >= HORAS_PENDIENTE_ANTES_DE_AVISAR && !f.avisadoEn) {
                         trabadas.push({
                             ventaId,

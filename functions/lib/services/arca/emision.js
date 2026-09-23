@@ -70,7 +70,7 @@ async function emitirDetalle(opts) {
         catch (e) {
             await (0, numeracion_1.marcarNumeroLibre)(db, clave, numero);
             throw new Error(`No se pudo registrar el número ${numero} antes de emitir, se abortó sin llamar a ARCA: ` +
-                `${e.message}`);
+                `${e.message}`, { cause: e });
         }
     }
     const detalle = opts.armarDetalle(numero);

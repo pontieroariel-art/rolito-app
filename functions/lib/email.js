@@ -122,7 +122,7 @@ const ordenProveedores = (cfg) => {
  */
 async function avisarProveedorCaido(caido, uso, motivo) {
     const db = (0, firestore_1.getFirestore)();
-    const dia = new Date(Date.now() - 3 * 3600000).toISOString().slice(0, 10); // día argentino
+    const dia = new Date(Date.now() - 3 * 3600_000).toISOString().slice(0, 10); // día argentino
     try {
         await db.collection('avisosMailCaido').doc(`${caido}_${dia}`).create({ motivo, uso, en: new Date() });
     }
@@ -153,9 +153,9 @@ const porSmtp = async (mail) => {
         secure: SMTP_PORT === 465,
         requireTLS: SMTP_PORT !== 465, // 587 = STARTTLS obligatorio (Microsoft 365, Hostinger)
         auth: { user: SMTP_USER, pass: valorSecreto(exports.smtpPassword) },
-        connectionTimeout: 15000,
-        greetingTimeout: 15000,
-        socketTimeout: 60000,
+        connectionTimeout: 15_000,
+        greetingTimeout: 15_000,
+        socketTimeout: 60_000,
     });
     try {
         const info = await transporte.sendMail({

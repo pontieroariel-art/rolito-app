@@ -134,6 +134,7 @@ export async function obtenerTicketAcceso(opts: OpcionesTicket): Promise<TicketA
       'pero no está en el cache. Puede ser que otro sistema esté usando el mismo ' +
       'certificado, o que se haya borrado el cache. Hay que esperar a que venza ' +
       `(hasta 12 h) o usar un certificado propio. Detalle: ${mensaje}`,
+      { cause: e },
     )
   }
 }

@@ -15,7 +15,7 @@ import path from 'path'
 
 const require   = createRequire(import.meta.url)
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const admin     = require('../../functions/node_modules/firebase-admin/lib/index.js')
+const admin     = require('../lib/firebase-admin-compat.cjs')
 if (process.env.FIRESTORE_EMULATOR_HOST) {
   admin.initializeApp({ projectId: process.env.GCLOUD_PROJECT || 'rolito-app' })
 } else {

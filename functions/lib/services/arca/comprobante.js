@@ -364,7 +364,7 @@ function diaCalendarioAr(fecha) {
         mes,
         dia,
         // Índice de día absoluto, para restar fechas sin que moleste el horario.
-        indice: Math.floor(Date.UTC(anio, mes - 1, dia) / 86400000),
+        indice: Math.floor(Date.UTC(anio, mes - 1, dia) / 86_400_000),
     };
 }
 /** Formatea una fecha como yyyymmdd en hora local de Argentina. */

@@ -8,7 +8,7 @@ const cot_1 = require("./cot");
 // formato, validacionesRemitos con el COT por remito si lo procesó. Verificado
 // contra producción el 2026-09-10 (archivo sin remitos → "45 No hay registro
 // 02"), así que la forma del POST es la correcta. Ver docs/arba/COT.md.
-const TIMEOUT_MS = 40000;
+const TIMEOUT_MS = 40_000;
 async function presentarArchivoCot(ambiente, credenciales, archivo) {
     const url = cot_1.URL_COT[ambiente];
     const form = new FormData();

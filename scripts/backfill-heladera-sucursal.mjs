@@ -21,7 +21,7 @@ import path from 'path'
 
 const require   = createRequire(import.meta.url)
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const admin     = require('../functions/node_modules/firebase-admin/lib/index.js')
+const admin     = require('./lib/firebase-admin-compat.cjs')
 const XLSX      = require('../node_modules/xlsx/xlsx.js')
 
 const EXCEL_PATH = 'C:/Users/Ariel/Desktop/info app heladeras/Listado de equipos APP (listado excel brian).xlsx'

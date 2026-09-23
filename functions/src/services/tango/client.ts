@@ -74,7 +74,7 @@ export class TangoClient {
   /** Todas las filas de un proceso ABM (Api/Get), paginando hasta el final. */
   async getAll(company: number | string, proceso: number, pageSize = 500): Promise<Record<string, unknown>[]> {
     const out: Record<string, unknown>[] = []
-    let i = 0, pages = 1
+    let i = 0, pages: number
     do {
       const data = await this.request(company, 'GET', 'Get', { process: proceso, pageSize, pageIndex: i, view: '' })
       out.push(...TangoClient.filas(data))
@@ -91,7 +91,7 @@ export class TangoClient {
    *  customQuery es un flag, no un filtro. */
   async live(company: number | string, proceso: number, desde: string, hasta: string, pageSize = 500): Promise<Record<string, unknown>[]> {
     const out: Record<string, unknown>[] = []
-    let i = 0, pages = 1
+    let i = 0, pages: number
     do {
       const data = await this.request(company, 'GET', 'GetApiLiveQueryData', {
         process: proceso, customQuery: 0, fromDate: desde, toDate: hasta, pageSize, pageIndex: i,

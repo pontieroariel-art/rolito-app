@@ -18,7 +18,7 @@ import { fileURLToPath } from 'url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const require = createRequire(import.meta.url)
-const admin = require('../../functions/node_modules/firebase-admin/lib/index.js')
+const admin = require('../lib/firebase-admin-compat.cjs')
 admin.initializeApp({ credential: admin.credential.cert(JSON.parse(readFileSync(path.join(__dirname, '..', 'serviceAccount.json'), 'utf8'))) })
 const db = admin.firestore()
 const COMMIT = process.argv.includes('--commit')

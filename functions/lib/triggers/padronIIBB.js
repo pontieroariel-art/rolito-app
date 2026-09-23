@@ -35,7 +35,7 @@ function hoyEnAr(ahora) {
 /** Diferencia en días entre dos fechas YYYY-MM-DD, sin que moleste el horario. */
 function diasHasta(desde, hasta) {
     const dia = (s) => Date.UTC(Number(s.slice(0, 4)), Number(s.slice(5, 7)) - 1, Number(s.slice(8, 10)));
-    return Math.round((dia(hasta) - dia(desde)) / 86400000);
+    return Math.round((dia(hasta) - dia(desde)) / 86_400_000);
 }
 /**
  * Decide si hay que avisar hoy.

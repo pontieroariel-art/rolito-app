@@ -86,7 +86,7 @@ const VIGENCIA_MS = 10 * 60 * 1000; // 10 minutos
 function generarTRA(servicio = exports.SERVICIO_WSFE, ahora = new Date()) {
     const generationTime = new Date(ahora.getTime() - MARGEN_ATRAS_MS).toISOString();
     const expirationTime = new Date(ahora.getTime() + VIGENCIA_MS).toISOString();
-    const uniqueId = Math.floor(ahora.getTime() / 1000) % 2147483647;
+    const uniqueId = Math.floor(ahora.getTime() / 1000) % 2_147_483_647;
     return [
         '<?xml version="1.0" encoding="UTF-8"?>',
         '<loginTicketRequest version="1.0">',
@@ -118,14 +118,14 @@ function firmarTRA(tra, certificadoPem, clavePrivadaPem) {
         certificado = forge.pki.certificateFromPem(certificadoPem);
     }
     catch (e) {
-        throw new Error(`El certificado no es un PEM válido: ${e.message}`);
+        throw new Error(`El certificado no es un PEM válido: ${e.message}`, { cause: e });
     }
     try {
         clavePrivada = forge.pki.privateKeyFromPem(clavePrivadaPem);
     }
     catch (e) {
         // A propósito no se incluye el contenido en el mensaje: es material secreto.
-        throw new Error(`La clave privada no es un PEM válido: ${e.message}`);
+        throw new Error(`La clave privada no es un PEM válido: ${e.message}`, { cause: e });
     }
     const p7 = forge.pkcs7.createSignedData();
     p7.content = forge.util.createBuffer(tra, 'utf8');

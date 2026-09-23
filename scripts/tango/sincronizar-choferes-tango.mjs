@@ -40,7 +40,7 @@ import { randomBytes } from 'crypto'
 
 const require   = createRequire(import.meta.url)
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const admin     = require('../../functions/node_modules/firebase-admin/lib/index.js')
+const admin     = require('../lib/firebase-admin-compat.cjs')
 
 const args    = process.argv.slice(2)
 const COMMIT  = args.includes('--commit')

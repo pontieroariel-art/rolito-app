@@ -106,7 +106,7 @@ async function obtenerTicketAcceso(opts) {
         throw new Error('ARCA dice que ya hay un Ticket de Acceso vigente para este certificado, ' +
             'pero no está en el cache. Puede ser que otro sistema esté usando el mismo ' +
             'certificado, o que se haya borrado el cache. Hay que esperar a que venza ' +
-            `(hasta 12 h) o usar un certificado propio. Detalle: ${mensaje}`);
+            `(hasta 12 h) o usar un certificado propio. Detalle: ${mensaje}`, { cause: e });
     }
 }
 /**

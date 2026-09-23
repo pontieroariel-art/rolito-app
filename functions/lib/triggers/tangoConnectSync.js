@@ -50,7 +50,7 @@ async function contexto() {
     const cfg = ((await db.doc('config/tango').get()).data() ?? {});
     if (cfg.enabled !== true)
         throw new https_1.HttpsError('failed-precondition', 'config/tango.enabled está apagado');
-    const tango = new client_1.TangoClient({ baseUrl: cfg.connectBaseUrl ?? CONNECT_BASE_URL_DEFAULT, token: tangoApiToken.value(), timeoutMs: 60000 });
+    const tango = new client_1.TangoClient({ baseUrl: cfg.connectBaseUrl ?? CONNECT_BASE_URL_DEFAULT, token: tangoApiToken.value(), timeoutMs: 60_000 });
     return { db, cfg, tango };
 }
 function companyDe(cfg, empresa) {
@@ -556,7 +556,7 @@ exports.onConsultaSaldoPendiente = (0, firestore_1.onDocumentCreated)({ document
         const cfg = ((await db.doc('config/tango').get()).data() ?? {});
         if (cfg.enabled !== true || cfg.syncCloud?.consultas === false)
             return; // la responde el bridge (o nadie)
-        const tango = new client_1.TangoClient({ baseUrl: cfg.connectBaseUrl ?? CONNECT_BASE_URL_DEFAULT, token: tangoApiToken.value(), timeoutMs: 60000 });
+        const tango = new client_1.TangoClient({ baseUrl: cfg.connectBaseUrl ?? CONNECT_BASE_URL_DEFAULT, token: tangoApiToken.value(), timeoutMs: 60_000 });
         const empresa = data.empresa === 'rolito' ? 'rolito' : 'redonhielo';
         const idGva14 = Number(data.idGva14);
         if (!Number.isInteger(idGva14)) {

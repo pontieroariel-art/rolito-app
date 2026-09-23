@@ -14,7 +14,7 @@ import { createRequire } from 'module'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const require = createRequire(import.meta.url)
-const admin = require('../functions/node_modules/firebase-admin/lib/index.js')
+const admin = require('./lib/firebase-admin-compat.cjs')
 const { indiceDeCliente, mismoIndice } = require('../functions/lib/services/clientesIndex.js')
 const COMMIT = process.argv.includes('--commit')
 // --forzar: reescribe todos aunque el índice "no cambie" (p. ej. para que un campo

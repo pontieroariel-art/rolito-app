@@ -17,6 +17,7 @@ exports.validarConfig = validarConfig;
 exports.leerConfig = leerConfig;
 exports.leerConfigParaEmitir = leerConfigParaEmitir;
 class ConfigArcaInvalida extends Error {
+    problemas;
     constructor(problemas) {
         super(`Configuración de ARCA incompleta o inválida: ${problemas.join('; ')}`);
         this.problemas = problemas;

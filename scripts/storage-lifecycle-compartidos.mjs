@@ -19,7 +19,7 @@ import { createRequire } from 'node:module'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const require = createRequire(import.meta.url)
 // Mismo firebase-admin que usan los otros scripts (el de functions/).
-const admin = require('../functions/node_modules/firebase-admin/lib/index.js')
+const admin = require('./lib/firebase-admin-compat.cjs')
 const args = process.argv.slice(2)
 const aplicar = args.includes('--aplicar')
 const iDias = args.indexOf('--dias')

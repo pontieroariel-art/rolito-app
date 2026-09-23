@@ -22,7 +22,7 @@ async function correr(origen, uid) {
     const cfg = ((await db.doc('config/tango').get()).data() ?? {});
     if (cfg.enabled !== true)
         throw new https_1.HttpsError('failed-precondition', 'config/tango.enabled está apagado');
-    const tango = new client_1.TangoClient({ baseUrl: cfg.connectBaseUrl ?? CONNECT_BASE_URL_DEFAULT, token: tangoApiToken.value(), timeoutMs: 60000 });
+    const tango = new client_1.TangoClient({ baseUrl: cfg.connectBaseUrl ?? CONNECT_BASE_URL_DEFAULT, token: tangoApiToken.value(), timeoutMs: 60_000 });
     const inicio = Date.now();
     const resumen = await (0, depositos_1.sincronizarDepositosTango)(db, tango, cfg);
     await db.doc('config/tango').set({

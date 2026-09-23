@@ -186,7 +186,7 @@ async function procesarLoteClientesTango(db, rows, opts) {
         // cta. cte. (Redonhielo) o promo (Rolito) a un cliente inhabilitado ahí,
         // aunque siga activo por estar habilitado en la otra. Con varios códigos
         // en la misma empresa alcanza con que uno esté habilitado (como `vistos`).
-        const habCorrida = (perfil.habilitadoTangoCorrida ?? (perfil.habilitadoTangoCorrida = {}));
+        const habCorrida = (perfil.habilitadoTangoCorrida ??= {});
         habCorrida[empresa] = habCorrida[empresa] === true || habilitadoFila;
         if (perfil.habilitadoTango?.[empresa] !== habCorrida[empresa]) {
             update[`habilitadoTango.${empresa}`] = habCorrida[empresa];

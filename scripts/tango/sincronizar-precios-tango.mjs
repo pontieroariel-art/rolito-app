@@ -19,7 +19,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 // Mismo firebase-admin que usa functions/lib (si no, el Firestore del script y
 // el FieldValue de precios.js serían de paquetes distintos).
 const require = createRequire(import.meta.url)
-const admin      = require('../../functions/node_modules/firebase-admin/lib/index.js')
+const admin      = require('../lib/firebase-admin-compat.cjs')
 const clientMod  = require('../../functions/lib/services/tango/client.js')
 const preciosMod = require('../../functions/lib/services/tango/precios.js')
 const args = process.argv.slice(2)

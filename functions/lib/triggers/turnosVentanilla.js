@@ -15,10 +15,10 @@ const firestore_2 = require("firebase-admin/firestore");
 // intermedios que parchear).
 // Día operativo en hora argentina (UTC-3 fijo, AR no tiene horario de verano).
 function rangoDiaArt() {
-    const art = new Date(Date.now() - 3 * 3600000);
+    const art = new Date(Date.now() - 3 * 3600_000);
     const ymd = art.toISOString().slice(0, 10);
     const desde = new Date(`${ymd}T03:00:00Z`); // 00:00 ART
-    const hasta = new Date(desde.getTime() + 24 * 3600000);
+    const hasta = new Date(desde.getTime() + 24 * 3600_000);
     return { ymd, desde: firestore_2.Timestamp.fromDate(desde), hasta: firestore_2.Timestamp.fromDate(hasta) };
 }
 exports.publicarTurnosVentanilla = (0, firestore_1.onDocumentWritten)('ventasVentanilla/{ventaId}', async (event) => {

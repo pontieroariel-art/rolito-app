@@ -165,6 +165,7 @@ export async function emitirDetalle(opts: OpcionesEmisionDetalle): Promise<Resul
       throw new Error(
         `No se pudo registrar el número ${numero} antes de emitir, se abortó sin llamar a ARCA: ` +
         `${(e as Error).message}`,
+        { cause: e },
       )
     }
   }

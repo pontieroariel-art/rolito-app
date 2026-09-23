@@ -34,7 +34,7 @@ async function procesarAltasTango(db, opts) {
     const max = opts.max ?? MAX_POR_CORRIDA;
     // Docs que quedaron en 'procesando' porque una corrida murió a mitad de
     // camino (timeout, crash): vuelven a 'pendiente' pasados 20 min.
-    const viejo = new Date(Date.now() - 20 * 60000);
+    const viejo = new Date(Date.now() - 20 * 60_000);
     const colgados = await db.collection('tango-altas').where('estado', '==', 'procesando').where('actualizadoEn', '<', viejo).get();
     for (const d of colgados.docs)
         await d.ref.update({ estado: 'pendiente', actualizadoEn: firestore_1.FieldValue.serverTimestamp() });

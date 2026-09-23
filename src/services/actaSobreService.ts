@@ -25,15 +25,13 @@ export async function detalleDelActa(sobre: Sobre): Promise<DetalleActaSobre> {
 
 /** Comparte el acta con el detalle por persona. Si el detalle no se puede leer, sale igual con la cifra total. */
 export async function compartirActaSobreCompleta(sobre: Sobre) {
-  let detalle: DetalleActaSobre = {}
-  try { detalle = await detalleDelActa(sobre) } catch { detalle = { sinDetalle: true } }
+  const detalle = await detalleDelActa(sobre).catch((): DetalleActaSobre => ({ sinDetalle: true }))
   return compartirActaSobre(sobre, detalle)
 }
 
 /** El acta como archivo en memoria, para el visor (2026-09-15): no baja nada sola. */
 export async function actaSobreBlob(sobre: Sobre): Promise<{ blob: Blob; nombre: string }> {
-  let detalle: DetalleActaSobre = {}
-  try { detalle = await detalleDelActa(sobre) } catch { detalle = { sinDetalle: true } }
+  const detalle = await detalleDelActa(sobre).catch((): DetalleActaSobre => ({ sinDetalle: true }))
   const blob = await generateActaSobre(sobre, detalle)
   return { blob, nombre: nombreArchivoSobre(sobre) }
 }

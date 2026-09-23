@@ -20,7 +20,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.fetchArca = void 0;
 const node_https_1 = require("node:https");
-const TIMEOUT_MS = 30000;
+const TIMEOUT_MS = 30_000;
 const fetchArca = (url, init = {}) => {
     const destino = new URL(url);
     return new Promise((resolve, reject) => {

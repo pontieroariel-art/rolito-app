@@ -33,9 +33,10 @@ exports.FILTROS = {
 };
 const sql = (s) => String(s).replace(/'/g, "''");
 class TangoClient {
+    cfg;
+    cacheIds = new Map();
     constructor(cfg) {
         this.cfg = cfg;
-        this.cacheIds = new Map();
     }
     async request(company, metodo, accion, params, body) {
         const qs = Object.entries(params ?? {}).map(([k, v]) => `${k}=${encodeURIComponent(String(v ?? ''))}`).join('&');
@@ -44,7 +45,7 @@ class TangoClient {
             method: metodo,
             headers: { ApiAuthorization: this.cfg.token, Company: String(company), 'Content-Type': 'application/json' },
             body: body === undefined ? undefined : JSON.stringify(body),
-            signal: AbortSignal.timeout(this.cfg.timeoutMs ?? 30000),
+            signal: AbortSignal.timeout(this.cfg.timeoutMs ?? 30_000),
         });
         const texto = await resp.text();
         let data;
@@ -71,7 +72,7 @@ class TangoClient {
     /** Todas las filas de un proceso ABM (Api/Get), paginando hasta el final. */
     async getAll(company, proceso, pageSize = 500) {
         const out = [];
-        let i = 0, pages = 1;
+        let i = 0, pages;
         do {
             const data = await this.request(company, 'GET', 'Get', { process: proceso, pageSize, pageIndex: i, view: '' });
             out.push(...TangoClient.filas(data));
@@ -87,7 +88,7 @@ class TangoClient {
      *  customQuery es un flag, no un filtro. */
     async live(company, proceso, desde, hasta, pageSize = 500) {
         const out = [];
-        let i = 0, pages = 1;
+        let i = 0, pages;
         do {
             const data = await this.request(company, 'GET', 'GetApiLiveQueryData', {
                 process: proceso, customQuery: 0, fromDate: desde, toDate: hasta, pageSize, pageIndex: i,

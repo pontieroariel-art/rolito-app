@@ -27,7 +27,7 @@ import path from 'path'
 
 const require   = createRequire(import.meta.url)
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const admin     = require('../../functions/node_modules/firebase-admin/lib/index.js')
+const admin     = require('../lib/firebase-admin-compat.cjs')
 
 const SERVICE_ACCOUNT_PATH = path.join(__dirname, '..', 'serviceAccount.json')
 const SALIDA_PATH          = path.join(__dirname, 'cruce-articulos-propuesta.json')

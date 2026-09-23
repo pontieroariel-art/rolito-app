@@ -37,7 +37,6 @@ const claveCliente = (codigoTango) => String(codigoTango).replace(/\./g, '_');
 exports.claveCliente = claveCliente;
 /** Precios de una empresa: listas + precio por producto en cada lista + especiales por cliente. */
 async function leerPreciosEmpresa(tango, company, articulos) {
-    var _a;
     const errores = [];
     const listas = {};
     for (const l of await tango.getAll(company, client_1.PROCESOS.listas)) {
@@ -65,14 +64,14 @@ async function leerPreciosEmpresa(tango, company, articulos) {
                 const precio = Number((0, pedido_1.prop)(p, 'PRECIO'));
                 if (!nro || !Number.isFinite(precio))
                     continue;
-                listas[nro] ?? (listas[nro] = { nombre: `Lista ${nro}`, incluyeIva: false, precios: {} });
+                listas[nro] ??= { nombre: `Lista ${nro}`, incluyeIva: false, precios: {} };
                 listas[nro].precios[productoId] = precio;
                 for (const e of ((0, pedido_1.prop)(p, 'GVA13') ?? [])) {
                     const cod = String((0, pedido_1.prop)(e, 'COD_CLIENT') ?? '').trim();
                     const pe = Number((0, pedido_1.prop)(e, 'PRECIO'));
                     if (!cod || !Number.isFinite(pe))
                         continue;
-                    (especiales[_a = (0, exports.claveCliente)(cod)] ?? (especiales[_a] = {}))[productoId] = pe;
+                    (especiales[(0, exports.claveCliente)(cod)] ??= {})[productoId] = pe;
                 }
             }
         }

@@ -45,10 +45,10 @@ function calcularOcupadas(remitos, descargas, ventas, borradores = []) {
 }
 /** Día operativo en hora argentina (UTC-3 fijo, AR no tiene horario de verano). */
 function rangoDiaArt(ahora = Date.now()) {
-    const art = new Date(ahora - 3 * 3600000);
+    const art = new Date(ahora - 3 * 3600_000);
     const ymd = art.toISOString().slice(0, 10);
     const desde = new Date(`${ymd}T03:00:00Z`); // 00:00 ART
-    const hasta = new Date(desde.getTime() + 24 * 3600000);
+    const hasta = new Date(desde.getTime() + 24 * 3600_000);
     return { ymd, desde: firestore_1.Timestamp.fromDate(desde), hasta: firestore_1.Timestamp.fromDate(hasta) };
 }
 //# sourceMappingURL=muelleEstado.js.map

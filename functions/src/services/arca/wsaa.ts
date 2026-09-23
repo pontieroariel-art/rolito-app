@@ -93,14 +93,14 @@ export function firmarTRA(tra: string, certificadoPem: string, clavePrivadaPem: 
   try {
     certificado = forge.pki.certificateFromPem(certificadoPem)
   } catch (e) {
-    throw new Error(`El certificado no es un PEM válido: ${(e as Error).message}`)
+    throw new Error(`El certificado no es un PEM válido: ${(e as Error).message}`, { cause: e })
   }
 
   try {
     clavePrivada = forge.pki.privateKeyFromPem(clavePrivadaPem) as forge.pki.rsa.PrivateKey
   } catch (e) {
     // A propósito no se incluye el contenido en el mensaje: es material secreto.
-    throw new Error(`La clave privada no es un PEM válido: ${(e as Error).message}`)
+    throw new Error(`La clave privada no es un PEM válido: ${(e as Error).message}`, { cause: e })
   }
 
   const p7 = forge.pkcs7.createSignedData()

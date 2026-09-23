@@ -20,7 +20,7 @@ import path from 'path'
 const require   = createRequire(import.meta.url)
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const raiz      = path.join(__dirname, '..', '..')
-const admin     = require(path.join(raiz, 'functions/node_modules/firebase-admin/lib/index.js'))
+const admin     = require('../lib/firebase-admin-compat.cjs')
 const { GoogleAuth } = require(path.join(raiz, 'functions/node_modules/google-auth-library'))
 const sa = JSON.parse(readFileSync(path.join(raiz, 'scripts/serviceAccount.json'), 'utf8'))
 admin.initializeApp({ credential: admin.credential.cert(sa) })

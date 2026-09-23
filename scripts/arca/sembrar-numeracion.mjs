@@ -32,7 +32,7 @@ const require   = createRequire(import.meta.url)
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const lib       = path.join(__dirname, '..', '..', 'functions', 'lib', 'services', 'arca')
 
-const admin = require('../../functions/node_modules/firebase-admin/lib/index.js')
+const admin = require('../lib/firebase-admin-compat.cjs')
 
 const { generarTRA, firmarTRA, parsearRespuestaWsaa, WSAA_URL } = require(path.join(lib, 'wsaa.js'))
 const { MARGEN_RENOVACION_MS: MARGEN_MS } = require(path.join(lib, 'ticketCache.js'))
