@@ -9,11 +9,14 @@ import { recargarPorChunkViejo } from '@/utils/chunkViejo'
 initObservability()
 
 // Un chunk que ya no existe en el hosting (deploy nuevo con la pestaña vieja
-// abierta): Vite avisa acá antes de que el error llegue a React. Se recarga y
-// se frena el error; si la recarga no puede (bucle), sigue al ErrorBoundary.
-window.addEventListener('vite:preloadError', (e) => {
-  if (recargarPorChunkViejo()) e.preventDefault()
-})
+// abierta): Vite avisa acá antes de que el error llegue a React y se recarga.
+// OJO: NO llamar a e.preventDefault() (versión 9b891b5, 22/09 23:51): con eso
+// el import() resuelve undefined en vez de rechazar, React.lazy lee
+// undefined.default y Sentry se llena de "Cannot read properties of undefined
+// (reading 'default')" mientras la recarga todavía no llegó. Dejando pasar el
+// error, el ErrorBoundary lo reconoce como chunk viejo y no vuelve a recargar
+// (freno de 15 s).
+window.addEventListener('vite:preloadError', () => { recargarPorChunkViejo() })
 
 // ── Auto-actualización del PWA ────────────────────────────────────────────────
 // Cuando el SW nuevo toma control (skipWaiting + clientsClaim en sw.ts),
