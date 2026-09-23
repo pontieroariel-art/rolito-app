@@ -262,7 +262,8 @@ export function docCuentaDesdeTango(candidato: CandidatoAlta, ahora: unknown): R
   const direccion = direccionDe(principal)
   const tangoIds: TangoIds = {}
   for (const { empresa, fila } of candidato.filas) {
-    tangoIds[empresa] = agregarTangoId(tangoIds[empresa], { idGva14: fila.idGva14, codigo: fila.codGva14 })
+    // `habilitado` solo cuando es false: ausente = habilitado (2026-09-23).
+    tangoIds[empresa] = agregarTangoId(tangoIds[empresa], { idGva14: fila.idGva14, codigo: fila.codGva14, ...(filaHabilitada(fila) ? {} : { habilitado: false }) })
   }
   const rh = tangoIds.redonhielo?.[0]
   // Una dirección por código de Tango (addresses[].id = código, como en las

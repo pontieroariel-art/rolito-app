@@ -10,7 +10,7 @@ import Modal from '@/components/ui/Modal'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
 import ClienteCombobox from '@/components/common/ClienteCombobox'
 import SelectorSucursal from '@/components/ventas/SelectorSucursal'
-import { clienteEnSucursal, necesitaSucursal } from '@/utils/sucursalesTango'
+import { clienteEnSucursal, MOTIVO_SUCURSAL_INHABILITADA, necesitaSucursal, sucursalInhabilitada } from '@/utils/sucursalesTango'
 import SignaturePad, { SignaturePadHandle } from '@/components/heladeras/SignaturePad'
 import { useAuth } from '@/context/AuthContext'
 import { useClienteSeleccionado } from '@/hooks/useClienteSeleccionado'
@@ -269,6 +269,7 @@ export default function VentaCamion({ volverA = '/chofer' }: { volverA?: string 
   const confirmar = () => {
     if (!user || !cliente || !canal) return
     if (faltaSucursal) { setError('Elegí la sucursal del cliente.'); return }
+    if (sucursalInhabilitada(cliente, empresa, sucursal)) { setError(MOTIVO_SUCURSAL_INHABILITADA); return }
     // La venta viaja con el código/id de Tango de la sucursal elegida (o el
     // principal si la cuenta tiene uno solo en esta empresa).
     const clienteVenta = clienteEnSucursal(cliente, empresa, sucursal)

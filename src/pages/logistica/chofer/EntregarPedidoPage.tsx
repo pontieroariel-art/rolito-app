@@ -21,7 +21,7 @@ import { claveDia } from '@/utils/diaReparto'
 import { asegurarReserva, consumirNumero, precargarSiSeAcerca, codigoComprobanteInterno } from '@/services/numeracionInternaService'
 import { getPreciosIncluyenIva } from '@/services/arcaConfigService'
 import { reportError } from '@/services/observability'
-import { clienteEnSucursal, necesitaSucursal, nombreSucursalVenta } from '@/utils/sucursalesTango'
+import { clienteEnSucursal, MOTIVO_SUCURSAL_INHABILITADA, necesitaSucursal, nombreSucursalVenta, sucursalInhabilitada } from '@/utils/sucursalesTango'
 import { empresaDeCanal, motivoSinPrecioTango, precioTangoDe } from '@/utils/precioTango'
 import { esClienteFacturable } from '@/utils/facturable'
 import { admiteCuentaCorriente } from '@/utils/condicionVenta'
@@ -151,6 +151,7 @@ export default function EntregarPedidoPage() {
     if (inhabilitado) { setError(motivoInhabilitado(empresa)); return }
     if (!formaPago) { setError('Elegí cómo paga.'); return }
     if (faltaSucursal) { setError('Elegí a qué sucursal fue la entrega.'); return }
+    if (sucursalInhabilitada(cliente, empresa, sucursal)) { setError(MOTIVO_SUCURSAL_INHABILITADA); return }
     if (sinPrecioMotivo || itemsSinPrecio.length) { setError('Hay productos sin precio en Tango para este cliente. Registrá la venta desde Vender o avisá a la oficina.'); return }
     if (noFacturable) { setError('A este cliente no se le puede facturar: elegí cuenta corriente o Promo, o avisá a la oficina.'); return }
     setPaso(3)

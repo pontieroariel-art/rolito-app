@@ -207,7 +207,8 @@ function docCuentaDesdeTango(candidato, ahora) {
     const direccion = direccionDe(principal);
     const tangoIds = {};
     for (const { empresa, fila } of candidato.filas) {
-        tangoIds[empresa] = (0, empresas_1.agregarTangoId)(tangoIds[empresa], { idGva14: fila.idGva14, codigo: fila.codGva14 });
+        // `habilitado` solo cuando es false: ausente = habilitado (2026-09-23).
+        tangoIds[empresa] = (0, empresas_1.agregarTangoId)(tangoIds[empresa], { idGva14: fila.idGva14, codigo: fila.codGva14, ...((0, exports.filaHabilitada)(fila) ? {} : { habilitado: false }) });
     }
     const rh = tangoIds.redonhielo?.[0];
     // Una dirección por código de Tango (addresses[].id = código, como en las

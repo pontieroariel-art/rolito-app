@@ -23,6 +23,8 @@ export const NOMBRE_EMPRESA: Record<Empresa, string> = { redonhielo: 'Redonhielo
 export interface TangoIdEmpresa {
   idGva14: number
   codigo:  string
+  /** Habilitado en Tango ESTE código (2026-09-23). Ausente = habilitado. La app no deja elegir la sucursal inhabilitada al vender. */
+  habilitado?: boolean
 }
 
 export type TangoIds = Partial<Record<Empresa, TangoIdEmpresa[]>>

@@ -983,6 +983,14 @@ export interface ComprobanteSaldoTango {
 export interface TangoIdEmpresa {
   idGva14: number
   codigo:  string
+  /**
+   * Habilitado en Tango ESTE código (2026-09-23; lo escribe la sync). Ausente =
+   * habilitado. `users.habilitadoTango` es por cuenta y empresa (alcanza con un
+   * código habilitado); esto es lo que deja elegir o no cada sucursal al vender:
+   * San Joaquín tenía la casa central inhabilitada y cuatro estaciones
+   * habilitadas, y la app ofrecía las cinco.
+   */
+  habilitado?: boolean
 }
 
 export interface SaldoTangoRama {

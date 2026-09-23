@@ -12,6 +12,8 @@ export interface SucursalTango {
   idGva14:  number
   nombre:   string   // razón social de la sucursal en Tango, o "Principal"
   address:  string
+  /** Habilitada en Tango ESTE código (2026-09-23): a una inhabilitada no se le vende aunque la cuenta siga activa por otra. */
+  habilitada: boolean
 }
 
 export function sucursalesDe(cliente: Pick<UserProfile, 'idGva14Tango' | 'codigoTango' | 'tangoIds' | 'addresses'> | null | undefined, empresa: EmpresaTango): SucursalTango[] {
@@ -20,9 +22,15 @@ export function sucursalesDe(cliente: Pick<UserProfile, 'idGva14Tango' | 'codigo
   const porCodigo = new Map((cliente.addresses ?? []).map((a) => [a.id, a]))
   return ids.map((x) => {
     const a = porCodigo.get(x.codigo)
-    return { codigo: x.codigo, idGva14: x.idGva14, nombre: (a?.nombre || '').trim() || x.codigo, address: (a?.address || '').trim() }
+    return { codigo: x.codigo, idGva14: x.idGva14, nombre: (a?.nombre || '').trim() || x.codigo, address: (a?.address || '').trim(), habilitada: x.habilitado !== false }
   })
 }
+
+/** true si el código elegido está inhabilitado en Tango en esa empresa (la venta no puede salir a esa sucursal). */
+export const sucursalInhabilitada = (cliente: Parameters<typeof sucursalesDe>[0], empresa: EmpresaTango, codigo: string | null | undefined): boolean =>
+  !!codigo && sucursalesDe(cliente, empresa).some((s) => s.codigo === codigo && !s.habilitada)
+
+export const MOTIVO_SUCURSAL_INHABILITADA = 'Esa sucursal está inhabilitada en Tango. Elegí otra o avisá a la oficina.'
 
 /** true si hay que elegir sucursal antes de vender (más de un código en esa empresa). */
 export const necesitaSucursal = (cliente: Parameters<typeof sucursalesDe>[0], empresa: EmpresaTango): boolean =>
@@ -44,7 +52,7 @@ export function nombreSucursal(cliente: Parameters<typeof sucursalesDe>[0], empr
 /** "RAP001 · GASTRONOMIA … (MONROE) · Monroe 1616" */
 export function etiquetaSucursal(s: SucursalTango): string {
   const partes = [s.codigo, s.nombre !== s.codigo ? s.nombre : '', s.address].filter(Boolean)
-  return partes.join(' · ')
+  return partes.join(' · ') + (s.habilitada ? '' : ' · INHABILITADA en Tango')
 }
 
 /**

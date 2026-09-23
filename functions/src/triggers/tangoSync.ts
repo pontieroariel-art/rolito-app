@@ -260,7 +260,7 @@ export async function procesarLoteClientesTango(
     }
 
     if (esNuevoLink) {
-      const lista = agregarTangoId(ids[empresa], { idGva14: row.idGva14, codigo: row.codGva14 }, { principal: !tienePrincipal })
+      const lista = agregarTangoId(ids[empresa], { idGva14: row.idGva14, codigo: row.codGva14, ...(habilitadoFila ? {} : { habilitado: false }) }, { principal: !tienePrincipal })
       ids[empresa] = lista
       update[`tangoIds.${empresa}`] = lista
       porIdGva14[empresa].set(row.idGva14, uid)
@@ -277,6 +277,15 @@ export async function procesarLoteClientesTango(
     } else if (esPrincipal && !perfilTieneTangoIds(perfil, empresa)) {
       // Cuenta vinculada por los campos legacy (idGva14Tango) pero sin
       // `tangoIds` escrito todavía: se materializa una vez.
+      update[`tangoIds.${empresa}`] = ids[empresa]
+    }
+    // Habilitación POR CÓDIGO (2026-09-23): `habilitadoTango` es por cuenta y
+    // alcanza con un código habilitado; acá queda lo de ESTE código, para que la
+    // app no ofrezca la sucursal inhabilitada al vender (San Joaquín: casa
+    // central inhabilitada, cuatro estaciones habilitadas, y ofrecía las cinco).
+    const idActual = ids[empresa]?.find((x) => x.idGva14 === row.idGva14)
+    if (idActual && (idActual.habilitado ?? true) !== habilitadoFila) {
+      ids[empresa] = ids[empresa]!.map((x) => (x.idGva14 === row.idGva14 ? { ...x, habilitado: habilitadoFila } : x))
       update[`tangoIds.${empresa}`] = ids[empresa]
     }
     if (update[`tangoIds.${empresa}`]) perfil.tangoIdsRaw[empresa] = update[`tangoIds.${empresa}`]

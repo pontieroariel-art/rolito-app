@@ -5,7 +5,7 @@ import Modal from '@/components/ui/Modal'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
 import ClienteCombobox from '@/components/common/ClienteCombobox'
 import SelectorSucursal from '@/components/ventas/SelectorSucursal'
-import { clienteEnSucursal, necesitaSucursal } from '@/utils/sucursalesTango'
+import { clienteEnSucursal, MOTIVO_SUCURSAL_INHABILITADA, necesitaSucursal, sucursalInhabilitada } from '@/utils/sucursalesTango'
 import BotoneraProductos from '@/components/ventas/BotoneraProductos'
 import { useAuth } from '@/context/AuthContext'
 import { useClienteSeleccionado } from '@/hooks/useClienteSeleccionado'
@@ -247,6 +247,7 @@ export default function VentanillaPage() {
     if (!formaPago) { setError('Elegí la forma de pago.'); return }
     if (formaPago === 'cuenta_corriente' && !ctaCte.ok) { setError(ctaCte.motivo ?? 'Cuenta corriente solo para clientes registrados.'); return }
     if (avisoInhabilitado) { setError(avisoInhabilitado); return }
+    if (tipoCliente === 'registrado' && sucursalInhabilitada(cliente, empresaDeCanal(canal), sucursal)) { setError(MOTIVO_SUCURSAL_INHABILITADA); return }
     if (avisoFiscal) { setError(avisoFiscal); return }
     setConfirmando(true)
   }

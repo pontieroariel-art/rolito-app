@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { clienteEnSucursal, etiquetaSucursal, necesitaSucursal, nombreSucursalVenta, sucursalesDe } from './sucursalesTango'
+import { clienteEnSucursal, etiquetaSucursal, necesitaSucursal, nombreSucursalVenta, sucursalesDe, sucursalInhabilitada } from './sucursalesTango'
 import type { UserProfile } from '@/types'
 
 const dir = (id: string, nombre: string, address: string) => ({ id, nombre, address, lat: null, lng: null, horarioApertura: '', horarioCierre: '', contactoNombre: '', contactoTelefono: '', esPrincipal: false })
@@ -17,6 +17,21 @@ describe('sucursales de Tango', () => {
     expect(sucursalesDe(rappi, 'rolito')).toHaveLength(1)
     expect(necesitaSucursal(rappi, 'redonhielo')).toBe(true)
     expect(necesitaSucursal(rappi, 'rolito')).toBe(false)
+  })
+
+  it('una sucursal inhabilitada en Tango se lista marcada y no se le puede vender (San Joaquín, 2026-09-23)', () => {
+    const sanJoaquin = {
+      ...rappi,
+      tangoIds: { redonhielo: [{ idGva14: 10, codigo: 'MDP203', habilitado: false }, { idGva14: 11, codigo: 'RAP001' }, { idGva14: 12, codigo: 'RAP002', habilitado: true }] },
+    } as unknown as UserProfile
+    const s = sucursalesDe(sanJoaquin, 'redonhielo')
+    expect(s.map((x) => x.habilitada)).toEqual([false, true, true])
+    expect(etiquetaSucursal(s[0])).toContain('INHABILITADA en Tango')
+    expect(sucursalInhabilitada(sanJoaquin, 'redonhielo', 'MDP203')).toBe(true)
+    expect(sucursalInhabilitada(sanJoaquin, 'redonhielo', 'RAP001')).toBe(false)
+    expect(sucursalInhabilitada(sanJoaquin, 'redonhielo', '')).toBe(false)
+    // Sin la marca (cuentas viejas o sync anterior) todo cuenta como habilitado.
+    expect(sucursalesDe(rappi, 'redonhielo').every((x) => x.habilitada)).toBe(true)
   })
 
   it('clienteEnSucursal pone la identidad elegida en los campos legacy; sin elección, la principal', () => {
