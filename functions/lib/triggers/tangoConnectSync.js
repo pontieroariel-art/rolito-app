@@ -205,7 +205,7 @@ async function encolarAltas(db, sinCuenta) {
             out.encolados++;
         // JSON round-trip: las filas recortadas traen campos undefined (str() de
         // recortarCliente) y Firestore los rechaza.
-        batch.set(db.doc(`tango-altas/${c.clave}`), { cuit: c.cuit, clave: c.clave, ...(c.sinCuit ? { sinCuit: true } : {}), filas: JSON.parse(JSON.stringify(c.filas)), estado: 'pendiente', razonSocial: c.filas[0].fila.razonSocial ?? '', actualizadoEn: firestore_2.FieldValue.serverTimestamp(), ...(estadoActual ? {} : { creadoEn: firestore_2.FieldValue.serverTimestamp() }) }, { merge: true });
+        batch.set(db.doc(`tango-altas/${c.clave}`), { cuit: c.cuit, clave: c.clave, ...(c.sinCuit ? { sinCuit: true } : {}), filas: JSON.parse(JSON.stringify(c.filas)), estado: 'pendiente', razonSocial: c.filas[0]?.fila.razonSocial ?? '', actualizadoEn: firestore_2.FieldValue.serverTimestamp(), ...(estadoActual ? {} : { creadoEn: firestore_2.FieldValue.serverTimestamp() }) }, { merge: true });
         if (++ops >= 400) {
             await batch.commit();
             batch = db.batch();
@@ -441,9 +441,12 @@ async function sincronizarSaldos(db, tango, cfg) {
                 grupos.get(clave).push(row);
             }
             const lotes = [...grupos.values()].reduce((acc, g) => {
-                if (!acc.length || acc[acc.length - 1].length >= 100)
-                    acc.push([]);
-                acc[acc.length - 1].push(...g);
+                let lote = acc[acc.length - 1];
+                if (!lote || lote.length >= 100) {
+                    lote = [];
+                    acc.push(lote);
+                }
+                lote.push(...g);
                 return acc;
             }, []);
             // runId identifica la corrida completa de ESTA empresa: al llegar el

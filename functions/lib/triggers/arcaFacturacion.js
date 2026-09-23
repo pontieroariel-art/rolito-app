@@ -320,11 +320,12 @@ exports.reconciliarFacturasArca = (0, scheduler_1.onSchedule)({ schedule: '15 * 
 async function avisarFacturasConProblemas(db, trabadas) {
     // Dos igualdades por consulta (estado + avisadoEn): no necesitan índice
     // compuesto, a diferencia de un `in` combinado con otro filtro.
-    const [rechazadas, vencidas] = await Promise.all(['rechazada', 'vencida'].map((estado) => db.collection('facturasArca')
+    const buscar = (estado) => db.collection('facturasArca')
         .where('estado', '==', estado)
         .where('avisadoEn', '==', null)
         .limit(50)
-        .get()));
+        .get();
+    const [rechazadas, vencidas] = await Promise.all([buscar('rechazada'), buscar('vencida')]);
     const problemas = [...trabadas];
     const conProblema = [...rechazadas.docs, ...vencidas.docs];
     // Las ventas de todas en un solo getAll en vez de una lectura por fila.

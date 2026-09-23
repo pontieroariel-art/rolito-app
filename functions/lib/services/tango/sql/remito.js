@@ -155,7 +155,8 @@ function sentenciasRemito(r, datos, cfg, ahora = new Date()) {
 async function leerDatosRemito(db, r) {
     // Cliente: condición de venta e id.
     const cli = await db.query(`SELECT ID_GVA14, COND_VTA FROM GVA14 WHERE COD_GVA14 = @COD`, [(0, tipos_1.varchar)('COD', r.codCliente, 6)]);
-    if (!cli.length)
+    const cliente = cli[0];
+    if (!cliente)
         throw new Error(`cliente ${r.codCliente} no existe en Tango`);
     // Dirección de entrega habitual del cliente (STA14.ID_DIRECCION_ENTREGA; 8470 en
     // la traza). Tango la exige al facturar desde el remito: sin ella tira "No hay
@@ -163,10 +164,11 @@ async function leerDatosRemito(db, r) {
     // NRO_SUCURSAL (la consulta anterior lo pedía, fallaba y el catch dejaba NULL
     // en TODOS los remitos): se lee solo el id, y si el cliente no tiene ninguna
     // dirección cargada el remito no se escribe, para que el error se vea en la cola.
-    const dir = await db.query(`SELECT TOP 1 ID_DIRECCION_ENTREGA FROM DIRECCION_ENTREGA WHERE ID_GVA14 = @ID ORDER BY CASE WHEN HABITUAL = 'S' THEN 0 ELSE 1 END, ID_DIRECCION_ENTREGA`, [(0, tipos_1.int)('ID', cli[0].ID_GVA14)]);
-    if (!dir.length)
+    const dir = await db.query(`SELECT TOP 1 ID_DIRECCION_ENTREGA FROM DIRECCION_ENTREGA WHERE ID_GVA14 = @ID ORDER BY CASE WHEN HABITUAL = 'S' THEN 0 ELSE 1 END, ID_DIRECCION_ENTREGA`, [(0, tipos_1.int)('ID', cliente.ID_GVA14)]);
+    const direccion = dir[0];
+    if (!direccion)
         throw new Error(`el cliente ${r.codCliente} no tiene dirección de entrega cargada en Tango (DIRECCION_ENTREGA): cargarla en la ficha y reintentar`);
-    const idDireccionEntrega = dir[0].ID_DIRECCION_ENTREGA;
+    const idDireccionEntrega = direccion.ID_DIRECCION_ENTREGA;
     const nroSucursalDestino = 0;
     const ncompInS = await (0, comun_1.siguienteNcompInS)(db, 'RE');
     // Artículos: unidades de medida y stock actual en el depósito.
@@ -176,7 +178,7 @@ async function leerDatosRemito(db, r) {
         const stockActual = await (0, comun_1.leerStock)(db, ren.codArticu, r.codDeposito);
         articulos[ren.codArticu] = { ...art, stockActual };
     }
-    return { ncompInS, condVta: Number(cli[0].COND_VTA ?? 0), idDireccionEntrega, nroSucursalDestino, articulos };
+    return { ncompInS, condVta: Number(cliente.COND_VTA ?? 0), idDireccionEntrega, nroSucursalDestino, articulos };
 }
 /**
  * Escribe el remito en Tango. El llamador abre la transacción y pasa un ejecutor
@@ -184,9 +186,10 @@ async function leerDatosRemito(db, r) {
  */
 async function escribirRemito(db, r, cfg, log = () => undefined) {
     const existe = await db.query(sentenciaExiste(r).sql, sentenciaExiste(r).params);
-    if (existe.length) {
-        log(`remito ${r.nComp} ya estaba en Tango (ID_STA14 ${existe[0].ID_STA14}); no se reescribe`);
-        return { yaExistia: true, idSta14: existe[0].ID_STA14, ncompInS: existe[0].NCOMP_IN_S, nComp: r.nComp };
+    const ya = existe[0];
+    if (ya) {
+        log(`remito ${r.nComp} ya estaba en Tango (ID_STA14 ${ya.ID_STA14}); no se reescribe`);
+        return { yaExistia: true, idSta14: ya.ID_STA14, ncompInS: ya.NCOMP_IN_S, nComp: r.nComp };
     }
     const datos = await leerDatosRemito(db, r);
     let idSta14 = null;

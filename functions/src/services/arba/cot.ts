@@ -232,7 +232,7 @@ export interface RespuestaCot {
 
 const tag = (xml: string, nombre: string): string | undefined => {
   const m = new RegExp(`<${nombre}>([^<]*)</${nombre}>`, 'i').exec(xml)
-  return m ? m[1].trim() : undefined
+  return m?.[1]?.trim()
 }
 
 /** Parsea el XML de presentarRemitos.do (TBError o validacionesRemitos). */
@@ -246,7 +246,8 @@ export function parsearRespuestaCot(xml: string): RespuestaCot {
   const remito = /<remito>([\s\S]*?)<\/remito>/i.exec(texto)?.[1] ?? texto
   const errores: { codigo: string; mensaje: string }[] = []
   for (const m of remito.matchAll(/<error>([\s\S]*?)<\/error>/gi)) {
-    errores.push({ codigo: tag(m[1], 'codigo') ?? '', mensaje: tag(m[1], 'descripcion') ?? tag(m[1], 'mensaje') ?? m[1].replace(/<[^>]+>/g, ' ').trim() })
+    const cuerpo = m[1]! // el grupo 1 no es opcional: con match, siempre participa
+    errores.push({ codigo: tag(cuerpo, 'codigo') ?? '', mensaje: tag(cuerpo, 'descripcion') ?? tag(cuerpo, 'mensaje') ?? cuerpo.replace(/<[^>]+>/g, ' ').trim() })
   }
   const cot = tag(remito, 'cot')
   const procesado = tag(remito, 'procesado')
@@ -260,7 +261,8 @@ export function parsearRespuestaCot(xml: string): RespuestaCot {
 
 /** Validez del COT según distancia (< 500 km: 1 día): la fecha de salida + 1. */
 export function fechaValidez(fechaSalida: string): string {
-  const [y, m, d] = fechaSalida.split('-').map(Number)
+  // `split` devuelve al menos un elemento; el default de `y` solo conforma al tipado.
+  const [y = NaN, m, d] = fechaSalida.split('-').map(Number)
   const f = new Date(y, (m ?? 1) - 1, (d ?? 1) + 1)
   return `${f.getFullYear()}-${String(f.getMonth() + 1).padStart(2, '0')}-${String(f.getDate()).padStart(2, '0')}`
 }

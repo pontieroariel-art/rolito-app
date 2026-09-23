@@ -24,7 +24,7 @@ async function indices(db: Db, claves: string[]): Promise<Map<string, Datos | un
   const mapa = new Map<string, Datos | undefined>()
   if (!claves.length) return mapa
   const snaps = await db.getAll(...claves.map((k) => db.doc(`tangoComprobantes/${k}`)))
-  snaps.forEach((s, i) => mapa.set(claves[i], s.data()))
+  claves.forEach((k, i) => mapa.set(k, snaps[i]?.data()))
   return mapa
 }
 

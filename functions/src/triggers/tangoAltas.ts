@@ -74,7 +74,7 @@ export async function procesarAltasTango(db: Firestore, opts: { crear: boolean; 
       // promo; cuando le carguen el CUIT en Tango, la sync la vincula por
       // idGva14 y pasa a ser una cuenta normal (el login se crea aparte).
       if (candidato.sinCuit) {
-        const uidSinCuit = claveSinCuit(candidato.filas[0].fila.codGva14)
+        const uidSinCuit = claveSinCuit(candidato.filas[0]!.fila.codGva14) // un candidato nace con su primera fila
         const existente = (await db.doc(`users/${uidSinCuit}`).get()).data()
         if (existente) {
           await d.ref.update({ estado: 'existia', uid: uidSinCuit, motivo: 'ya tenía ficha en users', actualizadoEn: FieldValue.serverTimestamp() })

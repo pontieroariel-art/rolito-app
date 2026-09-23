@@ -89,7 +89,7 @@ async function reservarNumero(db, clave) {
         if (estado.librados.length > 0) {
             const [numero, ...resto] = [...estado.librados].sort((a, b) => a - b);
             tx.set(ref, { librados: resto }, { merge: true });
-            return numero;
+            return numero; // `librados` no está vacío (chequeado arriba)
         }
         const numero = estado.ultimoAsignado + 1;
         tx.set(ref, { ultimoAsignado: numero }, { merge: true });

@@ -9,7 +9,7 @@ async function indices(db, claves) {
     if (!claves.length)
         return mapa;
     const snaps = await db.getAll(...claves.map((k) => db.doc(`tangoComprobantes/${k}`)));
-    snaps.forEach((s, i) => mapa.set(claves[i], s.data()));
+    claves.forEach((k, i) => mapa.set(k, snaps[i]?.data()));
     return mapa;
 }
 const confirmado = () => ({ anulacion: { tango: { estado: 'confirmado', en: firestore_1.FieldValue.serverTimestamp() } } });

@@ -79,8 +79,9 @@ export const sendPush = onCall(
         // no seguir intentando enviarle notificaciones a un endpoint muerto
         // en cada evento futuro sin que nadie se entere de que nunca llegan.
         try {
-          if (!ownerCheck.empty) {
-            await ownerCheck.docs[0].ref.update({ pushSubscription: FieldValue.delete() })
+          const dueno = ownerCheck.docs[0]
+          if (dueno) {
+            await dueno.ref.update({ pushSubscription: FieldValue.delete() })
           }
         } catch (cleanupErr) {
           console.error('sendPush cleanup error:', cleanupErr)

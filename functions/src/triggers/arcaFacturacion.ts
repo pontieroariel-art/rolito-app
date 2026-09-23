@@ -378,15 +378,13 @@ export const reconciliarFacturasArca = onSchedule(
 async function avisarFacturasConProblemas(db: Firestore, trabadas: FacturaConProblema[]): Promise<void> {
   // Dos igualdades por consulta (estado + avisadoEn): no necesitan índice
   // compuesto, a diferencia de un `in` combinado con otro filtro.
-  const [rechazadas, vencidas] = await Promise.all(
-    (['rechazada', 'vencida'] as const).map((estado) =>
-      db.collection('facturasArca')
-        .where('estado', '==', estado)
-        .where('avisadoEn', '==', null)
-        .limit(50)
-        .get(),
-    ),
-  )
+  const buscar = (estado: 'rechazada' | 'vencida') =>
+    db.collection('facturasArca')
+      .where('estado', '==', estado)
+      .where('avisadoEn', '==', null)
+      .limit(50)
+      .get()
+  const [rechazadas, vencidas] = await Promise.all([buscar('rechazada'), buscar('vencida')])
 
   const problemas: FacturaConProblema[] = [...trabadas]
   const conProblema = [...rechazadas.docs, ...vencidas.docs]

@@ -109,14 +109,15 @@ export function firmarTRA(tra: string, certificadoPem: string, clavePrivadaPem: 
   p7.addSigner({
     key: clavePrivada,
     certificate: certificado,
-    digestAlgorithm: forge.pki.oids.sha256,
+    // `forge.pki.oids` está tipado como diccionario abierto; estos OID son constantes de la librería.
+    digestAlgorithm: forge.pki.oids.sha256!,
     // Sin estos atributos autenticados la firma queda "bare" y algunos
     // verificadores la rechazan. contentType y messageDigest son obligatorios
     // en CMS cuando se firman atributos; signingTime lo calcula forge solo.
     authenticatedAttributes: [
-      { type: forge.pki.oids.contentType, value: forge.pki.oids.data },
-      { type: forge.pki.oids.messageDigest },
-      { type: forge.pki.oids.signingTime },
+      { type: forge.pki.oids.contentType!, value: forge.pki.oids.data! },
+      { type: forge.pki.oids.messageDigest! },
+      { type: forge.pki.oids.signingTime! },
     ],
   })
   p7.sign({ detached: false })
@@ -136,7 +137,7 @@ export function cuitDelCertificado(certificadoPem: string): string | null {
   const campo = cert.subject.attributes.find((a) => a.name === 'serialNumber')
   const valor = typeof campo?.value === 'string' ? campo.value : ''
   const m = valor.match(/(\d{11})/)
-  return m ? m[1] : null
+  return m?.[1] ?? null
 }
 
 /**
@@ -194,7 +195,7 @@ function envolverEnSoap(cmsBase64: string): string {
  */
 export function extraerTag(xml: string, tag: string): string | null {
   const m = xml.match(new RegExp(`<${tag}(?:\\s[^>]*)?>([\\s\\S]*?)</${tag}>`))
-  return m ? m[1].trim() : null
+  return m?.[1]?.trim() ?? null
 }
 
 /**

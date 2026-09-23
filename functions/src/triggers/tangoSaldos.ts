@@ -185,7 +185,7 @@ export async function procesarLoteSaldos(
     }
     opts.tocados?.add(uid)
     if (opts.tocados && mismaRama(actual, nuevo, empresa)) { sinCambios++; continue }
-    batch.set(refs[uids.indexOf(uid)], { ...nuevo, actualizadoEn: FieldValue.serverTimestamp() })
+    batch.set(refs[uids.indexOf(uid)]!, { ...nuevo, actualizadoEn: FieldValue.serverTimestamp() }) // `refs` es paralelo a `uids` y `uid` sale de ahí
     actualizados++
     enBatch++
     if (enBatch >= 400) await flush()

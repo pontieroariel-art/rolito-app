@@ -96,8 +96,9 @@ function cuentaParaFila(row, empresa, indice) {
     const candidatos = (0, cuit_1.cuitValido)(cuit) ? (porCuit.get(cuit) ?? []) : [];
     if (candidatos.length > 1)
         return { motivo: 'cuitAmbiguo' };
-    if (candidatos.length === 1)
-        return { uid: candidatos[0], via: 'cuit', esNuevoLink: true };
+    const unico = candidatos[0];
+    if (unico !== undefined)
+        return { uid: unico, via: 'cuit', esNuevoLink: true };
     if (empresa !== 'redonhielo' && row.codGva14 && porCodigo.redonhielo.has(row.codGva14)) {
         return { uid: porCodigo.redonhielo.get(row.codGva14), via: 'codigo', esNuevoLink: true };
     }
@@ -108,8 +109,9 @@ function cuentaParaFila(row, empresa, indice) {
         const cuitCuenta = soloDigitos(p.cuit);
         return !(0, cuit_1.cuitValido)(cuitCuenta) || cuitCuenta === cuit;
     });
-    if (legacy.length === 1)
-        return { uid: legacy[0], via: 'codigoCliente', esNuevoLink: true };
+    const unicoLegacy = legacy.length === 1 ? legacy[0] : undefined;
+    if (unicoLegacy !== undefined)
+        return { uid: unicoLegacy, via: 'codigoCliente', esNuevoLink: true };
     return { motivo: 'sinCuenta' };
 }
 /**
@@ -176,8 +178,9 @@ async function procesarLoteClientesTango(db, rows, opts) {
         const ids = perfil.tangoIds;
         const habilitadoFila = row.habilitado !== false;
         vistos.push({ uid, habilitado: habilitadoFila });
-        const tienePrincipal = (ids[empresa]?.length ?? 0) > 0;
-        const esPrincipal = !tienePrincipal || ids[empresa][0].idGva14 === row.idGva14;
+        const principalActual = ids[empresa]?.[0];
+        const tienePrincipal = principalActual !== undefined;
+        const esPrincipal = !principalActual || principalActual.idGva14 === row.idGva14;
         const update = {};
         // Habilitado en ESTA empresa (2026-09-11): la app bloquea la venta contado /
         // cta. cte. (Redonhielo) o promo (Rolito) a un cliente inhabilitado ahí,
@@ -214,7 +217,8 @@ async function procesarLoteClientesTango(db, rows, opts) {
         }
         if (update[`tangoIds.${empresa}`])
             perfil.tangoIdsRaw[empresa] = update[`tangoIds.${empresa}`];
-        if (esPrincipal && ids[empresa] && ids[empresa][0].codigo !== row.codGva14) {
+        const primeroAhora = ids[empresa]?.[0];
+        if (esPrincipal && primeroAhora && primeroAhora.codigo !== row.codGva14) {
             // El código cambió en Tango (raro): se refleja.
             ids[empresa] = (0, empresas_1.agregarTangoId)(ids[empresa], { idGva14: row.idGva14, codigo: row.codGva14 }, { principal: true });
             update[`tangoIds.${empresa}`] = ids[empresa];

@@ -202,8 +202,10 @@ function viajeDeVenta(venta, viajes) {
     const anteriores = mismos
         .filter((r) => r.fecha.toDate().getTime() <= cuando)
         .sort((a, b) => b.fecha.toDate().getTime() - a.fecha.toDate().getTime());
-    if (anteriores.length)
-        return anteriores[0].id;
+    const ultimoAnterior = anteriores[0];
+    if (ultimoAnterior)
+        return ultimoAnterior.id;
+    // `mismos` no está vacío (chequeado arriba): el más viejo siempre existe.
     return [...mismos].sort((a, b) => a.fecha.toDate().getTime() - b.fecha.toDate().getTime())[0].id;
 }
 /** Las ventas (o cobranzas) de UN viaje. */

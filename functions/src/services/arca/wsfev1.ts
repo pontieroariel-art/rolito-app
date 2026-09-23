@@ -95,7 +95,8 @@ export function extraerTodos(xml: string, tag: string): string[] {
   const re = new RegExp(`<${tag}(?:\\s[^>]*)?>([\\s\\S]*?)</${tag}>`, 'g')
   const out: string[] = []
   let m: RegExpExecArray | null
-  while ((m = re.exec(xml)) !== null) out.push(m[1])
+  // El grupo 1 no es opcional: con match, siempre participa.
+  while ((m = re.exec(xml)) !== null) out.push(m[1]!)
   return out
 }
 

@@ -119,18 +119,19 @@ async function leerRenglones(db, cab) {
 async function anularRemitoEnTango(db, nComp, cfg, log = () => undefined) {
     const s = sentenciaCabecera(nComp);
     const filas = await db.query(s.sql, s.params);
-    if (!filas.length) {
+    const fila = filas[0];
+    if (!fila) {
         log(`remito ${nComp} no existe en Tango`);
         return { estado: 'inexistente' };
     }
     const cab = {
-        idSta14: Number(filas[0].ID_STA14),
+        idSta14: Number(fila.ID_STA14),
         nComp,
-        tcompInS: String(filas[0].TCOMP_IN_S).trim(),
-        ncompInS: String(filas[0].NCOMP_IN_S).trim(),
-        codDeposito: String(filas[0].COD_DEPOSI).trim(),
-        talonario: Number(filas[0].TALONARIO),
-        estadoMov: String(filas[0].ESTADO_MOV).trim().toUpperCase(),
+        tcompInS: String(fila.TCOMP_IN_S).trim(),
+        ncompInS: String(fila.NCOMP_IN_S).trim(),
+        codDeposito: String(fila.COD_DEPOSI).trim(),
+        talonario: Number(fila.TALONARIO),
+        estadoMov: String(fila.ESTADO_MOV).trim().toUpperCase(),
     };
     if (cab.estadoMov === 'A') {
         log(`remito ${nComp} ya estaba anulado en Tango`);

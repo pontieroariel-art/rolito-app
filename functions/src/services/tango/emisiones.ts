@@ -127,7 +127,8 @@ export function rangoAPedir(mapa: MapaEmisiones | undefined, hoy: Date, faltante
   faltantes = faltantesABuscar(mapa, hoy, faltantes)
   if (faltantes.length) {
     const vtos = faltantes.map((c) => c.fechaVencimiento).filter((v): v is string => !!v && /^\d{4}-\d{2}-\d{2}/.test(v)).sort()
-    const base = vtos.length ? restarDias(deIso(vtos[0]), 120) : piso
+    const primerVto = vtos[0]
+    const base = primerVto ? restarDias(deIso(primerVto), 120) : piso
     return { desde: base < piso ? piso : base, hasta: hoy }
   }
   if (!mapa?.hastaFecha) return { desde: piso, hasta: hoy }

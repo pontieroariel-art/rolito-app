@@ -122,7 +122,8 @@ function itemsDeVenta(payload, opciones) {
     // informado a ARCA. La diferencia (centavos) se carga al último ítem con importe.
     if (totales && items.length) {
         const conImporte = items.filter((i) => !i.esCambio && i._base > 0);
-        const ultimo = conImporte[conImporte.length - 1] ?? items[items.length - 1];
+        // `items.length` > 0 (chequeado en el if): el último ítem siempre existe.
+        const ultimo = (conImporte[conImporte.length - 1] ?? items[items.length - 1]);
         const dBase = (0, exports.redondear2)(totales.neto - items.reduce((s, i) => s + i._base, 0));
         const dIva = (0, exports.redondear2)(totales.iva - items.reduce((s, i) => s + i.importeIva, 0));
         if (Math.abs(dBase) > 1 || Math.abs(dIva) > 1) {
@@ -154,14 +155,18 @@ function percepcionesPorItem(items, tributos, cfg) {
     const repartos = items.map((i) => (i._base > 0 ? (0, exports.redondear2)(i._base * (alicuota / 100)) : 0));
     const dif = (0, exports.redondear2)(total - repartos.reduce((s, x) => s + x, 0));
     const idx = repartos.map((x, k) => [x, k]).filter(([x]) => x > 0).pop()?.[1] ?? 0;
+    // `idx` es un índice de `repartos` (o 0, y hay al menos un ítem porque neto > 0).
     repartos[idx] = (0, exports.redondear2)(repartos[idx] + dif);
-    return items.map((i, k) => (repartos[k] > 0 ? [{
-            codigoAlicuota: cfg.codigoAlicuotaPercepcionIIBB,
-            codigoPercepcion: cfg.codigoPercepcionIIBB ?? '',
-            porcentaje: alicuota,
-            base: i._base,
-            importe: repartos[k],
-        }] : []));
+    return items.map((i, k) => {
+        const reparto = repartos[k] ?? 0;
+        return reparto > 0 ? [{
+                codigoAlicuota: cfg.codigoAlicuotaPercepcionIIBB,
+                codigoPercepcion: cfg.codigoPercepcionIIBB ?? '',
+                porcentaje: alicuota,
+                base: i._base,
+                importe: reparto,
+            }] : [];
+    });
 }
 /** Arma el comprobante completo para el Facturador. */
 function armarComprobanteFacturador(payload, item, cfg, mapeos) {
@@ -265,7 +270,8 @@ function armarComprobanteFacturador(payload, item, cfg, mapeos) {
         observaciones: recortar(`${ref}. Venta desde ${vende.lugar} por ${vende.nombre}; firmo ${payload.firmanteNombre ?? 'el cliente'}.`, 280),
         items: r.items.map((i, k) => {
             const { _base, ...it } = i;
-            return percepciones[k].length ? { ...it, percepciones: percepciones[k] } : it;
+            const per = percepciones[k];
+            return per?.length ? { ...it, percepciones: per } : it;
         }),
     };
     if (totales.total <= 0) {

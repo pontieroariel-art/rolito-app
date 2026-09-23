@@ -220,7 +220,7 @@ export function upsertDireccionTango(
     if (opts.principal && lista.length > 0) return { addresses: lista, cambio: false }
     return { addresses: [...lista, direccionNuevaDeFila(fila, { principal: opts.principal })], cambio: true }
   }
-  const actual = lista[i]
+  const actual = lista[i]! // i >= 0: findIndex la encontró
   const nueva: DireccionDoc = { ...actual }
   let cambio = false
   for (const k of CLAVES_TANGO) {
@@ -247,7 +247,7 @@ export function upsertDireccionTango(
  * `ahora` = FieldValue.serverTimestamp() desde el trigger.
  */
 export function docCuentaDesdeTango(candidato: CandidatoAlta, ahora: unknown): Record<string, unknown> {
-  const principal = candidato.filas[0].fila
+  const principal = candidato.filas[0]!.fila // un candidato nace con su primera fila (candidatosDeAlta)
   // Sin CUIT no hay credencial: la cuenta existe para venderle (promo), no para que entre.
   const emailAuth = candidato.sinCuit ? '' : emailAuthDe(candidato.cuit)
   const razonSocial = (principal.razonSocial ?? '').trim() || `Cliente ${principal.codGva14}`

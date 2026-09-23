@@ -18,7 +18,7 @@ exports.rangoDiaArt = rangoDiaArt;
  */
 const firestore_1 = require("firebase-admin/firestore");
 /** Patente sola: `camionLabel` viene como "AB123CD · Iveco" en los remitos. */
-const patenteDe = (label) => String(label ?? '').split('·')[0].trim();
+const patenteDe = (label) => (String(label ?? '').split('·')[0] ?? '').trim();
 exports.patenteDe = patenteDe;
 function calcularOcupadas(remitos, descargas, ventas, borradores = []) {
     const out = {};

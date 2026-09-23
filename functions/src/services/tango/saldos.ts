@@ -281,7 +281,8 @@ export function mismaRama(actual: Partial<SaldoDoc> | undefined | null, nuevo: S
   const propiosA = comprobantesDe(actual).filter((c) => c.empresa === empresa).sort((a, b) => clave(a).localeCompare(clave(b)))
   const propiosN = nuevo.comprobantes.filter((c) => c.empresa === empresa).sort((a, b) => clave(a).localeCompare(clave(b)))
   if (propiosA.length !== propiosN.length) return false
-  for (let i = 0; i < propiosA.length; i++) if (forma(propiosA[i]) !== forma(propiosN[i])) return false
+  // Mismo largo (chequeado arriba) e i < length: las dos existen.
+  for (let i = 0; i < propiosA.length; i++) if (forma(propiosA[i]!) !== forma(propiosN[i]!)) return false
   const setA = new Set(Array.isArray(actual.cobranzasAplicadas) ? actual.cobranzasAplicadas : [])
   const setN = new Set(nuevo.cobranzasAplicadas)
   if (setA.size !== setN.size || [...setN].some((id) => !setA.has(id))) return false

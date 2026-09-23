@@ -65,8 +65,9 @@ exports.sendPush = (0, https_1.onCall)({ secrets: [vapidPublicKey, vapidPrivateK
             // no seguir intentando enviarle notificaciones a un endpoint muerto
             // en cada evento futuro sin que nadie se entere de que nunca llegan.
             try {
-                if (!ownerCheck.empty) {
-                    await ownerCheck.docs[0].ref.update({ pushSubscription: firestore_1.FieldValue.delete() });
+                const dueno = ownerCheck.docs[0];
+                if (dueno) {
+                    await dueno.ref.update({ pushSubscription: firestore_1.FieldValue.delete() });
                 }
             }
             catch (cleanupErr) {

@@ -123,7 +123,7 @@ export async function reservarNumero(db: DbLike, clave: ClaveNumeracion): Promis
     if (estado.librados.length > 0) {
       const [numero, ...resto] = [...estado.librados].sort((a, b) => a - b)
       tx.set(ref, { librados: resto }, { merge: true })
-      return numero
+      return numero! // `librados` no está vacío (chequeado arriba)
     }
 
     const numero = estado.ultimoAsignado + 1

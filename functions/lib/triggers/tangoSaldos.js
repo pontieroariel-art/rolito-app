@@ -115,7 +115,7 @@ async function procesarLoteSaldos(db, rows, opts) {
             sinCambios++;
             continue;
         }
-        batch.set(refs[uids.indexOf(uid)], { ...nuevo, actualizadoEn: firestore_1.FieldValue.serverTimestamp() });
+        batch.set(refs[uids.indexOf(uid)], { ...nuevo, actualizadoEn: firestore_1.FieldValue.serverTimestamp() }); // `refs` es paralelo a `uids` y `uid` sale de ahí
         actualizados++;
         enBatch++;
         if (enBatch >= 400)

@@ -57,9 +57,10 @@ async function siguienteNcompInS(db, tcompInS, usarContador = true) {
     if (usarContador)
         try {
             const inc = await db.query(`SELECT UltimoValor FROM dbo.INCREMENTAL_VALUE WHERE Tabla = 'STA14' AND Campo = 'NCOMP_IN_S'`);
-            if (inc.length) {
-                const siguiente = Number(inc[0].UltimoValor) + 1;
-                await db.query(`UPDATE dbo.INCREMENTAL_VALUE SET UltimoValor = @V WHERE Tabla = 'STA14' AND Campo = 'NCOMP_IN_S' AND UltimoValor = @ANT`, [(0, tipos_1.int)('V', siguiente), (0, tipos_1.int)('ANT', Number(inc[0].UltimoValor))]);
+            const contador = inc[0];
+            if (contador) {
+                const siguiente = Number(contador.UltimoValor) + 1;
+                await db.query(`UPDATE dbo.INCREMENTAL_VALUE SET UltimoValor = @V WHERE Tabla = 'STA14' AND Campo = 'NCOMP_IN_S' AND UltimoValor = @ANT`, [(0, tipos_1.int)('V', siguiente), (0, tipos_1.int)('ANT', Number(contador.UltimoValor))]);
                 return String(siguiente).padStart(8, '0');
             }
         }
@@ -105,7 +106,9 @@ function usuarioCorto(nombre, fallback = 'ROLITO') {
     if (!limpio)
         return fallback;
     const partes = limpio.split(/\s+/);
-    const corto = partes.length >= 2 ? `${partes[0][0]}${partes[partes.length - 1]}` : partes[0];
+    // `limpio` no está vacío: hay al menos una parte. Los `?? ''` solo conforman al tipado.
+    const primera = partes[0] ?? '';
+    const corto = partes.length >= 2 ? `${primera[0] ?? ''}${partes[partes.length - 1] ?? ''}` : primera;
     return corto.slice(0, 10) || fallback;
 }
 /**
@@ -308,13 +311,15 @@ function insertSta19(etiqueta, codArticu, codDeposito, cantidad) {
 /** Unidades de medida de un artículo (STA11). Error claro si no existe. */
 async function leerArticulo(db, codArticu) {
     const art = await db.query(`SELECT ID_MEDIDA_STOCK, ID_MEDIDA_VENTAS FROM STA11 WHERE COD_ARTICU = @COD`, [(0, tipos_1.varchar)('COD', codArticu, 15)]);
-    if (!art.length)
+    const fila = art[0];
+    if (!fila)
         throw new Error(`artículo ${codArticu} no existe en Tango`);
-    return { idMedidaStock: art[0].ID_MEDIDA_STOCK, idMedidaVentas: art[0].ID_MEDIDA_VENTAS };
+    return { idMedidaStock: fila.ID_MEDIDA_STOCK, idMedidaVentas: fila.ID_MEDIDA_VENTAS };
 }
 /** Saldo actual de un artículo en un depósito (STA19, sin ubicaciones). `null` si no hay fila. */
 async function leerStock(db, codArticu, codDeposito) {
     const stock = await db.query(`SELECT CANT_STOCK FROM STA19 WHERE COD_ARTICU = @COD AND COD_DEPOSI = @DEP AND COD_UBIC1 = '' AND COD_UBIC2 = '' AND COD_UBIC3 = ''`, [(0, tipos_1.varchar)('COD', codArticu, 15), (0, tipos_1.varchar)('DEP', codDeposito, 2)]);
-    return stock.length ? Number(stock[0].CANT_STOCK) : null;
+    const fila = stock[0];
+    return fila ? Number(fila.CANT_STOCK) : null;
 }
 //# sourceMappingURL=comun.js.map

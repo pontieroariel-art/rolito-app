@@ -131,7 +131,7 @@ export const enviarComprobantePorMail = onCall({ secrets: MAIL_SECRETS, memory: 
     const filename = nombrePdf(d.nombreArchivo)
     adjuntos.push({ filename, content: decodificarPdf(d.pdfBase64, filename) })
   }
-  const nombreArchivo = adjuntos[0].filename
+  const nombreArchivo = adjuntos[0]!.filename // las dos ramas de arriba cargan al menos un adjunto
   const comprobante = comprobanteRef(d.comprobante)
   const comprobantes = (Array.isArray(d.comprobantes) ? d.comprobantes : []).slice(0, MAX_ADJUNTOS).map(comprobanteRef).filter((c) => c.tipo || c.numero)
   const clienteNombre = texto(d.clienteNombre, 120) || 'cliente'

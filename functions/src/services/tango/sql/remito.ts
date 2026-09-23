@@ -221,7 +221,8 @@ export async function leerDatosRemito(db: EjecutorSql, r: RemitoTango): Promise<
   const cli = await db.query<{ ID_GVA14: number; COND_VTA: number }>(
     `SELECT ID_GVA14, COND_VTA FROM GVA14 WHERE COD_GVA14 = @COD`, [varchar('COD', r.codCliente, 6)],
   )
-  if (!cli.length) throw new Error(`cliente ${r.codCliente} no existe en Tango`)
+  const cliente = cli[0]
+  if (!cliente) throw new Error(`cliente ${r.codCliente} no existe en Tango`)
 
   // Dirección de entrega habitual del cliente (STA14.ID_DIRECCION_ENTREGA; 8470 en
   // la traza). Tango la exige al facturar desde el remito: sin ella tira "No hay
@@ -231,10 +232,11 @@ export async function leerDatosRemito(db: EjecutorSql, r: RemitoTango): Promise<
   // dirección cargada el remito no se escribe, para que el error se vea en la cola.
   const dir = await db.query<{ ID_DIRECCION_ENTREGA: number }>(
     `SELECT TOP 1 ID_DIRECCION_ENTREGA FROM DIRECCION_ENTREGA WHERE ID_GVA14 = @ID ORDER BY CASE WHEN HABITUAL = 'S' THEN 0 ELSE 1 END, ID_DIRECCION_ENTREGA`,
-    [int('ID', cli[0].ID_GVA14)],
+    [int('ID', cliente.ID_GVA14)],
   )
-  if (!dir.length) throw new Error(`el cliente ${r.codCliente} no tiene dirección de entrega cargada en Tango (DIRECCION_ENTREGA): cargarla en la ficha y reintentar`)
-  const idDireccionEntrega = dir[0].ID_DIRECCION_ENTREGA
+  const direccion = dir[0]
+  if (!direccion) throw new Error(`el cliente ${r.codCliente} no tiene dirección de entrega cargada en Tango (DIRECCION_ENTREGA): cargarla en la ficha y reintentar`)
+  const idDireccionEntrega = direccion.ID_DIRECCION_ENTREGA
   const nroSucursalDestino = 0
 
   const ncompInS = await siguienteNcompInS(db, 'RE')
@@ -247,7 +249,7 @@ export async function leerDatosRemito(db: EjecutorSql, r: RemitoTango): Promise<
     articulos[ren.codArticu] = { ...art, stockActual }
   }
 
-  return { ncompInS, condVta: Number(cli[0].COND_VTA ?? 0), idDireccionEntrega, nroSucursalDestino, articulos }
+  return { ncompInS, condVta: Number(cliente.COND_VTA ?? 0), idDireccionEntrega, nroSucursalDestino, articulos }
 }
 
 export interface ResultadoRemitoSql {
@@ -263,9 +265,10 @@ export interface ResultadoRemitoSql {
  */
 export async function escribirRemito(db: EjecutorSql, r: RemitoTango, cfg: ConfigRemitoSql, log: (m: string) => void = () => undefined): Promise<ResultadoRemitoSql> {
   const existe = await db.query<{ ID_STA14: number; NCOMP_IN_S: string }>(sentenciaExiste(r).sql, sentenciaExiste(r).params)
-  if (existe.length) {
-    log(`remito ${r.nComp} ya estaba en Tango (ID_STA14 ${existe[0].ID_STA14}); no se reescribe`)
-    return { yaExistia: true, idSta14: existe[0].ID_STA14, ncompInS: existe[0].NCOMP_IN_S, nComp: r.nComp }
+  const ya = existe[0]
+  if (ya) {
+    log(`remito ${r.nComp} ya estaba en Tango (ID_STA14 ${ya.ID_STA14}); no se reescribe`)
+    return { yaExistia: true, idSta14: ya.ID_STA14, ncompInS: ya.NCOMP_IN_S, nComp: r.nComp }
   }
   const datos = await leerDatosRemito(db, r)
   let idSta14: number | null = null

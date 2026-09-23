@@ -179,19 +179,20 @@ export async function anularRemitoEnTango(
     ID_STA14: number; TCOMP_IN_S: string; NCOMP_IN_S: string
     COD_DEPOSI: string; TALONARIO: number; ESTADO_MOV: string
   }>(s.sql, s.params)
-  if (!filas.length) {
+  const fila = filas[0]
+  if (!fila) {
     log(`remito ${nComp} no existe en Tango`)
     return { estado: 'inexistente' }
   }
 
   const cab: CabeceraRemito = {
-    idSta14:     Number(filas[0].ID_STA14),
+    idSta14:     Number(fila.ID_STA14),
     nComp,
-    tcompInS:    String(filas[0].TCOMP_IN_S).trim(),
-    ncompInS:    String(filas[0].NCOMP_IN_S).trim(),
-    codDeposito: String(filas[0].COD_DEPOSI).trim(),
-    talonario:   Number(filas[0].TALONARIO),
-    estadoMov:   String(filas[0].ESTADO_MOV).trim().toUpperCase(),
+    tcompInS:    String(fila.TCOMP_IN_S).trim(),
+    ncompInS:    String(fila.NCOMP_IN_S).trim(),
+    codDeposito: String(fila.COD_DEPOSI).trim(),
+    talonario:   Number(fila.TALONARIO),
+    estadoMov:   String(fila.ESTADO_MOV).trim().toUpperCase(),
   }
 
   if (cab.estadoMov === 'A') {

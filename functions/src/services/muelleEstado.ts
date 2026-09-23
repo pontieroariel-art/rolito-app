@@ -40,7 +40,7 @@ export interface VentaLite {
 export type Ocupacion = { tipo: 'carga' | 'regreso' | 'ventanilla'; etiqueta: string }
 
 /** Patente sola: `camionLabel` viene como "AB123CD · Iveco" en los remitos. */
-export const patenteDe = (label?: string): string => String(label ?? '').split('·')[0].trim()
+export const patenteDe = (label?: string): string => (String(label ?? '').split('·')[0] ?? '').trim()
 
 export function calcularOcupadas(
   remitos: RemitoLite[],

@@ -705,9 +705,10 @@ const ddmmaa = (d: Date) => `${String(d.getDate()).padStart(2, '0')}/${String(d.
 
 /** Texto del certificado para el renglón de tesorería: LEYENDA corta (40) y COMENTARIO completo (255). */
 export function textoRetenciones(rets: RetencionTango[]): { leyenda?: string; comentario?: string } {
-  if (!rets.length) return {}
+  const primera = rets[0]
+  if (!primera) return {}
   const partes = rets.map((x) => `${ETIQUETA_RETENCION[x.tipo]} CERT ${x.nroCertificado}${x.fecha ? ' ' + ddmmaa(x.fecha) : ''} $${x.importe.toFixed(2)}`)
-  const leyenda = (rets.length === 1 ? `${ETIQUETA_RETENCION[rets[0].tipo]} CERT ${rets[0].nroCertificado}` : `${ETIQUETA_RETENCION[rets[0].tipo]} ${rets.length} CERTIFICADOS`).slice(0, 40)
+  const leyenda = (rets.length === 1 ? `${ETIQUETA_RETENCION[primera.tipo]} CERT ${primera.nroCertificado}` : `${ETIQUETA_RETENCION[primera.tipo]} ${rets.length} CERTIFICADOS`).slice(0, 40)
   return { leyenda, comentario: partes.join(' | ').slice(0, 255) }
 }
 
@@ -735,23 +736,25 @@ export async function leerDatosRecibo(db: EjecutorSql, r: ReciboTango, cfg: Conf
   const cli = await db.query<{ ID_GVA14: number; SALDO_CC: number; SALDO_DOC: number; SALDO_D_UN: number; SALDO_CC_U: number; COD_VENDED: string | null }>(
     `SELECT ID_GVA14, SALDO_CC, SALDO_DOC, SALDO_D_UN, SALDO_CC_U, COD_VENDED FROM GVA14 WHERE COD_GVA14 = @COD`, [varchar('COD', r.codCliente, 6)],
   )
-  if (!cli.length) throw new Error(`cliente ${r.codCliente} no existe en Tango`)
   const c = cli[0]
+  if (!c) throw new Error(`cliente ${r.codCliente} no existe en Tango`)
 
   const facturas: DatosRecibo['facturas'] = {}
   for (const imp of r.imputaciones) {
     const f = await db.query<{ ID_GVA12: number; IMPORTE: number; UNIDADES: number; COD_CLIENT: string }>(
       `SELECT ID_GVA12, IMPORTE, UNIDADES, COD_CLIENT FROM GVA12 WHERE T_COMP = @T AND N_COMP = @N`, [varchar('T', imp.tComp, 3), varchar('N', imp.nComp, 14)],
     )
-    if (!f.length) throw new Error(`la factura ${imp.tComp} ${imp.nComp} no existe en Tango`)
-    if (f[0].COD_CLIENT.trim() !== r.codCliente) throw new Error(`la factura ${imp.nComp} es del cliente ${f[0].COD_CLIENT}, no de ${r.codCliente}`)
+    const fac = f[0]
+    if (!fac) throw new Error(`la factura ${imp.tComp} ${imp.nComp} no existe en Tango`)
+    if (fac.COD_CLIENT.trim() !== r.codCliente) throw new Error(`la factura ${imp.nComp} es del cliente ${fac.COD_CLIENT}, no de ${r.codCliente}`)
     // (*) vencimiento: el primero pendiente en GVA46; si no hay, la fecha del recibo.
     let fechaVto = soloDia(r.fecha)
     try {
       const v = await db.query<{ FECHA_VTO: Date }>(`SELECT TOP 1 FECHA_VTO FROM GVA46 WHERE T_COMP = @T AND N_COMP = @N ORDER BY CASE WHEN ESTADO_VTO = 'PEN' THEN 0 ELSE 1 END, FECHA_VTO`, [varchar('T', imp.tComp, 3), varchar('N', imp.nComp, 14)])
-      if (v.length && v[0].FECHA_VTO) fechaVto = new Date(v[0].FECHA_VTO)
+      const vto = v[0]?.FECHA_VTO
+      if (vto) fechaVto = new Date(vto)
     } catch { /* sin GVA46 → fecha del recibo */ }
-    facturas[clave(imp)] = { idGva12: f[0].ID_GVA12, importe: Number(f[0].IMPORTE), unidades: Number(f[0].UNIDADES), fechaVto }
+    facturas[clave(imp)] = { idGva12: fac.ID_GVA12, importe: Number(fac.IMPORTE), unidades: Number(fac.UNIDADES), fechaVto }
   }
 
   // Recibos a cuenta aplicados: tienen que ser del mismo cliente y tener saldo a cuenta suficiente
@@ -761,13 +764,14 @@ export async function leerDatosRecibo(db: EjecutorSql, r: ReciboTango, cfg: Conf
     const q = await db.query<{ ID_GVA12: number; FECHA_EMIS: Date; IMPORTE: number; COD_CLIENT: string; ESTADO: string }>(
       `SELECT ID_GVA12, FECHA_EMIS, IMPORTE, COD_CLIENT, ESTADO FROM GVA12 WHERE T_COMP = 'REC' AND N_COMP = @N`, [varchar('N', a.nComp, 14)],
     )
-    if (!q.length) throw new Error(`el recibo a cuenta ${a.nComp} no existe en Tango`)
-    if (q[0].COD_CLIENT.trim() !== r.codCliente) throw new Error(`el recibo a cuenta ${a.nComp} es del cliente ${q[0].COD_CLIENT}, no de ${r.codCliente}`)
-    if (String(q[0].ESTADO).trim() === 'ANU') throw new Error(`el recibo a cuenta ${a.nComp} está anulado en Tango`)
+    const rec = q[0]
+    if (!rec) throw new Error(`el recibo a cuenta ${a.nComp} no existe en Tango`)
+    if (rec.COD_CLIENT.trim() !== r.codCliente) throw new Error(`el recibo a cuenta ${a.nComp} es del cliente ${rec.COD_CLIENT}, no de ${r.codCliente}`)
+    if (String(rec.ESTADO).trim() === 'ANU') throw new Error(`el recibo a cuenta ${a.nComp} está anulado en Tango`)
     const s = await db.query<{ S: number | null }>(`SELECT ISNULL(SUM(IMPORT_CAN), 0) AS S FROM gva07 WHERE T_COMP_CAN = 'REC' AND N_COMP_CAN = @N`, [varchar('N', a.nComp, 14)])
-    const disponible = r2(Number(q[0].IMPORTE) - Number(s[0]?.S ?? 0))
+    const disponible = r2(Number(rec.IMPORTE) - Number(s[0]?.S ?? 0))
     if (a.importe > disponible + 0.005) throw new Error(`el recibo a cuenta ${a.nComp} tiene ${disponible} a favor y se le quieren aplicar ${a.importe}`)
-    recibosACuenta[a.nComp] = { idGva12: q[0].ID_GVA12, fecha: new Date(q[0].FECHA_EMIS), disponible }
+    recibosACuenta[a.nComp] = { idGva12: rec.ID_GVA12, fecha: new Date(rec.FECHA_EMIS), disponible }
   }
 
   const conRecibo = r.importe > 0
@@ -788,8 +792,9 @@ export async function leerDatosRecibo(db: EjecutorSql, r: ReciboTango, cfg: Conf
     const q = await db.query<{ ID_SBA01: number; SALDO_A_MO: number; SALDO_A_UN: number; SALDO_ACT: number }>(
       `SELECT ID_SBA01, SALDO_A_MO, SALDO_A_UN, SALDO_ACT FROM SBA01 WHERE COD_CTA = @COD`, [float('COD', cod)],
     )
-    if (!q.length) throw new Error(`la cuenta de tesorería ${cod} no existe en Tango (SBA01)`)
-    cuentas[String(cod)] = { idSba01: q[0].ID_SBA01, saldoAMo: Number(q[0].SALDO_A_MO), saldoAUn: Number(q[0].SALDO_A_UN), saldoAct: Number(q[0].SALDO_ACT) }
+    const cta = q[0]
+    if (!cta) throw new Error(`la cuenta de tesorería ${cod} no existe en Tango (SBA01)`)
+    cuentas[String(cod)] = { idSba01: cta.ID_SBA01, saldoAMo: Number(cta.SALDO_A_MO), saldoAUn: Number(cta.SALDO_A_UN), saldoAct: Number(cta.SALDO_ACT) }
   }
 
   const nInternoSba04 = await siguiente(db, 'SBA04', 'N_INTERNO')
@@ -827,8 +832,9 @@ export async function leerDatosRecibo(db: EjecutorSql, r: ReciboTango, cfg: Conf
       let idBanco = cfg.cheques?.bancos?.[ch.bancoCodigo]
       if (idBanco == null) {
         const b = await db.query<{ ID_BANCO: number }>(`SELECT ID_BANCO FROM ${tabla} WHERE ${col} = @COD`, [varchar('COD', ch.bancoCodigo, 10)])
-        if (!b.length) throw new Error(`el banco ${ch.bancoCodigo} del cheque ${ch.numero} no existe en Tango (${tabla}.${col}); cargarlo o mapearlo en config/tango.sql.recibo.cheques.bancos`)
-        idBanco = Number(b[0].ID_BANCO)
+        const banco = b[0]
+        if (!banco) throw new Error(`el banco ${ch.bancoCodigo} del cheque ${ch.numero} no existe en Tango (${tabla}.${col}); cargarlo o mapearlo en config/tango.sql.recibo.cheques.bancos`)
+        idBanco = Number(banco.ID_BANCO)
       }
       let nInterno = await siguiente(db, 'SBA14', 'N_INTERNO')
       while (reservados.has(nInterno)) nInterno++
@@ -883,8 +889,9 @@ async function siguiente(db: EjecutorSql, tabla: string, campo: string): Promise
     return Number(v[0].V)
   }
   const inc = await db.query<{ UltimoValor: number }>(`SELECT UltimoValor FROM dbo.INCREMENTAL_VALUE WHERE Tabla = @T AND Campo = @C`, [varchar('T', tabla, 50), varchar('C', campo, 50)])
-  if (inc.length) {
-    const ultimo = Number(inc[0].UltimoValor), sig = ultimo + 1
+  const contador = inc[0]
+  if (contador) {
+    const ultimo = Number(contador.UltimoValor), sig = ultimo + 1
     const upd = await db.query<{ affected?: number }>(`UPDATE dbo.INCREMENTAL_VALUE SET UltimoValor = @V WHERE Tabla = @T AND Campo = @C AND UltimoValor = @ANT`, [int('V', sig), varchar('T', tabla, 50), varchar('C', campo, 50), int('ANT', ultimo)])
     if (upd[0]?.affected === 0) throw new Error(`contador ${tabla}.${campo} cambió mientras se reservaba; se reintenta`)
     return sig
@@ -915,9 +922,10 @@ export async function escribirRecibo(db: EjecutorSql, r: ReciboTango, cfg: Confi
   if (conRecibo) {
     const ex = sentenciaExisteRecibo(r)
     const existe = await db.query<{ ID_GVA12: number }>(ex.sql, ex.params)
-    if (existe.length) {
-      log(`recibo ${r.nComp} ya estaba en Tango (ID_GVA12 ${existe[0].ID_GVA12}); no se reescribe`)
-      return { yaExistia: true, idGva12: existe[0].ID_GVA12, nComp: r.nComp, nInternoSba04: null }
+    const ya = existe[0]
+    if (ya) {
+      log(`recibo ${r.nComp} ya estaba en Tango (ID_GVA12 ${ya.ID_GVA12}); no se reescribe`)
+      return { yaExistia: true, idGva12: ya.ID_GVA12, nComp: r.nComp, nInternoSba04: null }
     }
   } else {
     // Imputación pura: ya existe si TODAS sus filas gva07 están (factura ← recibo viejo, mismo importe).

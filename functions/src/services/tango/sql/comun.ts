@@ -42,9 +42,10 @@ export async function siguienteNcompInS(db: EjecutorSql, tcompInS: string, usarC
     const inc = await db.query<{ UltimoValor: number }>(
       `SELECT UltimoValor FROM dbo.INCREMENTAL_VALUE WHERE Tabla = 'STA14' AND Campo = 'NCOMP_IN_S'`,
     )
-    if (inc.length) {
-      const siguiente = Number(inc[0].UltimoValor) + 1
-      await db.query(`UPDATE dbo.INCREMENTAL_VALUE SET UltimoValor = @V WHERE Tabla = 'STA14' AND Campo = 'NCOMP_IN_S' AND UltimoValor = @ANT`, [int('V', siguiente), int('ANT', Number(inc[0].UltimoValor))])
+    const contador = inc[0]
+    if (contador) {
+      const siguiente = Number(contador.UltimoValor) + 1
+      await db.query(`UPDATE dbo.INCREMENTAL_VALUE SET UltimoValor = @V WHERE Tabla = 'STA14' AND Campo = 'NCOMP_IN_S' AND UltimoValor = @ANT`, [int('V', siguiente), int('ANT', Number(contador.UltimoValor))])
       return String(siguiente).padStart(8, '0')
     }
   } catch { /* sin tabla de contadores → MAX+1 */ }
@@ -93,7 +94,9 @@ export function usuarioCorto(nombre: string | null | undefined, fallback = 'ROLI
   const limpio = String(nombre ?? '').normalize('NFD').replace(/\p{M}/gu, '').toUpperCase().replace(/[^A-Z0-9 ]/g, ' ').trim()
   if (!limpio) return fallback
   const partes = limpio.split(/\s+/)
-  const corto = partes.length >= 2 ? `${partes[0][0]}${partes[partes.length - 1]}` : partes[0]
+  // `limpio` no está vacío: hay al menos una parte. Los `?? ''` solo conforman al tipado.
+  const primera = partes[0] ?? ''
+  const corto = partes.length >= 2 ? `${primera[0] ?? ''}${partes[partes.length - 1] ?? ''}` : primera
   return corto.slice(0, 10) || fallback
 }
 
@@ -366,8 +369,9 @@ export async function leerArticulo(db: EjecutorSql, codArticu: string): Promise<
   const art = await db.query<{ ID_MEDIDA_STOCK: number; ID_MEDIDA_VENTAS: number }>(
     `SELECT ID_MEDIDA_STOCK, ID_MEDIDA_VENTAS FROM STA11 WHERE COD_ARTICU = @COD`, [varchar('COD', codArticu, 15)],
   )
-  if (!art.length) throw new Error(`artículo ${codArticu} no existe en Tango`)
-  return { idMedidaStock: art[0].ID_MEDIDA_STOCK, idMedidaVentas: art[0].ID_MEDIDA_VENTAS }
+  const fila = art[0]
+  if (!fila) throw new Error(`artículo ${codArticu} no existe en Tango`)
+  return { idMedidaStock: fila.ID_MEDIDA_STOCK, idMedidaVentas: fila.ID_MEDIDA_VENTAS }
 }
 
 /** Saldo actual de un artículo en un depósito (STA19, sin ubicaciones). `null` si no hay fila. */
@@ -376,5 +380,6 @@ export async function leerStock(db: EjecutorSql, codArticu: string, codDeposito:
     `SELECT CANT_STOCK FROM STA19 WHERE COD_ARTICU = @COD AND COD_DEPOSI = @DEP AND COD_UBIC1 = '' AND COD_UBIC2 = '' AND COD_UBIC3 = ''`,
     [varchar('COD', codArticu, 15), varchar('DEP', codDeposito, 2)],
   )
-  return stock.length ? Number(stock[0].CANT_STOCK) : null
+  const fila = stock[0]
+  return fila ? Number(fila.CANT_STOCK) : null
 }

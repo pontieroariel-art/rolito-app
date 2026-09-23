@@ -128,7 +128,8 @@ function rangoAPedir(mapa, hoy, faltantes) {
     faltantes = faltantesABuscar(mapa, hoy, faltantes);
     if (faltantes.length) {
         const vtos = faltantes.map((c) => c.fechaVencimiento).filter((v) => !!v && /^\d{4}-\d{2}-\d{2}/.test(v)).sort();
-        const base = vtos.length ? (0, exports.restarDias)((0, exports.deIso)(vtos[0]), 120) : piso;
+        const primerVto = vtos[0];
+        const base = primerVto ? (0, exports.restarDias)((0, exports.deIso)(primerVto), 120) : piso;
         return { desde: base < piso ? piso : base, hasta: hoy };
     }
     if (!mapa?.hastaFecha)

@@ -133,6 +133,7 @@ function firmarTRA(tra, certificadoPem, clavePrivadaPem) {
     p7.addSigner({
         key: clavePrivada,
         certificate: certificado,
+        // `forge.pki.oids` está tipado como diccionario abierto; estos OID son constantes de la librería.
         digestAlgorithm: forge.pki.oids.sha256,
         // Sin estos atributos autenticados la firma queda "bare" y algunos
         // verificadores la rechazan. contentType y messageDigest son obligatorios
@@ -157,7 +158,7 @@ function cuitDelCertificado(certificadoPem) {
     const campo = cert.subject.attributes.find((a) => a.name === 'serialNumber');
     const valor = typeof campo?.value === 'string' ? campo.value : '';
     const m = valor.match(/(\d{11})/);
-    return m ? m[1] : null;
+    return m?.[1] ?? null;
 }
 /**
  * Verifica que el certificado cargado sea el del CUIT configurado.
@@ -209,7 +210,7 @@ function envolverEnSoap(cmsBase64) {
  */
 function extraerTag(xml, tag) {
     const m = xml.match(new RegExp(`<${tag}(?:\\s[^>]*)?>([\\s\\S]*?)</${tag}>`));
-    return m ? m[1].trim() : null;
+    return m?.[1]?.trim() ?? null;
 }
 /**
  * Interpreta el loginTicketResponse que devuelve el WSAA (viene escapado dentro

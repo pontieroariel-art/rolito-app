@@ -207,7 +207,8 @@ export const enviarMail = async (mail: Mail): Promise<ResultadoMail> => {
     envio = { ...envio, to: cfg.testEmail, cc: undefined, subject: `[TEST → ${destinos}] ${mail.subject}` }
   }
   const orden = ordenProveedores(cfg)
-  if (!orden.length) {
+  const principal = orden[0]
+  if (!principal) {
     console.warn('Ni SMTP_PASSWORD ni RESEND_API_KEY configurados — email omitido:', mail.subject)
     return { proveedor: 'ninguno', error: 'El envío de mails no está configurado' }
   }
@@ -219,8 +220,8 @@ export const enviarMail = async (mail: Mail): Promise<ResultadoMail> => {
       if (errorPrimero) {
         // Que se vea en los logs y en el registro del envío: el mail salió,
         // pero el proveedor de siempre está caído y alguien tiene que mirarlo.
-        console.warn(`[mail] ${orden[0]} falló y salió por ${proveedor}. Motivo: ${errorPrimero}`)
-        await avisarProveedorCaido(orden[0], proveedor, errorPrimero)
+        console.warn(`[mail] ${principal} falló y salió por ${proveedor}. Motivo: ${errorPrimero}`)
+        await avisarProveedorCaido(principal, proveedor, errorPrimero)
         return { proveedor, ...(id ? { id } : {}), respaldo: proveedor, errorPrimero }
       }
       return { proveedor, ...(id ? { id } : {}) }
@@ -232,7 +233,7 @@ export const enviarMail = async (mail: Mail): Promise<ResultadoMail> => {
     }
   }
   // Un solo proveedor configurado y falló.
-  return { proveedor: orden[0], error: errorPrimero }
+  return { proveedor: principal, error: errorPrimero }
 }
 
 /** Aviso simple sin adjuntos (pedidos, usuarios, alertas): loguea el error y sigue. */

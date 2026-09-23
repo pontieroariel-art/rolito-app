@@ -49,7 +49,7 @@ async function recalcularDia(fechaStr: string): Promise<void> {
   for (const doc of snap.docs) {
     const o = doc.data() as PedidoRollup
     const estado = o.status && ESTADOS.includes(o.status as typeof ESTADOS[number]) ? o.status : 'pendiente'
-    porEstado[estado]++
+    porEstado[estado] = (porEstado[estado] ?? 0) + 1
     if (estado === 'cancelado') continue
     total++
     const q = (o.products ?? []).reduce((s, p) => s + (p.quantity ?? 0), 0)

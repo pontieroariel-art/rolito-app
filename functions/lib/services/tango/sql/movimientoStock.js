@@ -270,10 +270,11 @@ function sentenciasMovimiento(m, datos, cfg, ahora = new Date()) {
 /** Lee de Tango lo que las sentencias necesitan: talonario, número interno, artículos y saldos. */
 async function leerDatosMovimiento(db, m, sucursalCfg) {
     const tal = await db.query(`SELECT SUCURSAL, PROXIMO FROM STA17 WHERE TALONARIO = @TALONARIO`, [(0, tipos_1.smallint)('TALONARIO', m.talonario)]);
-    if (!tal.length)
+    const talonario = tal[0];
+    if (!talonario)
         throw new Error(`el talonario de stock ${m.talonario} (STA17.TALONARIO) no existe en esta base`);
-    const proximoLeido = Number(tal[0].PROXIMO);
-    const sucursal = sucursalCfg ?? Number(tal[0].SUCURSAL ?? 0);
+    const proximoLeido = Number(talonario.PROXIMO);
+    const sucursal = sucursalCfg ?? Number(talonario.SUCURSAL ?? 0);
     const numero = proximoLeido;
     const nComp = (0, comun_1.numeroComprobanteStock)(sucursal, numero, m.anchoSucursal);
     const ncompInS = await (0, comun_1.siguienteNcompInS)(db, m.tcompInS, false);
@@ -293,9 +294,10 @@ async function leerDatosMovimiento(db, m, sucursalCfg) {
 async function escribirMovimientoStock(db, m, cfg, log = () => undefined) {
     const ex = sentenciaExisteMovimiento(m);
     const existe = await db.query(ex.sql, ex.params);
-    if (existe.length) {
-        log(`${m.tComp} ${m.referencia} ya estaba en Tango (${existe[0].N_COMP}, ID_STA14 ${existe[0].ID_STA14}); no se reescribe`);
-        return { yaExistia: true, idSta14: existe[0].ID_STA14, nComp: existe[0].N_COMP.trim(), numero: Number(existe[0].N_COMP.slice(-8)) || 0, ncompInS: existe[0].NCOMP_IN_S, tComp: m.tComp };
+    const ya = existe[0];
+    if (ya) {
+        log(`${m.tComp} ${m.referencia} ya estaba en Tango (${ya.N_COMP}, ID_STA14 ${ya.ID_STA14}); no se reescribe`);
+        return { yaExistia: true, idSta14: ya.ID_STA14, nComp: ya.N_COMP.trim(), numero: Number(ya.N_COMP.slice(-8)) || 0, ncompInS: ya.NCOMP_IN_S, tComp: m.tComp };
     }
     const datos = await leerDatosMovimiento(db, m, cfg.sucursal);
     let idSta14 = null;

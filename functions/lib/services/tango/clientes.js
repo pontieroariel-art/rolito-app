@@ -160,7 +160,7 @@ function upsertDireccionTango(addresses, fila, opts) {
             return { addresses: lista, cambio: false };
         return { addresses: [...lista, direccionNuevaDeFila(fila, { principal: opts.principal })], cambio: true };
     }
-    const actual = lista[i];
+    const actual = lista[i]; // i >= 0: findIndex la encontró
     const nueva = { ...actual };
     let cambio = false;
     for (const k of CLAVES_TANGO) {
@@ -193,7 +193,7 @@ function upsertDireccionTango(addresses, fila, opts) {
  * `ahora` = FieldValue.serverTimestamp() desde el trigger.
  */
 function docCuentaDesdeTango(candidato, ahora) {
-    const principal = candidato.filas[0].fila;
+    const principal = candidato.filas[0].fila; // un candidato nace con su primera fila (candidatosDeAlta)
     // Sin CUIT no hay credencial: la cuenta existe para venderle (promo), no para que entre.
     const emailAuth = candidato.sinCuit ? '' : (0, exports.emailAuthDe)(candidato.cuit);
     const razonSocial = (principal.razonSocial ?? '').trim() || `Cliente ${principal.codGva14}`;

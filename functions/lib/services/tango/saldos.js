@@ -199,6 +199,7 @@ function mismaRama(actual, nuevo, empresa) {
     const propiosN = nuevo.comprobantes.filter((c) => c.empresa === empresa).sort((a, b) => clave(a).localeCompare(clave(b)));
     if (propiosA.length !== propiosN.length)
         return false;
+    // Mismo largo (chequeado arriba) e i < length: las dos existen.
     for (let i = 0; i < propiosA.length; i++)
         if (forma(propiosA[i]) !== forma(propiosN[i]))
             return false;

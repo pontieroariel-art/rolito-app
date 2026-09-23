@@ -43,7 +43,7 @@ async function recalcularDia(fechaStr) {
     for (const doc of snap.docs) {
         const o = doc.data();
         const estado = o.status && ESTADOS.includes(o.status) ? o.status : 'pendiente';
-        porEstado[estado]++;
+        porEstado[estado] = (porEstado[estado] ?? 0) + 1;
         if (estado === 'cancelado')
             continue;
         total++;
