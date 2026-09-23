@@ -1,6 +1,6 @@
 import { collection, doc, onSnapshot, orderBy, query, limit, setDoc, Timestamp } from 'firebase/firestore'
 import { db } from './firebase'
-import { onSnapshotError, reportError } from './observability'
+import { fireAndForget, onSnapshotError, reportError } from './observability'
 import { CicloRolitera, ParteMaquinas, PlantaId, TurnoProduccion } from '../types'
 import { toDateStr } from '../utils/helpers'
 
@@ -44,10 +44,10 @@ export function abrirParteMaquinas(
 ): void {
   const fecha = fechaParteHoy()
   const now = Timestamp.now()
-  setDoc(doc(db, PARTES, parteMaquinasId(plantaId, fecha, turno)), {
+  fireAndForget(setDoc(doc(db, PARTES, parteMaquinasId(plantaId, fecha, turno)), {
     plantaId, fecha, turno, maquinista,
     createdAt: now, updatedAt: now,
-  }, { merge: true })
+  }, { merge: true }), { origen: 'abrirParteMaquinas', plantaId, turno })
 }
 
 // Estampa la hora actual en la rolitera: si su último ciclo está completo (o
@@ -68,7 +68,7 @@ export function estamparCiclo(parte: ParteMaquinas, rolitera: number): 'sale' | 
     estampado = 'entra'
   }
 
-  setDoc(doc(db, PARTES, parte.id), { ciclos, updatedAt: now }, { merge: true })
+  fireAndForget(setDoc(doc(db, PARTES, parte.id), { ciclos, updatedAt: now }, { merge: true }), { origen: 'estamparRolitera', parteId: parte.id })
   return estampado
 }
 
@@ -83,20 +83,20 @@ export function deshacerUltimaEstampa(parte: ParteMaquinas, rolitera: number): v
     ? parte.ciclos.map((c) => (c === ultimo ? { ...c, entra: null } : c))
     : parte.ciclos.filter((c) => c !== ultimo)
 
-  setDoc(doc(db, PARTES, parte.id), { ciclos, updatedAt: Timestamp.now() }, { merge: true })
+  fireAndForget(setDoc(doc(db, PARTES, parte.id), { ciclos, updatedAt: Timestamp.now() }, { merge: true }), { origen: 'deshacerEstampa', parteId: parte.id })
 }
 
 export function toggleMaquinaria(parte: ParteMaquinas, maquinariaId: string, numero: number): void {
   const actual = parte.maquinarias?.[maquinariaId] ?? []
   const nueva = actual.includes(numero) ? actual.filter((n) => n !== numero) : [...actual, numero].sort()
-  setDoc(doc(db, PARTES, parte.id), {
+  fireAndForget(setDoc(doc(db, PARTES, parte.id), {
     maquinarias: { ...parte.maquinarias, [maquinariaId]: nueva },
     updatedAt: Timestamp.now(),
-  }, { merge: true })
+  }, { merge: true }), { origen: 'toggleMaquinaria', parteId: parte.id, maquinariaId })
 }
 
 export function setObservacionesParte(parte: ParteMaquinas, observaciones: string): void {
-  setDoc(doc(db, PARTES, parte.id), { observaciones, updatedAt: Timestamp.now() }, { merge: true })
+  fireAndForget(setDoc(doc(db, PARTES, parte.id), { observaciones, updatedAt: Timestamp.now() }, { merge: true }), { origen: 'setObservacionesParte', parteId: parte.id })
 }
 
 // Listado para el panel del encargado — últimos partes de todas las plantas.

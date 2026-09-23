@@ -44,7 +44,7 @@ export default function TurnosVentanillaPage() {
         setError(true)
       }
     }
-    conectar()
+    void conectar() // atrapa su propio error
     return () => { cancelado = true; unsub?.() }
   }, [plantaId])
 

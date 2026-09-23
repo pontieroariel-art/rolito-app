@@ -120,7 +120,7 @@ export default function VentaCamion({ volverA = '/chofer' }: { volverA?: string 
   // factura suma el 21 %: la pantalla lo muestra para que el chofer le diga al
   // cliente el importe que va a salir en la factura (pedido de Ariel, 2026-09-11).
   const [preciosIncluyenIva, setPreciosIncluyenIva] = useState(false)
-  useEffect(() => { getPreciosIncluyenIva().then(setPreciosIncluyenIva) }, [])
+  useEffect(() => { getPreciosIncluyenIva().then(setPreciosIncluyenIva).catch((err) => reportError(err, { origen: 'VentaCamion', accion: 'leer config de precios con IVA' })) }, [])
   const [error, setError] = useState('')
 
   // Reemisión asistida (2026-09-11): ?reemitir=<ventaId> llega desde Mis ventas
@@ -153,7 +153,7 @@ export default function VentaCamion({ volverA = '/chofer' }: { volverA?: string 
     ;(['remito', 'remitoPromo', 'facturaX'] as const).forEach((tipo) => {
       asegurarReserva(tipo, user.uid, online).then((activa) =>
         setNumeracionActiva((prev) => (prev[tipo] === activa ? prev : { ...prev, [tipo]: activa })),
-      )
+      ).catch((err) => reportError(err, { origen: 'VentaCamion', accion: 'reservar numeración', tipo }))
     })
   }, [user, online])
 

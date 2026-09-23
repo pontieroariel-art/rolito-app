@@ -234,7 +234,7 @@ export default function ImportarPedidosYaModal({ open, onClose }: Props) {
             className="hidden"
             onChange={(e) => {
               const f = e.target.files?.[0]
-              if (f) handleFile(f)
+              if (f) void handleFile(f)
               e.target.value = ''
             }}
           />

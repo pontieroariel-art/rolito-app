@@ -16,9 +16,9 @@ export default function LoginClientes() {
 
   useEffect(() => {
     if (!user) return
-    if (user.estado === 'pendiente') { navigate('/pendiente',  { replace: true }); return }
-    if (user.estado === 'inactivo')  { navigate('/clientes',   { replace: true }); return }
-    navigate('/dashboard', { replace: true })
+    if (user.estado === 'pendiente') { void navigate('/pendiente',  { replace: true }); return }
+    if (user.estado === 'inactivo')  { void navigate('/clientes',   { replace: true }); return }
+    void navigate('/dashboard', { replace: true })
   }, [user, navigate])
 
   const [cuit,     setCuit]     = useState('')

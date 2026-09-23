@@ -13,7 +13,7 @@ export default function SelectSucursal() {
 
   const handleSelect = (addr: DeliveryAddress) => {
     setSelectedAddress(addr)
-    navigate('/dashboard', { replace: true })
+    void navigate('/dashboard', { replace: true })
   }
 
   return (

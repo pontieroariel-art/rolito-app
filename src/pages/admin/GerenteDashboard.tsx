@@ -10,6 +10,7 @@ import { useHeladerasStats } from '@/hooks/useHeladerasStats'
 import { useProduccionPallets } from '@/hooks/useProduccionPallets'
 import { useRollupsUltimosDias } from '@/hooks/useRollups'
 import { getAllUsers, updateUserDocument } from '@/services/userService'
+import { reportError } from '@/services/observability'
 import { UserProfile, Order, PlantaId, PLANTAS } from '@/types'
 import { toDateStr, todayString as todayStr } from '@/utils/helpers'
 
@@ -86,7 +87,9 @@ export default function GerenteDashboard() {
   const [approving, setApproving] = useState<string | null>(null)
 
   useEffect(() => {
-    getAllUsers().then((u) => { setAllUsers(u); setLoadU(false) })
+    getAllUsers()
+      .then((u) => { setAllUsers(u); setLoadU(false) })
+      .catch((err) => { reportError(err, { origen: 'GerenteDashboard', accion: 'cargar usuarios' }); setLoadU(false) })
   }, [])
 
   const today    = todayStr()

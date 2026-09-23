@@ -17,6 +17,7 @@ import { visitasParaFecha, programasParaFecha } from '../../hooks/useVisitas'
 import { AsignacionChofer } from '../../services/asignacionesDiaService'
 import { useDespachoBoard, DayItem, dateStr, orderDateStr, PLANTA_DEFAULT, slotKey, parseSlotKey } from '../../hooks/useDespachoBoard'
 import { useIsMobile } from '../../hooks/useIsMobile'
+import { reportError } from '@/services/observability'
 
 // Tipos (DayItem/ItemKind) y helpers de fecha (dateStr/orderDateStr) ahora
 // viven en useDespachoBoard.ts junto con el resto de la lógica del tablero.
@@ -669,6 +670,13 @@ export default function DespachoBoard({ orders, choferes, allClients, loading }:
   )
 
   const handleChoferChange = useCallback((camionId: string, newEmail: string) => {
+    // La asignación chofer ↔ camión se muestra aplicada al toque (estado
+    // optimista): si el servidor la rechaza, hay que decirlo.
+    const guardarAsignacion = (email: string, patch: Parameters<typeof handleAsignacionChange>[1]) =>
+      handleAsignacionChange(email, patch).catch((err) => {
+        reportError(err, { origen: 'DespachoBoard', accion: 'asignar camión al chofer', email })
+        window.alert('No se pudo guardar la asignación del camión. Revisá la conexión e intentá de nuevo.')
+      })
     const prev = choferByCamionId[camionId]
     if (prev) {
       // Mover las paradas que ya tenía el chofer anterior (todas sus
@@ -682,11 +690,12 @@ export default function DespachoBoard({ orders, choferes, allClients, loading }:
         const fromSlot = slotKey(prev.email, vuelta)
         const toSlot    = newEmail ? slotKey(newEmail, vuelta) : 'sin_asignar'
         if (fromSlot === toSlot) return
-        ;(itemsByDriver[fromSlot] ?? []).forEach((item) => { doMove(item.dndId, fromSlot, toSlot) })
+        // doMove atrapa su error y revierte la tarjeta.
+        ;(itemsByDriver[fromSlot] ?? []).forEach((item) => { void doMove(item.dndId, fromSlot, toSlot) })
       })
-      handleAsignacionChange(prev.email, { camionId: null })
+      void guardarAsignacion(prev.email, { camionId: null })
     }
-    if (newEmail) handleAsignacionChange(newEmail, { camionId })
+    if (newEmail) void guardarAsignacion(newEmail, { camionId })
   }, [choferByCamionId, handleAsignacionChange, vueltasByDriver, itemsByDriver, doMove])
 
   const camionColumnProps = useCallback((camion: Camion, idx: number) => {

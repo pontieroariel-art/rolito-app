@@ -59,12 +59,12 @@ export default function Navbar() {
   // mostrar el landing genérico (Clientes/Choferes/Equipo Rolito).
   const handleLogout = async () => {
     await logoutUser()
-    navigate('/')
+    void navigate('/')
   }
 
   const handleCambiarSistema = () => {
     cambiarSistema()
-    navigate('/sistema')
+    void navigate('/sistema')
   }
 
   return (

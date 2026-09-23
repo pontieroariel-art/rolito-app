@@ -16,9 +16,9 @@ export default function LoginEmpresa() {
 
   useEffect(() => {
     if (!user) return
-    if (user.estado === 'pendiente') { navigate('/pendiente', { replace: true }); return }
-    if (user.estado === 'inactivo')  { navigate('/',          { replace: true }); return }
-    navigate(ROLE_HOME[user.rol] ?? '/', { replace: true })
+    if (user.estado === 'pendiente') { void navigate('/pendiente', { replace: true }); return }
+    if (user.estado === 'inactivo')  { void navigate('/',          { replace: true }); return }
+    void navigate(ROLE_HOME[user.rol] ?? '/', { replace: true })
   }, [user, navigate])
 
   const [username, setUsername] = useState('')

@@ -8,7 +8,7 @@ export default function PendingApproval() {
 
   const handleLogout = async () => {
     await logoutUser()
-    navigate('/login')
+    void navigate('/login')
   }
 
   return (

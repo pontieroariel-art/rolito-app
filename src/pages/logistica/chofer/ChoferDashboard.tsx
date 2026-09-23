@@ -223,7 +223,7 @@ export default function ChoferDashboard() {
       document.removeEventListener('visibilitychange', onVisible)
       // Microtask: si un nuevo efecto ya montó (gen cambió), no desactivar.
       // Leer el .current actual (no una copia) es justamente el objetivo.
-      Promise.resolve().then(() => {
+      void Promise.resolve().then(() => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
         if (locationGenRef.current === gen) {
           deactivateDriverLocation(email).catch((err) => reportError(err, { origen: 'ChoferDashboard' }))
@@ -285,7 +285,9 @@ export default function ChoferDashboard() {
       {permission === 'default' && !verComo && (
         <div className="max-w-2xl mx-auto px-4 pt-3">
           <button
-            onClick={() => request((sub) => { if (user?.uid) savePushSubscription(user.uid, sub) })}
+            onClick={() => request((sub) => {
+              if (user?.uid) savePushSubscription(user.uid, sub).catch((err) => reportError(err, { origen: 'ChoferDashboard', accion: 'guardar suscripción push' }))
+            })}
             className="w-full bg-accent/10 border border-accent/30 text-accent text-sm rounded-xl px-4 py-3 text-left hover:bg-accent/20 transition-colors"
           >
             Activar notificaciones para recibir alertas de nuevos pedidos
@@ -803,26 +805,29 @@ const DeliveryCard = memo(function DeliveryCard({ order, index, isFirst, chofer 
     if (!navigator.geolocation || !order.clientId || order.clientId === 'externo' || !chofer) return
     setGeoLoading(true)
     setGeoStatus('idle')
+    // getCurrentPosition espera un callback void; el guardado async va aparte y
+    // nunca rechaza (atrapa todo adentro).
+    const guardarPunto = async (pos: GeolocationPosition) => {
+      try {
+        await esperarOEncolar(
+          proposeCoord(
+            order.clientId,
+            pos.coords.latitude,
+            pos.coords.longitude,
+            chofer.uid,
+            chofer.nombreContacto || chofer.nombre || chofer.email,
+          ),
+          { origen: 'ChoferDashboard', accion: 'proposeCoord', clientId: order.clientId },
+        )
+        setGeoStatus('ok')
+      } catch {
+        setGeoStatus('error')
+      } finally {
+        setGeoLoading(false)
+      }
+    }
     navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        try {
-          await esperarOEncolar(
-            proposeCoord(
-              order.clientId,
-              pos.coords.latitude,
-              pos.coords.longitude,
-              chofer.uid,
-              chofer.nombreContacto || chofer.nombre || chofer.email,
-            ),
-            { origen: 'ChoferDashboard', accion: 'proposeCoord', clientId: order.clientId },
-          )
-          setGeoStatus('ok')
-        } catch {
-          setGeoStatus('error')
-        } finally {
-          setGeoLoading(false)
-        }
-      },
+      (pos) => { void guardarPunto(pos) },
       () => { setGeoStatus('error'); setGeoLoading(false) },
       { enableHighAccuracy: true, timeout: 10_000, maximumAge: 0 },
     )

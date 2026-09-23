@@ -14,7 +14,7 @@ import {
 } from 'firebase/firestore'
 import { db } from './firebase'
 import { obtenerStorage } from './storage'
-import { onSnapshotError } from './observability'
+import { onSnapshotError, reportError } from './observability'
 import { resizeImage } from '../utils/imagen'
 import { getPushSubscription } from './userService'
 import { sendPush } from './notificationService'
@@ -188,7 +188,9 @@ export const asignarATecnico = (
       historialAcciones: arrayUnion(accion(actor, 'asignado_tecnico', tecnico.nombre)),
     })
   }).then(() => {
+    // La push es fire-and-forget: el ticket ya quedó asignado, un fallo del aviso no lo deshace.
     notificarAsignacion(tecnico.uid, 'Nuevo service asignado', 'Tenés un equipo para revisar.')
+      .catch((err) => reportError(err, { origen: 'asignarATecnico', accion: 'notificar', ticketId }))
   })
 
 export const asignarAChofer = (
@@ -211,6 +213,7 @@ export const asignarAChofer = (
     })
   }).then(() => {
     notificarAsignacion(chofer.uid, 'Nuevo traslado de heladera', 'Tenés un retiro/entrega asignado.')
+      .catch((err) => reportError(err, { origen: 'asignarAChofer', accion: 'notificar', ticketId }))
   })
 
 // Baja confianza — técnico registra qué hizo, sin poder cambiar el estado
@@ -258,6 +261,7 @@ export const cerrarTicket = (
     historialAcciones: arrayUnion(accion(actor, 'cerrado', `Conformidad: ${nombreQuienConfirma}`)),
   }).then(() => {
     if (clientId) notificarAsignacion(clientId, 'Tu service fue cerrado', 'Ya podés ver el detalle en "Mis heladeras".')
+      .catch((err) => reportError(err, { origen: 'cerrarTicket', accion: 'notificar al cliente', ticketId }))
   })
 
 export const anularTicket = (

@@ -151,7 +151,7 @@ export default function ImportarPedidoModal({ open, onClose }: Props) {
   const handleDrop = (e: DragEvent) => {
     e.preventDefault()
     const file = e.dataTransfer.files[0]
-    if (file) handleFile(file)
+    if (file) void handleFile(file)
   }
 
   const handleConfirm = async (skipDupCheck = false) => {
@@ -318,7 +318,7 @@ export default function ImportarPedidoModal({ open, onClose }: Props) {
               className="hidden"
               onChange={(e: ChangeEvent<HTMLInputElement>) => {
                 const file = e.target.files?.[0]
-                if (file) handleFile(file)
+                if (file) void handleFile(file)
                 e.target.value = ''
               }}
             />

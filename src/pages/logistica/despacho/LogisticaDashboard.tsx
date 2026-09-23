@@ -591,7 +591,9 @@ export default function LogisticaDashboard() {
       setAllClients(data)
       clientsLoadedRef.current = true
     }
-    load()
+    // Carga de apoyo (código de cliente en las tarjetas): si falla, el tablero
+    // sigue funcionando sin ese dato; alcanza con reportarlo.
+    load().catch((err) => reportError(err, { origen: 'LogisticaDashboard', accion: 'cargar clientes activos' }))
   }, [mainTab])
 
   // codigoCliente a nivel usuario es solo el código de UNA sucursal (la

@@ -7,6 +7,7 @@ import LoadingSpinner from '@/components/ui/LoadingSpinner'
 import { useClientOrders } from '@/hooks/useOrders'
 import { useAuth } from '@/context/AuthContext'
 import { savePushSubscription } from '@/services/userService'
+import { reportError } from '@/services/observability'
 import { Order, OrderStatus, getPrimaryAddress } from '@/types'
 import { summarizeProducts } from '@/utils/helpers'
 import { StatCard }      from '@/components/client/StatCard'
@@ -119,7 +120,9 @@ export default function ClientDashboard() {
               <p className="text-xs text-secundario mt-0.5">Avisamos cuando tu pedido sale y cuando el camión está cerca</p>
             </div>
             <button
-              onClick={() => request(user?.uid ? (sub) => savePushSubscription(user.uid, sub) : undefined)}
+              onClick={() => request(user?.uid ? (sub) => {
+                savePushSubscription(user.uid, sub).catch((err) => reportError(err, { origen: 'ClientDashboard', accion: 'guardar suscripción push' }))
+              } : undefined)}
               className="shrink-0 bg-accent text-white text-xs font-semibold px-3 py-1.5 rounded-lg hover:bg-accent/90 transition-colors"
             >
               Activar

@@ -76,9 +76,9 @@ export default function VentasAppCliente({ clienteUid }: { clienteUid: string })
       setFilas([])
     }
   }, [clienteUid])
-  useEffect(() => { cargar() }, [cargar])
+  useEffect(() => { void cargar() }, [cargar])
 
-  const cerrarModal = (hecho: boolean) => { setAnulando(null); if (hecho) cargar() }
+  const cerrarModal = (hecho: boolean) => { setAnulando(null); if (hecho) void cargar() }
   // Hasta el 2026-09-20 el candado era la ruta: solo facturación y super_admin
   // abrían esta pantalla. Ahora también entra comercial (a ver el resumen de
   // cuenta), y pedir una anulación no es suyo — las reglas se lo rechazarían

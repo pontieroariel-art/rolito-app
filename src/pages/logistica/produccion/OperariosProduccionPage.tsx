@@ -204,7 +204,7 @@ export default function OperariosProduccionPage() {
                   <button
                     onClick={async () => {
                       await updateUserStatus(o.uid, o.estado === 'activo' ? 'inactivo' : 'activo')
-                      refetch()
+                      void refetch()
                     }}
                     className="text-xs text-secundario hover:text-gray-900 border border-[#D3D1C7] hover:border-accent rounded-lg px-4 py-2 transition-colors min-h-[36px]"
                   >

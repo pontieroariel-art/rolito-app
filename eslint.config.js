@@ -32,6 +32,26 @@ export default tseslint.config(
       'no-constant-condition': 'off',
     },
   },
+  // Lint con tipos (2026-09-22, auditoría): promesas flotantes. En las pantallas
+  // de calle y planta la escritura se dispara sin await A PROPÓSITO (modo sin
+  // señal: `fireAndForget` / `esperarOEncolar` ya reportan el rechazo); en las
+  // de oficina un `permission-denied` o un corte de red dejaba la pantalla
+  // diciendo "hecho" y nadie se enteraba. Toda promesa que no se espera lleva
+  // `.catch(reportError)` o un `void` que diga por qué. `src/sw.ts` queda
+  // afuera porque no está en tsconfig.json (tiene su propio contexto de build).
+  {
+    files: ['src/**/*.{ts,tsx}'],
+    ignores: ['src/sw.ts'],
+    languageOptions: {
+      parserOptions: { projectService: true, tsconfigRootDir: import.meta.dirname },
+    },
+    rules: {
+      '@typescript-eslint/no-floating-promises': 'error',
+      // `attributes: false`: un `onClick={async () => …}` es el patrón normal de
+      // React; lo que importa es lo que hace adentro.
+      '@typescript-eslint/no-misused-promises': ['error', { checksVoidReturn: { attributes: false } }],
+    },
+  },
   {
     files: ['functions/src/**/*.ts'],
     extends: [js.configs.recommended, ...tseslint.configs.recommended],

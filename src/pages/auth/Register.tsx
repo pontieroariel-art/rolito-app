@@ -74,7 +74,7 @@ export default function Register() {
         cuit:           form.cuit,
         phone:          form.phone,
       })
-      navigate('/')
+      void navigate('/')
     } catch (err) {
       if (err instanceof FirebaseError && err.code === 'auth/email-already-in-use') {
         setError('El email ya está registrado')

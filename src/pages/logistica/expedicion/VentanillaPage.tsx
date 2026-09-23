@@ -144,10 +144,10 @@ export default function VentanillaPage() {
 
   const ventas = useVentanillaDelDia(plantaId, fecha)
   useEffect(() => { if (!user) return; return subscribeRendicion(dia, user.uid, setCerrada) }, [user, dia])
-  useEffect(() => { getTopeConsumidorFinalSinIdentificar().then(setTopeSinIdentificar) }, [])
+  useEffect(() => { getTopeConsumidorFinalSinIdentificar().then(setTopeSinIdentificar).catch((err) => reportError(err, { origen: 'VentanillaPage', accion: 'leer tope de consumidor final' })) }, [])
   // Con precios netos la factura suma el IVA: se muestra el total que va a salir (2026-09-11).
   const [preciosIncluyenIva, setPreciosIncluyenIva] = useState(false)
-  useEffect(() => { getPreciosIncluyenIva().then(setPreciosIncluyenIva) }, [])
+  useEffect(() => { getPreciosIncluyenIva().then(setPreciosIncluyenIva).catch((err) => reportError(err, { origen: 'VentanillaPage', accion: 'leer config de precios con IVA' })) }, [])
   // Copias del comprobante de turno (original cliente / duplicado muelle /
   // triplicado seguridad) según config/ventanilla; aplica también a la reimpresión.
   const copiasTicket = useCopiasTicketVentanilla()
@@ -377,9 +377,10 @@ export default function VentanillaPage() {
         setEsperando(venta)
       } else if (saleConRemito(venta)) {
         // Cuenta corriente: el remito R sale en el momento, como ticket, con el turno.
-        imprimirRemitoYTurno(venta)
+        // `imprimir` atrapa su propio error (setError): la venta ya quedó registrada.
+        void imprimirRemitoYTurno(venta)
       } else {
-        imprimirTurno(venta)
+        void imprimirTurno(venta)
       }
     } catch (err) {
       reportError(err, { origen: 'VentanillaPage', accion: 'error al crear la venta' })
@@ -725,13 +726,14 @@ function EsperaFacturaModal({ ventaId, onImprimirTodo, onImprimirTurno, onClose,
   useEffect(() => {
     if (!venta || !emitida || impresoRef.current || !autoImprimir) return
     impresoRef.current = true
-    onImprimirTodo(venta).then(setImpresa)
+    // `imprimir` atrapa su propio error y devuelve false; el catch es por si acaso.
+    onImprimirTodo(venta).then(setImpresa).catch((err) => reportError(err, { origen: 'EsperaFacturaModal', accion: 'impresión automática' }))
   }, [venta, emitida, onImprimirTodo, autoImprimir])
 
   const imprimirConToque = () => {
     if (!venta) return
     impresoRef.current = true
-    onImprimirTodo(venta).then(setImpresa)
+    onImprimirTodo(venta).then(setImpresa).catch((err) => reportError(err, { origen: 'EsperaFacturaModal', accion: 'impresión con toque' }))
   }
 
   const titulo = emitida ? 'Factura emitida'

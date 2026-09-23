@@ -49,9 +49,18 @@ export function UserRow({ user, currentUser, onRoleChange, onSubrolChange, onRol
   const SIN_PASSWORD: UserRole[] = ['cliente', 'chofer', 'tecnico', 'produccion_hielo', 'super_admin']
   const canResetPassword  = canChangeRole && !isSelf && !SIN_PASSWORD.includes(user.rol)
 
+  // Todo cambio de la fila (rol, estado, planta, permisos) pasa por acá: si el
+  // servidor lo rechaza, la fila ya lo mostró aplicado y hay que avisar.
   const run = async (fn: () => Promise<void>) => {
     setBusy(true)
-    try { await fn() } finally { setBusy(false) }
+    try {
+      await fn()
+    } catch (err) {
+      reportError(err, { origen: 'UserRow', accion: 'guardar cambio del usuario', uid: user.uid })
+      window.alert('No se pudo guardar el cambio. Revisá la conexión e intentá de nuevo.')
+    } finally {
+      setBusy(false)
+    }
   }
 
   // Un clic pregunta, el segundo lo hace: dejar a alguien afuera de su cuenta
@@ -327,7 +336,7 @@ export function UserRow({ user, currentUser, onRoleChange, onSubrolChange, onRol
                               // La planta solo acompaña a los roles de planta; a
                               // los de oficina no se les inventa una.
                               const planta = pidePlanta(nuevos) ? (user.planta ?? 'torcuato') : user.planta
-                              run(() => onRolesExtraChange(user.uid, nuevos, planta))
+                              void run(() => onRolesExtraChange(user.uid, nuevos, planta))
                             }}
                           />
                           {ROLE_LABELS[r]}

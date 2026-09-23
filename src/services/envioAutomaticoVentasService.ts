@@ -64,7 +64,8 @@ function mailDelCliente(clienteId: string): Promise<string> {
     p = getEmailClienteTango(clienteId).catch(() => '')
     mailPorCliente.set(clienteId, p)
     // Un fallo de red no se cachea: se vuelve a buscar en la próxima pasada.
-    p.then((e) => { if (!e) mailPorCliente.delete(clienteId) })
+    // (`p` ya tiene su catch, nunca rechaza.)
+    void p.then((e) => { if (!e) mailPorCliente.delete(clienteId) })
   }
   return p
 }

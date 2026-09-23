@@ -4,6 +4,7 @@ import { Printer } from 'lucide-react'
 import Navbar from '@/components/layout/Navbar'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
 import { getPalletProduccion } from '@/services/produccionService'
+import { reportError } from '@/services/observability'
 import { PLANTA_INFO } from '@/utils/constants'
 import { PalletProduccion } from '@/types'
 
@@ -16,7 +17,10 @@ export default function FichaPalletPage() {
 
   useEffect(() => {
     if (!palletId) return
-    getPalletProduccion(palletId).then(setPallet)
+    getPalletProduccion(palletId).then(setPallet).catch((err) => {
+      reportError(err, { origen: 'FichaPalletPage', accion: 'cargar pallet', palletId })
+      setPallet(null)
+    })
   }, [palletId])
 
   if (pallet === undefined) return <LoadingSpinner fullScreen />

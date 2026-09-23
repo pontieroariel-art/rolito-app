@@ -104,7 +104,7 @@ export default function EntregasPage() {
         firmaEntrega: datos.firma, firmanteEntrega: datos.firmante,
       }, { uid: user.uid, nombre: user.nombre })
       setConfirmando(false); setEfectivoEntregado(''); setExcluidos(new Set()); setUltima(e)
-      imprimir(e)
+      void imprimir(e) // atrapa su propio error: la entrega ya quedó registrada
     } catch (err) {
       if (err instanceof EntregaYaIncluidaError) setError(err.message)
       else { reportError(err, { origen: 'EntregasPage', accion: 'error al registrar la entrega' }); setError('No se pudo registrar la entrega. Revisá e intentá de nuevo.') }

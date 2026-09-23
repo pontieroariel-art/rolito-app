@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { PedidoRecurrente } from '../types'
 import { getRecurrenteByClient, saveRecurrente } from '../services/recurrenteService'
+import { reportError } from '../services/observability'
 
 export function useRecurrente(clientId: string | undefined) {
   // undefined = cargando, null = no configurado, PedidoRecurrente = configurado
@@ -15,7 +16,7 @@ export function useRecurrente(clientId: string | undefined) {
 
   useEffect(() => {
     if (!clientId) return
-    getRecurrenteByClient(clientId).then(setRecurrente)
+    getRecurrenteByClient(clientId).then(setRecurrente).catch((err) => reportError(err, { hook: 'useRecurrente', clientId }))
   }, [clientId])
 
   const save = useCallback(async (

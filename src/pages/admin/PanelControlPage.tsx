@@ -6,6 +6,7 @@ import SeccionAccesos from '@/components/admin/SeccionAccesos'
 import VerComoUsuario from '@/components/admin/VerComoUsuario'
 import { Plegable } from '@/components/ui/Plegable'
 import { useEstadoBackoffice } from '@/hooks/useEstadoBackoffice'
+import { reportError } from '@/services/observability'
 import {
   getFacturasArcaConProblema, getOutboxEnError, type FacturaArcaProblema, type OutboxError,
 } from '@/services/backofficeEstadoService'
@@ -139,7 +140,13 @@ export default function PanelControlPage() {
             {outbox.errores > 0 && (
               <Desplegable
                 label={`Ver ${Math.min(outbox.errores, 10)} errores`}
-                onAbrir={() => { if (!outboxErrores) getOutboxEnError(10).then(setOutboxErrores) }}
+                onAbrir={() => {
+                  if (outboxErrores) return
+                  getOutboxEnError(10).then(setOutboxErrores).catch((err) => {
+                    reportError(err, { origen: 'PanelControlPage', accion: 'listar cola de Tango en error' })
+                    setOutboxErrores([])
+                  })
+                }}
               >
                 {outboxErrores === null ? <p className="text-xs text-secundario">Cargando…</p> : (
                   <ul className="text-xs space-y-1">
@@ -181,7 +188,13 @@ export default function PanelControlPage() {
             {arca.problemas > 0 && (
               <Desplegable
                 label={`Ver ${Math.min(arca.problemas, 10)} facturas`}
-                onAbrir={() => { if (!arcaProblemas) getFacturasArcaConProblema(10).then(setArcaProblemas) }}
+                onAbrir={() => {
+                  if (arcaProblemas) return
+                  getFacturasArcaConProblema(10).then(setArcaProblemas).catch((err) => {
+                    reportError(err, { origen: 'PanelControlPage', accion: 'listar facturas ARCA con problema' })
+                    setArcaProblemas([])
+                  })
+                }}
               >
                 {arcaProblemas === null ? <p className="text-xs text-secundario">Cargando…</p> : (
                   <ul className="text-xs space-y-1">

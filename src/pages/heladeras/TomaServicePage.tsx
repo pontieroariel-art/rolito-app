@@ -69,6 +69,9 @@ export default function TomaServicePage() {
       if (!h) return
       setHeladera(h)
       if (h.clienteAsignadoId) setCliente(await getUserDocument(h.clienteAsignadoId))
+    }).catch((err) => {
+      reportError(err, { origen: 'TomaServicePage', accion: 'precargar heladera', heladeraId: heladeraIdPrefill })
+      setError('No se pudo cargar la heladera. Buscala a mano.')
     })
   }, [heladeraIdPrefill])
 
@@ -76,7 +79,10 @@ export default function TomaServicePage() {
   useEffect(() => {
     if (!clientIdPrefill || heladeraIdPrefill) return
     setModo('cliente')
-    getUserDocument(clientIdPrefill).then((c) => { if (c) setCliente(c) })
+    getUserDocument(clientIdPrefill).then((c) => { if (c) setCliente(c) }).catch((err) => {
+      reportError(err, { origen: 'TomaServicePage', accion: 'precargar cliente', clientId: clientIdPrefill })
+      setError('No se pudo cargar el cliente. Buscalo a mano.')
+    })
   }, [clientIdPrefill, heladeraIdPrefill])
 
   const heladerasEnComodato = useMemo(() => heladeras.filter((h) => h.estado === 'en_comodato'), [heladeras])

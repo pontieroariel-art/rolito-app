@@ -60,10 +60,12 @@ export function LiveMap({
     const pending = addresses.filter((a) => !geocacheRef.current.has(a))
     if (pending.length === 0) { setGeocoded(new Map(geocacheRef.current)); return }
     const geocoder = new google.maps.Geocoder()
-    Promise.all(
+    // Cada promesa interna resuelve siempre (el estado lo decide el callback): no hay rechazo posible.
+    void Promise.all(
       pending.map((addr) =>
         new Promise<void>((resolve) => {
-          geocoder.geocode(
+          // El resultado llega por el callback; la promesa que devuelve Google no se usa.
+          void geocoder.geocode(
             { address: `${addr}, Argentina`, componentRestrictions: { country: 'AR' } },
             (results, status) => {
               const pt = status === 'OK' && results?.[0]

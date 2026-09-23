@@ -20,7 +20,7 @@ export default function LoginTecnico() {
   useEffect(() => {
     if (!user) return
     if (user.estado === 'inactivo') { setError('Tu cuenta está inactiva. Contactá al encargado.'); return }
-    navigate('/tecnico', { replace: true })
+    void navigate('/tecnico', { replace: true })
   }, [user, navigate])
 
   const handleLogin = async (e: FormEvent<HTMLFormElement>) => {

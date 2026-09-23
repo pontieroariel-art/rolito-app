@@ -169,7 +169,7 @@ function StepProductos({
   // de "ya hay un pedido" tiene que reflejar la dirección nueva, no la de cuando
   // se activó el modo.
   useEffect(() => {
-    if (modoMulti) refreshExistingDates(address)
+    if (modoMulti) refreshExistingDates(address).catch((err) => reportError(err, { origen: 'PedidoManualModal', accion: 'buscar pedidos existentes de la dirección' }))
   }, [address, modoMulti, refreshExistingDates])
   const parseHorario = (h?: string) => {
     const parts = (h ?? '').split(/\s*[–-]\s*/)
@@ -186,8 +186,8 @@ function StepProductos({
   // creado tarda hasta un minuto en aparecer y el operador lo recarga pensando
   // que no entró (visto en producción el 2026-08-31).
   const invalidateOrderQueries = () => {
-    queryClient.invalidateQueries({ queryKey: ['ordersRango'] })
-    queryClient.invalidateQueries({ queryKey: ['ordersActualizados'] })
+    void queryClient.invalidateQueries({ queryKey: ['ordersRango'] })
+    void queryClient.invalidateQueries({ queryKey: ['ordersActualizados'] })
   }
 
   const { catalogo } = useCatalogo()

@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import ZebraLabel from '../../components/heladeras/ZebraLabel'
 import { getHeladera } from '../../services/heladeraService'
+import { reportError } from '@/services/observability'
 import { generateQrDataUrl } from '../../utils/qr'
 import { generateBarcodeDataUrl } from '../../utils/barcode'
 import { Heladera } from '../../types'
@@ -25,6 +26,10 @@ export default function EtiquetaHeladeraPage() {
         setQrDataUrl(await generateQrDataUrl(`${window.location.origin}/heladeras/ficha/${h.id}`))
         setBarcodeDataUrl(generateBarcodeDataUrl(h.numeroSerie))
       }
+    }).catch((err) => {
+      // Sin esto, un error de lectura dejaba el spinner para siempre.
+      reportError(err, { origen: 'EtiquetaHeladeraPage', accion: 'cargar heladera', heladeraId })
+      setHeladera(null)
     })
   }, [heladeraId])
 

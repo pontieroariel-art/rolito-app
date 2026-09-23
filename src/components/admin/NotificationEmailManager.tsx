@@ -1,6 +1,7 @@
 import { useState, ChangeEvent, KeyboardEvent } from 'react'
 import Button from '../ui/Button'
 import { useNotificationEmails } from '../../hooks/useNotificationEmails'
+import { reportError } from '@/services/observability'
 import { AVISOS } from '@/utils/avisosMail'
 
 type UseNotificationEmailsReturn = ReturnType<typeof useNotificationEmails>
@@ -9,11 +10,27 @@ type UseNotificationEmailsReturn = ReturnType<typeof useNotificationEmails>
 export function ListaEmails({ lista, placeholder = 'nombre@empresa.com' }: { lista: UseNotificationEmailsReturn; placeholder?: string }) {
   const { emails, addEmail, removeEmail } = lista
   const [email, setEmail] = useState('')
+  const [error, setError] = useState('')
 
+  // Agregar y quitar escriben config: si el servidor lo rechaza, la lista
+  // siguió igual y hay que decirlo en vez de dejar el campo vaciado.
   const handleAdd = async () => {
     if (!email.trim()) return
-    await addEmail(email)
-    setEmail('')
+    setError('')
+    try {
+      await addEmail(email)
+      setEmail('')
+    } catch (err) {
+      reportError(err, { origen: 'NotificationEmailManager', accion: 'agregar mail' })
+      setError('No se pudo guardar el mail. Revisá la conexión e intentá de nuevo.')
+    }
+  }
+  const handleRemove = (e: string) => {
+    setError('')
+    void removeEmail(e).catch((err) => {
+      reportError(err, { origen: 'NotificationEmailManager', accion: 'quitar mail' })
+      setError('No se pudo quitar el mail. Revisá la conexión e intentá de nuevo.')
+    })
   }
 
   return (
@@ -26,7 +43,7 @@ export function ListaEmails({ lista, placeholder = 'nombre@empresa.com' }: { lis
             <div key={e} className="flex justify-between items-center py-1.5 border-b border-[#E7E5DC] last:border-0">
               <span className="text-sm text-secundario truncate flex-1" title={e}>{e}</span>
               <button
-                onClick={() => removeEmail(e)}
+                onClick={() => handleRemove(e)}
                 aria-label={`Quitar ${e}`}
                 className="text-red-600 text-xs hover:underline ml-2 shrink-0"
               >
@@ -41,14 +58,15 @@ export function ListaEmails({ lista, placeholder = 'nombre@empresa.com' }: { lis
         <input
           value={email}
           onChange={(e: ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
-          onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => { if (e.key === 'Enter') handleAdd() }}
+          onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => { if (e.key === 'Enter') void handleAdd() }}
           placeholder={placeholder}
           type="email"
           aria-label="Email a agregar"
           className="bg-white border border-[#D3D1C7] rounded-lg px-2 py-1.5 text-sm text-gray-900 placeholder-gray-400 flex-1 min-w-0 focus:outline-none focus:ring-1 focus:ring-accent"
         />
-        <Button onClick={handleAdd} className="text-xs py-1.5 px-3">+ Agregar</Button>
+        <Button onClick={() => { void handleAdd() }} className="text-xs py-1.5 px-3">+ Agregar</Button>
       </div>
+      {error && <p className="text-red-600 text-xs mt-2">{error}</p>}
     </div>
   )
 }

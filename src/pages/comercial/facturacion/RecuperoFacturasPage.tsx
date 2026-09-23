@@ -258,7 +258,7 @@ export default function RecuperoFacturasPage() {
         <div
           onDragOver={(e) => { e.preventDefault(); setArrastrando(true) }}
           onDragLeave={() => setArrastrando(false)}
-          onDrop={(e) => { e.preventDefault(); setArrastrando(false); cargar(e.dataTransfer.files) }}
+          onDrop={(e) => { e.preventDefault(); setArrastrando(false); void cargar(e.dataTransfer.files) }}
           className={`flex flex-col items-center gap-3 rounded-xl border-2 border-dashed bg-white p-8 text-center transition-colors ${
             arrastrando ? 'border-[#1D9E75] bg-[#F0F8F5]' : 'border-[#D3D1C7]'
           }`}
@@ -278,7 +278,7 @@ export default function RecuperoFacturasPage() {
             accept="application/pdf,.pdf"
             multiple
             className="hidden"
-            onChange={(e) => { cargar(e.target.files); e.target.value = '' }}
+            onChange={(e) => { void cargar(e.target.files); e.target.value = '' }}
           />
         </div>
 

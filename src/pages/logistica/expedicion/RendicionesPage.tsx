@@ -132,7 +132,7 @@ export default function RendicionesPage() {
         { uid: user.uid, nombre: user.nombre, rol: 'caja' },
       )
       setConfirmando(false)
-      imprimir(sobre)
+      void imprimir(sobre) // atrapa su propio error: el turno ya quedó cerrado
     } catch (err) {
       if (err instanceof SobreYaExisteError) setError(err.message)
       else if (err instanceof Error && /diferencia|firma|tildar/.test(err.message)) setError(err.message)

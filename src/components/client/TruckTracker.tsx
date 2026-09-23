@@ -71,7 +71,8 @@ export function TruckTracker({ order, clientEmail, onNearby }: TruckTrackerProps
   useEffect(() => {
     if (!isLoaded || !order.clientAddress) return
     const geocoder = new google.maps.Geocoder()
-    geocoder.geocode({ address: order.clientAddress }, (results, status) => {
+    // El resultado llega por el callback; la promesa que devuelve Google no se usa.
+    void geocoder.geocode({ address: order.clientAddress }, (results, status) => {
       if (status === 'OK' && results?.[0]) {
         const loc = results[0].geometry.location
         setDeliveryPos({ lat: loc.lat(), lng: loc.lng() })
@@ -82,7 +83,7 @@ export function TruckTracker({ order, clientEmail, onNearby }: TruckTrackerProps
   useEffect(() => {
     if (!isLoaded || !truckPos || !deliveryPos) return
     const svc = new google.maps.DirectionsService()
-    svc.route(
+    void svc.route(
       { origin: truckPos, destination: deliveryPos, travelMode: google.maps.TravelMode.DRIVING },
       (result, status) => {
         if (status === 'OK' && result) {

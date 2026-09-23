@@ -115,7 +115,7 @@ export function ImportarClientesModal({ onClose, onDone }: { onClose: () => void
             className="hidden"
             onChange={(e) => {
               const f = e.target.files?.[0]
-              if (f) handleFile(f)
+              if (f) void handleFile(f)
             }}
           />
           <div

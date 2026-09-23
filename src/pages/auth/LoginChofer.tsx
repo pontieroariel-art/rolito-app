@@ -24,7 +24,7 @@ export default function LoginChofer() {
     // (un flujo que no le corresponde) en vez de ver un mensaje claro en esta
     // misma pantalla.
     if (user.estado === 'inactivo') { setError('Tu cuenta está inactiva. Contactá al administrador.'); return }
-    navigate('/chofer', { replace: true })
+    void navigate('/chofer', { replace: true })
   }, [user, navigate])
 
   const handleLogin = async (e: FormEvent<HTMLFormElement>) => {

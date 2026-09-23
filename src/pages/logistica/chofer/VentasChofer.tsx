@@ -13,6 +13,7 @@ import { subscribeVentasRecientesChofer } from '@/services/ventaCamionService'
 import { tipoComprobanteInterno, ETIQUETA_COMPROBANTE, type CaiRemito } from '@/utils/comprobanteInterno'
 import { codigoComprobanteInterno } from '@/services/numeracionInternaService'
 import { caiRemitoOficialCacheado, getCaiRemitoOficial } from '@/services/remitoOficialConfigService'
+import { reportError } from '@/services/observability'
 import MenuComprobanteVenta from '@/components/ventas/MenuComprobanteVenta'
 import { VentaCamion } from '@/types'
 import { nombreClienteVenta } from '@/utils/nombreClienteVenta'
@@ -45,7 +46,7 @@ export default function VentasChofer({ volverA = '/chofer' }: { volverA?: string
   // Reloj de a un minuto: el botón de anular el remito vence a la hora de la venta.
   const [ahora, setAhora] = useState(() => Date.now())
   useEffect(() => { const t = setInterval(() => setAhora(Date.now()), 60_000); return () => clearInterval(t) }, [])
-  useEffect(() => { getCaiRemitoOficial().then(setCaiRemito) }, [])
+  useEffect(() => { getCaiRemitoOficial().then(setCaiRemito).catch((err) => reportError(err, { origen: 'VentasChofer', accion: 'leer CAI del remito oficial' })) }, [])
 
   useEffect(() => {
     if (!user) return

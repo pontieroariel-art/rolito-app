@@ -42,7 +42,7 @@ export default function HeladerasDashboardPage() {
   const handleBuscar = (e: FormEvent) => {
     e.preventDefault()
     const q = busqueda.trim()
-    navigate(q ? `/heladeras/equipos?q=${encodeURIComponent(q)}` : '/heladeras/equipos')
+    void navigate(q ? `/heladeras/equipos?q=${encodeURIComponent(q)}` : '/heladeras/equipos')
   }
 
   return (

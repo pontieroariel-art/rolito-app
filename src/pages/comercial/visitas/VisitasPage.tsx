@@ -6,6 +6,7 @@ import ClienteCombobox, { toComboItems } from '@/components/common/ClienteCombob
 import { useProgramasVisita, useVisitasPuntuales, programasParaFecha, visitasParaFecha } from '@/hooks/useVisitas'
 import { useChoferes } from '@/hooks/useChoferes'
 import { getAllUsers } from '@/services/userService'
+import { reportError } from '@/services/observability'
 import {
   addPrograma, updatePrograma, deletePrograma,
   addVisitaPuntual, updateVisitaPuntual, deleteVisitaPuntual,
@@ -328,23 +329,30 @@ export default function VisitasPage() {
   const [clientes,       setClientes]       = useState<UserProfile[]>([])
   const [loadingClients, setLoadingClients] = useState(false)
 
+  const [errorClientes,  setErrorClientes]  = useState('')
+
   const loadClients = useCallback(async () => {
     if (clientes.length > 0) return
     setLoadingClients(true)
     try {
       const all = await getAllUsers()
       setClientes(all.filter((u) => u.rol === 'cliente' && u.estado === 'activo'))
+      setErrorClientes('')
+    } catch (err) {
+      // Sin esto el modal abría con la lista de clientes vacía y sin explicación.
+      reportError(err, { origen: 'VisitasPage', accion: 'cargar clientes' })
+      setErrorClientes('No se pudieron cargar los clientes. Revisá la conexión e intentá de nuevo.')
     } finally {
       setLoadingClients(false)
     }
   }, [clientes.length])
 
-  const openAddPrograma = () => { loadClients(); setAddProgramaModal(true) }
-  const openAddVisita   = () => { loadClients(); setAddVisitaModal(true) }
-  const openEditPrograma = (p: ProgramaVisita) => { loadClients(); setEditPrograma(p) }
+  const openAddPrograma = () => { void loadClients(); setAddProgramaModal(true) }
+  const openAddVisita   = () => { void loadClients(); setAddVisitaModal(true) }
+  const openEditPrograma = (p: ProgramaVisita) => { void loadClients(); setEditPrograma(p) }
 
   useEffect(() => {
-    if (tab === 'seguimiento') loadClients()
+    if (tab === 'seguimiento') void loadClients()
   }, [tab, loadClients])
 
   // Agenda del día seleccionado
@@ -534,6 +542,7 @@ export default function VisitasPage() {
         {/* ── TAB SEGUIMIENTO ────────────────────────────────────────────────── */}
         {tab === 'seguimiento' && (
           <div className="space-y-4">
+            {errorClientes && <p role="alert" className="text-sm text-red-600">{errorClientes}</p>}
             {loadingClients ? (
               <LoadingSpinner />
             ) : (() => {
@@ -655,6 +664,7 @@ export default function VisitasPage() {
 
       {/* Modales */}
       <Modal open={addProgramaModal} onClose={() => setAddProgramaModal(false)} title="Nuevo programa de visita" variant="light">
+        {errorClientes && <p role="alert" className="text-sm text-red-600 mb-3">{errorClientes}</p>}
         {loadingClients ? <LoadingSpinner /> : (
           <ProgramaForm
             choferes={choferes}

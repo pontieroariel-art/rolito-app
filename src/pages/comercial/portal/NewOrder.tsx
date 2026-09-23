@@ -111,7 +111,7 @@ export default function NewOrder() {
 
       // Los emails al cliente (pedido recibido) y al admin (nuevo pedido) los
       // envía el trigger onOrderCreated server-side; no se disparan desde acá.
-      navigate('/dashboard')
+      void navigate('/dashboard')
     } catch (err) {
       reportError(err, { origen: 'NewOrder', accion: modifyOrder ? 'modificar pedido' : 'crear pedido' })
       if (err instanceof OrderNotEditableError) {

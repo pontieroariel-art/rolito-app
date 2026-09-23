@@ -209,7 +209,7 @@ function OrderCard({ order }: { order: Order }) {
         address:  order.clientAddress,
         codigoCliente,
       })
-      navigate('/dashboard')
+      void navigate('/dashboard')
     } finally {
       setCopying(false)
     }

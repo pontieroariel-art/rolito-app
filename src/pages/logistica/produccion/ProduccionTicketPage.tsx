@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
 import ProduccionTicket from '@/components/produccion/ProduccionTicket'
 import { getPalletProduccion } from '@/services/produccionService'
+import { reportError } from '@/services/observability'
 import { generateQrDataUrl } from '@/utils/qr'
 import { generateBarcodeDataUrl } from '@/utils/barcode'
 import { PalletProduccion } from '@/types'
@@ -19,13 +20,16 @@ export default function ProduccionTicketPage() {
 
   useEffect(() => {
     if (!palletId) return
-    getPalletProduccion(palletId).then(setPallet)
+    getPalletProduccion(palletId).then(setPallet).catch((err) => {
+      reportError(err, { origen: 'ProduccionTicketPage', accion: 'cargar pallet', palletId })
+      setPallet(null)
+    })
   }, [palletId])
 
   useEffect(() => {
     if (!pallet) return
     setQrDataUrl('')
-    generateQrDataUrl(pallet.codigo).then(setQrDataUrl)
+    generateQrDataUrl(pallet.codigo).then(setQrDataUrl).catch((err) => reportError(err, { origen: 'ProduccionTicketPage', accion: 'generar QR' }))
     setBarcodeDataUrl(generateBarcodeDataUrl(pallet.codigo))
   }, [pallet])
 

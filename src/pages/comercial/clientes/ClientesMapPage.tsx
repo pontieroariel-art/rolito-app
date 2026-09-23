@@ -397,7 +397,7 @@ export default function ClientesMapPage() {
     const writeQueueByUid = new Map<string, Promise<unknown>>()
     const queueWrite = (uid: string, run: () => Promise<unknown>) => {
       const prev = writeQueueByUid.get(uid) ?? Promise.resolve()
-      const next = prev.then(run, run).catch(() => {})
+      const next = prev.then(run, run).catch((err) => reportError(err, { origen: 'ClientesMapPage', accion: 'guardar coordenadas geocodificadas', uid }))
       writeQueueByUid.set(uid, next)
       return next
     }
@@ -410,7 +410,8 @@ export default function ClientesMapPage() {
           (s) =>
             new Promise<void>((resolve) => {
               const addr = sucursalAddress(s)
-              geocoder.geocode(
+              // El resultado llega por el callback; la promesa que devuelve Google no se usa.
+              void geocoder.geocode(
                 { address: `${addr}, Argentina`, componentRestrictions: { country: 'AR' } },
                 (results, status) => {
                   const pt =
@@ -426,9 +427,10 @@ export default function ClientesMapPage() {
                         a.id === s.address!.id ? { ...a, lat: pt.lat, lng: pt.lng } : a
                       )
                       latestAddressesByUid.set(s.uid, updatedAddresses)
-                      queueWrite(s.uid, () => updateUserDocument(s.uid, { addresses: updatedAddresses }))
+                      // queueWrite ya atrapa y reporta el error de cada escritura.
+                      void queueWrite(s.uid, () => updateUserDocument(s.uid, { addresses: updatedAddresses }))
                     } else {
-                      queueWrite(s.uid, () => updateUserDocument(s.uid, { lat: pt.lat, lng: pt.lng }))
+                      void queueWrite(s.uid, () => updateUserDocument(s.uid, { lat: pt.lat, lng: pt.lng }))
                     }
                   }
                   resolve()

@@ -50,7 +50,8 @@ const GOOGLE_WAYPOINT_CHUNK = 23 // límite de Google Directions: 23 waypoints +
 
 function directionsRoute(request: google.maps.DirectionsRequest): Promise<google.maps.DirectionsResult> {
   return new Promise((resolve, reject) => {
-    new google.maps.DirectionsService().route(request, (result, status) => {
+    // El resultado llega por el callback; la promesa que devuelve Google no se usa.
+    void new google.maps.DirectionsService().route(request, (result, status) => {
       if (status === 'OK' && result) resolve(result)
       else reject(new Error(`DirectionsService: ${status}`))
     })
@@ -180,6 +181,14 @@ export default function MapaPlanificacion({ orders, choferes, allClients, weekDa
   const { visitas }        = useVisitasPuntuales()
   const { zonas }          = useZonasProhibidas()
   const { user: staffUser } = useAuth()
+  // Activar/desactivar/eliminar una zona escribe config sin esperar: si el
+  // servidor lo rechaza, el checkbox ya cambió y hay que avisar.
+  const guardarZonas = (nuevas: ZonaProhibida[]) => {
+    void saveZonas(nuevas).catch((err) => {
+      reportError(err, { origen: 'MapaPlanificacion', accion: 'guardar zonas prohibidas' })
+      window.alert('No se pudo guardar la zona. Revisá la conexión e intentá de nuevo.')
+    })
+  }
   const mapRef             = useRef<google.maps.Map | null>(null)
 
   // Clientes que ESTE usuario decidió sacarse de encima en su propio mapa
@@ -289,7 +298,8 @@ export default function MapaPlanificacion({ orders, choferes, allClients, weekDa
   const geocode = useCallback((address: string): Promise<{ lat: number; lng: number } | null> => {
     if (GEO_CACHE.has(address)) return Promise.resolve(GEO_CACHE.get(address) ?? null)
     return new Promise((resolve) => {
-      new google.maps.Geocoder().geocode(
+      // El resultado llega por el callback; la promesa que devuelve Google no se usa.
+      void new google.maps.Geocoder().geocode(
         { address: `${address}, Argentina`, componentRestrictions: { country: 'AR' } },
         (results, status) => {
           const pt = status === 'OK' && results?.[0]
@@ -309,7 +319,8 @@ export default function MapaPlanificacion({ orders, choferes, allClients, weekDa
     // puede pisar los marcadores ni el "cargando" del run nuevo (2026-09-14).
     let vivo = true
     setGeocoding(true)
-    Promise.all(
+    // `geocode` nunca rechaza (resuelve null si falla), así que este Promise.all tampoco.
+    void Promise.all(
       ordersDay.map(async (o) => {
         const pt = await geocode(o.clientAddress)
         if (!pt) return null
@@ -365,7 +376,8 @@ export default function MapaPlanificacion({ orders, choferes, allClients, weekDa
     })
     if (toGeocode.length === 0) { setClientMarkers([]); return }
     let vivo = true
-    Promise.all(
+    // Ídem arriba: `geocode` nunca rechaza.
+    void Promise.all(
       toGeocode.map(async (s) => {
         let pt: { lat: number; lng: number } | null = null
         if (s.lat && s.lng) {
@@ -730,7 +742,13 @@ export default function MapaPlanificacion({ orders, choferes, allClients, weekDa
           </button>
           {ocultosMapa.size > 0 && (
             <button
-              onClick={() => { if (staffUser) restoreClientesOcultosMapa(staffUser.uid) }}
+              onClick={() => {
+                if (!staffUser) return
+                void restoreClientesOcultosMapa(staffUser.uid).catch((err) => {
+                  reportError(err, { origen: 'MapaPlanificacion', accion: 'mostrar clientes ocultos' })
+                  window.alert('No se pudo guardar el cambio. Revisá la conexión e intentá de nuevo.')
+                })
+              }}
               className="w-full text-xs text-secundario hover:text-accent transition-colors"
             >
               {ocultosMapa.size} oculto{ocultosMapa.size !== 1 ? 's' : ''} por vos · Mostrar de nuevo
@@ -761,12 +779,12 @@ export default function MapaPlanificacion({ orders, choferes, allClients, weekDa
                   type="checkbox"
                   checked={z.activa}
                   className="accent-red-500"
-                  onChange={() => saveZonas(zonas.map((x) => x.id === z.id ? { ...x, activa: !x.activa } : x))}
+                  onChange={() => guardarZonas(zonas.map((x) => x.id === z.id ? { ...x, activa: !x.activa } : x))}
                 />
                 <span className="truncate text-gray-700">{z.nombre}</span>
               </label>
               <button
-                onClick={() => { if (window.confirm(`¿Eliminar "${z.nombre}"?`)) saveZonas(zonas.filter((x) => x.id !== z.id)) }}
+                onClick={() => { if (window.confirm(`¿Eliminar "${z.nombre}"?`)) guardarZonas(zonas.filter((x) => x.id !== z.id)) }}
                 className="text-xs text-secundario hover:text-red-500 shrink-0 transition-colors"
               >✕</button>
             </div>
@@ -805,6 +823,9 @@ export default function MapaPlanificacion({ orders, choferes, allClients, weekDa
                         setDrawingMode(false)
                         setDrawingVertices([])
                         setNewZonaNombre('')
+                      } catch (err) {
+                        reportError(err, { origen: 'MapaPlanificacion', accion: 'crear zona prohibida' })
+                        window.alert('No se pudo guardar la zona. Revisá la conexión e intentá de nuevo.')
                       } finally {
                         setZonaSaving(false)
                       }
@@ -1071,7 +1092,10 @@ export default function MapaPlanificacion({ orders, choferes, allClients, weekDa
                         <button
                           onClick={(e) => {
                             e.stopPropagation()
-                            setClienteOcultoMapa(staffUser.uid, m.uid, true)
+                            void setClienteOcultoMapa(staffUser.uid, m.uid, true).catch((err) => {
+                              reportError(err, { origen: 'MapaPlanificacion', accion: 'ocultar cliente del mapa', clienteId: m.uid })
+                              window.alert('No se pudo ocultar el cliente. Revisá la conexión e intentá de nuevo.')
+                            })
                             setSelectedClientId(null)
                           }}
                           style={{ display: 'block', margin: '0 0 10px', padding: 0, background: 'none', border: 'none', color: '#999', fontSize: 11, cursor: 'pointer', textDecoration: 'underline' }}

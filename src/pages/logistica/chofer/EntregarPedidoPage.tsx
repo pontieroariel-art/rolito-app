@@ -72,7 +72,7 @@ export default function EntregarPedidoPage() {
   const [error, setError] = useState('')
   const [exito, setExito] = useState<{ documento: string | null; total: number; conIva: boolean; parcial: boolean; mail: string } | null>(null)
   const [preciosIncluyenIva, setPreciosIncluyenIva] = useState(false)
-  useEffect(() => { getPreciosIncluyenIva().then(setPreciosIncluyenIva) }, [])
+  useEffect(() => { getPreciosIncluyenIva().then(setPreciosIncluyenIva).catch((err) => reportError(err, { origen: 'EntregarPedidoPage', accion: 'leer config de precios con IVA' })) }, [])
 
   // Renglones: se arman una vez que hay pedido y catálogo; después los edita el chofer.
   useEffect(() => {
@@ -92,7 +92,9 @@ export default function EntregarPedidoPage() {
   useEffect(() => {
     if (!user) return
     ;(['remito', 'remitoPromo', 'facturaX'] as const).forEach((tipo) => {
-      asegurarReserva(tipo, user.uid, online).then((activa) => setNumeracionActiva((prev) => (prev[tipo] === activa ? prev : { ...prev, [tipo]: activa })))
+      asegurarReserva(tipo, user.uid, online)
+        .then((activa) => setNumeracionActiva((prev) => (prev[tipo] === activa ? prev : { ...prev, [tipo]: activa })))
+        .catch((err) => reportError(err, { origen: 'EntregarPedidoPage', accion: 'reservar numeración', tipo }))
     })
   }, [user, online])
 

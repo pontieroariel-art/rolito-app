@@ -131,8 +131,8 @@ export default function MuelleTvPage() {
         lock = await navigator.wakeLock?.request('screen')
       } catch { /* sin soporte o sin permiso: se configura en el aparato */ }
     }
-    pedir()
-    const rearmar = () => { if (document.visibilityState === 'visible') pedir() }
+    void pedir() // atrapa su propio error
+    const rearmar = () => { if (document.visibilityState === 'visible') void pedir() }
     document.addEventListener('visibilitychange', rearmar)
     return () => {
       document.removeEventListener('visibilitychange', rearmar)
@@ -174,7 +174,7 @@ export default function MuelleTvPage() {
   const activarSonido = () => {
     try {
       if (!audioRef.current) audioRef.current = new AudioContext()
-      audioRef.current.resume()
+      audioRef.current.resume().catch(() => { /* sin soporte de audio */ })
       setSonido(true)
       avisar('entra')   // ráfaga de prueba, para calibrar el volumen del TV
     } catch { /* sin soporte de audio */ }

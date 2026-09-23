@@ -4,6 +4,7 @@ import {
   addNotificationEmail,
   removeNotificationEmail,
 } from '../services/configService'
+import { reportError } from '../services/observability'
 import type { TipoAviso } from '@/utils/avisosMail'
 
 /**
@@ -22,7 +23,9 @@ export function useNotificationEmails(tipo?: TipoAviso) {
     setLoading(false)
   }, [tipo])
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => {
+    load().catch((err) => { reportError(err, { hook: 'useNotificationEmails', tipo }); setLoading(false) })
+  }, [load, tipo])
 
   const addEmail = async (email: string): Promise<void> => {
     if (!email?.trim()) return

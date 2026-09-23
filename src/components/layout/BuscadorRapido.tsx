@@ -28,7 +28,7 @@ export default function BuscadorRapido({ items, onCerrar }: { items: ItemBuscabl
 
   useEffect(() => { setSel(0) }, [q])
 
-  const ir = (i: ItemBuscable | undefined) => { if (!i) return; onCerrar(); navigate(i.to) }
+  const ir = (i: ItemBuscable | undefined) => { if (!i) return; onCerrar(); void navigate(i.to) }
 
   const onKey = (e: React.KeyboardEvent) => {
     if (e.key === 'Escape') { e.preventDefault(); onCerrar() }

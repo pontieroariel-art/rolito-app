@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Download, Eye } from 'lucide-react'
 import { useVisorComprobante } from '@/components/ui/VisorComprobante'
+import { reportError } from '@/services/observability'
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from 'recharts'
@@ -151,7 +152,12 @@ export default function InformesDashboardPage() {
 
   const imprimir = (cat: Categoria) => {
     const { titulo, cols, filas } = datosDe(cat)
-    generateListadoPdf(titulo, cols, filas).then((blob) => abrir({ blob, nombre: `${titulo.toLowerCase().replace(/\s+/g, '-')}.pdf`, titulo, subtitulo: `${filas.length} filas` }))
+    generateListadoPdf(titulo, cols, filas)
+      .then((blob) => abrir({ blob, nombre: `${titulo.toLowerCase().replace(/\s+/g, '-')}.pdf`, titulo, subtitulo: `${filas.length} filas` }))
+      .catch((err) => {
+        reportError(err, { origen: 'InformesDashboardPage', accion: 'generar PDF del listado', categoria: cat })
+        window.alert('No se pudo generar el PDF. Intentá de nuevo.')
+      })
   }
 
   const loading = loadingHeladeras || loadingTickets

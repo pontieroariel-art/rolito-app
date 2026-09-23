@@ -96,7 +96,7 @@ export default function DominioLayout({ children }: { children?: ReactNode }) {
   const irADominio = (s: Sistema) => {
     elegirSistema(s)
     setOpen(false)
-    if (user) navigate(homeDeSistema(s, user))
+    if (user) void navigate(homeDeSistema(s, user))
   }
 
   const toggleColapsado = () => {
@@ -105,7 +105,7 @@ export default function DominioLayout({ children }: { children?: ReactNode }) {
 
   const handleLogout = async () => {
     await logoutUser()
-    navigate('/')
+    void navigate('/')
   }
 
   // Guard del puesto de cobranza: cualquier otra ruta de /caja redirige.

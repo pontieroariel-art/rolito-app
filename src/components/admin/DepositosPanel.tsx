@@ -138,7 +138,7 @@ export default function DepositosPanel() {
                         value={d.uid ?? ''}
                         onChange={(e) => {
                           const u = candidatos.find((c) => c.uid === e.target.value)
-                          guardar(d, { usuario: u ? { uid: u.uid, nombre: nombreDe(u), rol: u.rol } : null })
+                          void guardar(d, { usuario: u ? { uid: u.uid, nombre: nombreDe(u), rol: u.rol } : null })
                         }}
                         className={selectClass}
                       >

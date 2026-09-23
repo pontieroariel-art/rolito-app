@@ -14,6 +14,7 @@ import { updateOrdersStatusBatch } from '../services/orderService'
 import { useProgramasVisita, useVisitasPuntuales, visitasParaFecha, programasParaFecha } from './useVisitas'
 import { getPushSubscriptionByEmail } from '../services/userService'
 import { sendPush } from '../services/notificationService'
+import { reportError } from '../services/observability'
 import { subscribeCamiones } from '../services/flotaService'
 import { subscribeAsignacionesDia, setAsignacionChofer, AsignacionChofer, AsignacionesDia } from '../services/asignacionesDiaService'
 
@@ -330,7 +331,7 @@ export function useDespachoBoard(orders: Order[], choferes: UserProfile[], allCl
     clearTimeout(debounceRefs.current[slot])
     setRecalculating((prev) => ({ ...prev, [slot]: true }))
 
-    debounceRefs.current[slot] = setTimeout(async () => {
+    const recalcular = async () => {
       if (dndIds.length === 0) {
         setRecalculating((prev) => ({ ...prev, [slot]: false }))
         setRouteOrder((prev) => ({ ...prev, [slot]: [] }))
@@ -369,6 +370,15 @@ export function useDespachoBoard(orders: Order[], choferes: UserProfile[], allCl
           ...(current.status === 'confirmado' ? { modifiedAfterConfirm: true } : {}),
         }))
       }
+    }
+    // setTimeout no espera promesas: si el recálculo o la escritura del
+    // despacho fallan, la columna quedaba "recalculando" para siempre.
+    debounceRefs.current[slot] = setTimeout(() => {
+      recalcular().catch((err) => {
+        reportError(err, { origen: 'useDespachoBoard', accion: 'recalcular ruta', slot })
+        setRecalculating((prev) => ({ ...prev, [slot]: false }))
+        setOrsStatus((prev) => ({ ...prev, [slot]: { ok: false, error: 'No se pudo recalcular o guardar el orden. Probá de nuevo.' } }))
+      })
     }, 1500)
   }, [allItems, coordsByClientId, zonas, fecha, despachoByDriver, plantaByDriver, horaSalidaByDriver])
 

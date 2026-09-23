@@ -570,10 +570,10 @@ export default function CatalogosServicePage() {
           <p className="text-secundario text-sm">Pasos de taller, motivos de ingreso, motivos y tipos de reparación</p>
         </div>
 
-        <PasosTallerEditor pasos={pasos} onSaved={() => { qc.invalidateQueries({ queryKey: ['pasosTaller'] }); logCatalogo('pasosTaller', 'Pasos de taller') }} />
-        <MotivosIngresoEditor motivos={motivosIngreso} onSaved={() => { qc.invalidateQueries({ queryKey: ['motivosIngreso'] }); logCatalogo('motivosIngreso', 'Motivos de ingreso') }} />
-        <MotivosEditor motivos={motivos} onSaved={() => { qc.invalidateQueries({ queryKey: ['motivosReparacion'] }); logCatalogo('motivosReparacion', 'Motivos de reparación') }} />
-        <TiposEditor tipos={tipos} onSaved={() => { qc.invalidateQueries({ queryKey: ['tiposReparacion'] }); logCatalogo('tiposReparacion', 'Tipos de reparación') }} />
+        <PasosTallerEditor pasos={pasos} onSaved={() => { void qc.invalidateQueries({ queryKey: ['pasosTaller'] }); logCatalogo('pasosTaller', 'Pasos de taller') }} />
+        <MotivosIngresoEditor motivos={motivosIngreso} onSaved={() => { void qc.invalidateQueries({ queryKey: ['motivosIngreso'] }); logCatalogo('motivosIngreso', 'Motivos de ingreso') }} />
+        <MotivosEditor motivos={motivos} onSaved={() => { void qc.invalidateQueries({ queryKey: ['motivosReparacion'] }); logCatalogo('motivosReparacion', 'Motivos de reparación') }} />
+        <TiposEditor tipos={tipos} onSaved={() => { void qc.invalidateQueries({ queryKey: ['tiposReparacion'] }); logCatalogo('tiposReparacion', 'Tipos de reparación') }} />
       </main>
     </div>
   )

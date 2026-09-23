@@ -146,7 +146,7 @@ function ReasignarModal({
       await reassignOrder(order.id, email, motivo, order.driverId ?? '')
       // Push al chofer nuevo
       getPushSubscriptionByEmail(email).then((sub) => {
-        if (sub) sendPush({ subscription: sub, title: 'Pedido reasignado', body: `${order.clientName} — ${formatShortDate(order.date)}` })
+        if (sub) return sendPush({ subscription: sub, title: 'Pedido reasignado', body: `${order.clientName} — ${formatShortDate(order.date)}` })
       }).catch((err) => reportError(err, { origen: 'MonitoreoPage' }))
       onDone()
     } finally {
@@ -236,7 +236,7 @@ function FinJornadaModal({
       )
       if (accion === 'reasignar' && email) {
         getPushSubscriptionByEmail(email).then((sub) => {
-          if (sub) sendPush({ subscription: sub, title: `${pendingOrders.length} pedidos reasignados`, body: 'Revisá tus entregas' })
+          if (sub) return sendPush({ subscription: sub, title: `${pendingOrders.length} pedidos reasignados`, body: 'Revisá tus entregas' })
         }).catch((err) => reportError(err, { origen: 'MonitoreoPage' }))
       }
       onDone()

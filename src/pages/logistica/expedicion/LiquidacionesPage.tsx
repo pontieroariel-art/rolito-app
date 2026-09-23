@@ -263,7 +263,7 @@ export default function LiquidacionesPage({ base }: { base: '/caja' | '/tesoreri
         { uid: user.uid, nombre: user.nombre, plantaId },
       )
       setConfirmando(false)
-      imprimir(liq)
+      void imprimir(liq) // atrapa su propio error: la liquidación ya quedó cerrada
     } catch (err) {
       if (err instanceof LiquidacionYaCerradaError) { setError(err.message); return }
       reportError(err, { origen: 'LiquidacionesPage', accion: 'error al cerrar' })

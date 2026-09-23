@@ -111,7 +111,7 @@ export default function CobranzaCompleta({ origen, plantaId, cajaSesionId, clien
   // número y el cobro no se bloquea nunca.
   useEffect(() => {
     if (!user) return
-    asegurarReserva(user.uid, online).then(setNumeracionActiva)
+    asegurarReserva(user.uid, online).then(setNumeracionActiva).catch((err) => reportError(err, { origen: 'CobranzaCompleta', accion: 'reservar numeración de recibos' }))
     // online a propósito: si vuelve la señal, reintenta la reserva.
   }, [user, online])
 

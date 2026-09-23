@@ -43,9 +43,10 @@ if ('serviceWorker' in navigator) {
   // Verificar si hay un SW nuevo cada 30 minutos.
   // Crítico para sesiones largas (choferes con el celular encendido todo el día).
   let _swUpdateInterval: ReturnType<typeof setInterval> | null = null
-  navigator.serviceWorker.ready.then((reg) => {
+  // `ready` nunca rechaza; `update()` sí (sin red): se calla y reintenta a los 30 min.
+  void navigator.serviceWorker.ready.then((reg) => {
     if (_swUpdateInterval) return
-    _swUpdateInterval = setInterval(() => reg.update(), 30 * 60 * 1000)
+    _swUpdateInterval = setInterval(() => { reg.update().catch(() => { /* sin red */ }) }, 30 * 60 * 1000)
   })
 }
 

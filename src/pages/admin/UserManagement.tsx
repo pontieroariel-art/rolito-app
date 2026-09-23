@@ -26,6 +26,7 @@ import { SucursalClienteRow } from './user-management/SucursalClienteRow'
 import { UserRow } from './user-management/UserRow'
 import { FichaClienteModal } from './user-management/FichaClienteModal'
 import { reportError } from '@/services/observability'
+import AvisoErrorCarga from '@/components/common/AvisoErrorCarga'
 
 const PAGE_SIZE = 50
 
@@ -52,20 +53,37 @@ export default function UserManagement({ tab }: { tab: 'clientes' | 'equipo' }) 
   // repetido) — independiente del fichaModal local de cada SucursalClienteRow.
   const [fichaModalTarget, setFichaModalTarget]   = useState<UserProfile | null>(null)
 
+  // Un error de carga (permiso, red) dejaba el esqueleto para siempre: ahora
+  // se reporta y se muestra, y ninguna de las dos cargas rechaza hacia afuera.
+  const [errorCarga, setErrorCarga] = useState('')
+
   const loadEquipo = async () => {
     setLoadingEquipo(true)
-    const data = await getStaffUsers()
-    setEquipo(data)
-    setLoadingEquipo(false)
+    try {
+      const data = await getStaffUsers()
+      setEquipo(data)
+      setErrorCarga('')
+    } catch (err) {
+      reportError(err, { origen: 'UserManagement', accion: 'cargar equipo' })
+      setErrorCarga('No se pudo cargar el equipo. Revisá la conexión e intentá de nuevo.')
+    } finally {
+      setLoadingEquipo(false)
+    }
   }
 
   const loadClientes = async (force = false) => {
     if (!force && clientesLoadedRef.current) return
     setLoadingClientes(true)
-    const data = await getAllUsers(force)
-    setClientes(data.filter((u) => u.rol === 'cliente'))
-    clientesLoadedRef.current = true
-    setLoadingClientes(false)
+    try {
+      const data = await getAllUsers(force)
+      setClientes(data.filter((u) => u.rol === 'cliente'))
+      clientesLoadedRef.current = true
+    } catch (err) {
+      reportError(err, { origen: 'UserManagement', accion: 'cargar clientes' })
+      setErrorCarga('No se pudieron cargar los clientes. Revisá la conexión e intentá de nuevo.')
+    } finally {
+      setLoadingClientes(false)
+    }
   }
 
   const load = async () => {
@@ -76,8 +94,8 @@ export default function UserManagement({ tab }: { tab: 'clientes' | 'equipo' }) 
   }
 
   useEffect(() => {
-    loadEquipo()
-    loadClientes()
+    void loadEquipo()
+    void loadClientes()
   }, [])
 
   // Al navegar entre /usuarios y /admin/usuarios se resetean filtros y
@@ -232,6 +250,7 @@ export default function UserManagement({ tab }: { tab: 'clientes' | 'equipo' }) 
   return (
     <div className="min-h-screen min-h-dvh bg-[#F1EFE8] text-gray-900">
       <main className="max-w-5xl mx-auto p-4 space-y-6 pb-10">
+        {errorCarga && <AvisoErrorCarga mensaje={errorCarga} onReintentar={() => { void load() }} />}
         <div className="flex flex-wrap justify-between items-center gap-3">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">{tab === 'clientes' ? 'Clientes' : 'Usuarios'}</h1>
@@ -430,13 +449,13 @@ export default function UserManagement({ tab }: { tab: 'clientes' | 'equipo' }) 
       {crearModal && (
         <CrearStaffModal
           onClose={() => setCrearModal(false)}
-          onCreated={() => { setCrearModal(false); load() }}
+          onCreated={() => { setCrearModal(false); void load() }}
         />
       )}
       {crearClienteModal && (
         <CrearClienteModal
           onClose={() => setCrearClienteModal(false)}
-          onCreated={() => { setCrearClienteModal(false); load() }}
+          onCreated={() => { setCrearClienteModal(false); void load() }}
           existingClientes={clientes}
           onGoToExisting={(u) => { setCrearClienteModal(false); setFichaModalTarget(u) }}
         />
@@ -453,7 +472,7 @@ export default function UserManagement({ tab }: { tab: 'clientes' | 'equipo' }) 
       {importarModal && (
         <ImportarClientesModal
           onClose={() => setImportarModal(false)}
-          onDone={() => { setImportarModal(false); load() }}
+          onDone={() => { setImportarModal(false); void load() }}
         />
       )}
     </div>

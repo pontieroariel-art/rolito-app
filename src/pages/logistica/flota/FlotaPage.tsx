@@ -227,7 +227,14 @@ export default function FlotaPage() {
                         Editar
                       </button>
                       <button
-                        onClick={() => { updateCamion(c.id, { activo: !c.activo }); logFlota(c.id, c.activo ? 'desactivado' : 'activado', c.patente) }}
+                        onClick={() => {
+                          void updateCamion(c.id, { activo: !c.activo })
+                            .then(() => logFlota(c.id, c.activo ? 'desactivado' : 'activado', c.patente))
+                            .catch((err) => {
+                              reportError(err, { origen: 'FlotaPage', accion: 'activar/desactivar camión', camionId: c.id })
+                              window.alert('No se pudo cambiar el estado del camión. Revisá la conexión e intentá de nuevo.')
+                            })
+                        }}
                         className="text-xs text-secundario hover:text-gray-900 border border-[#D3D1C7] hover:border-accent rounded-lg px-4 py-2 transition-colors min-h-[36px]"
                       >
                         {c.activo ? 'Desactivar' : 'Activar'}

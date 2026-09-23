@@ -133,8 +133,14 @@ export default function TecnicosPage() {
                   <button
                     onClick={async () => {
                       const nuevoEstado = t.estado === 'activo' ? 'inactivo' : 'activo'
-                      await updateUserStatus(t.uid, nuevoEstado)
-                      refetch()
+                      try {
+                        await updateUserStatus(t.uid, nuevoEstado)
+                      } catch (err) {
+                        reportError(err, { origen: 'TecnicosPage', accion: 'cambiar estado del técnico', uid: t.uid })
+                        window.alert('No se pudo cambiar el estado del técnico. Revisá la conexión e intentá de nuevo.')
+                        return
+                      }
+                      void refetch()
                       if (currentUser) {
                         registrarAccionRutina({
                           coleccion: 'users', docId: t.uid, accion: nuevoEstado === 'activo' ? 'activado' : 'desactivado', detalle: t.nombre,

@@ -169,7 +169,7 @@ export default function ProduccionDashboard() {
 
   const salir = useCallback(async () => {
     await logoutUser()
-    navigate('/')
+    void navigate('/')
   }, [navigate])
 
   const cabeceraImpresora = useMemo(() => ({

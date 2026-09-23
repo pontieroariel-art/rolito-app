@@ -21,7 +21,9 @@ function ContadorPlanta({ plantaId }: { plantaId: PlantaId }) {
     getProximoNumero(plantaId).then(setProximo),
     getUltimoPallet(plantaId).then(setUltimo),
   ]), [plantaId])
-  useEffect(() => { cargar() }, [cargar])
+  useEffect(() => {
+    cargar().catch((err) => { reportError(err, { origen: 'PlantasProduccionPage', accion: 'leer contador', plantaId }); setError('No se pudo leer el contador de la planta.') })
+  }, [cargar, plantaId])
 
   const handleInicializar = async () => {
     const n = parseInt(primerNumero, 10)

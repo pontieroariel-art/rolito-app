@@ -4,6 +4,7 @@ import { searchOrdersByClientName, searchOrdersByClientCode, searchOrdersByNumer
 import { formatShortDate, summarizeProducts, getCodigoCliente } from '../../utils/helpers'
 import { STATUS_LABELS } from '../../utils/constants'
 import { Order } from '../../types'
+import { reportError } from '@/services/observability'
 
 type Mode = 'cliente' | 'oc' | 'fecha'
 
@@ -50,6 +51,11 @@ export default function PedidoSearchBar({ onJumpAndHighlight, onOpenDetail, codi
       getOrdersInRange(start, end).then((r) => {
         if (searchSeqRef.current !== mySeq) return
         setResults(r); setLoading(false); setOpen(true)
+      }).catch((err) => {
+        // Sin esto el buscador quedaba "cargando" para siempre.
+        if (searchSeqRef.current !== mySeq) return
+        reportError(err, { origen: 'PedidoSearchBar', accion: 'buscar pedidos por fecha' })
+        setResults([]); setLoading(false)
       })
       return
     }
@@ -71,6 +77,10 @@ export default function PedidoSearchBar({ onJumpAndHighlight, onOpenDetail, codi
       search.then((r) => {
         if (searchSeqRef.current !== mySeq) return
         setResults(r); setLoading(false); setOpen(true)
+      }).catch((err) => {
+        if (searchSeqRef.current !== mySeq) return
+        reportError(err, { origen: 'PedidoSearchBar', accion: 'buscar pedidos', mode })
+        setResults([]); setLoading(false)
       })
     }, 300)
     return () => clearTimeout(timer)

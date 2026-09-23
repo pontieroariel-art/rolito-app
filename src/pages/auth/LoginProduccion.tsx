@@ -37,7 +37,9 @@ export default function LoginProduccion({ planta }: Props) {
       if (rechazando.current) return
       rechazando.current = true
       setError(`Ese legajo pertenece a ${PLANTAS[user.planta].label}, no a ${PLANTAS[planta].label}. Avisá al encargado.`)
-      logoutUser().finally(() => { rechazando.current = false })
+      logoutUser()
+        .catch((err) => reportError(err, { origen: 'LoginProduccion', accion: 'cerrar sesión de otra planta' }))
+        .finally(() => { rechazando.current = false })
       return
     }
     // Solo marcar el dispositivo como tablet de planta para operarios reales.
@@ -46,7 +48,7 @@ export default function LoginProduccion({ planta }: Props) {
     // dispositivo quedaría atrapado en /produccion sin forma de salir por UI.
     if (user.rol !== 'produccion_hielo') return
     marcarDispositivoProduccion(planta)
-    navigate('/produccion', { replace: true })
+    void navigate('/produccion', { replace: true })
   }, [user, navigate, planta])
 
   const handleLogin = async (e: FormEvent<HTMLFormElement>) => {

@@ -91,7 +91,8 @@ export default function ReportePreciosPage() {
     staleTime: 300_000,
   })
 
-  const refetch = () => { refetchUsuarios() }
+  // El error de un refetch queda en el estado de la query, no rechaza.
+  const refetch = () => { void refetchUsuarios() }
 
   const clientes = useMemo(
     () => (todosUsuarios ?? []).filter((u) => u.rol === 'cliente' && u.estado === 'activo'),

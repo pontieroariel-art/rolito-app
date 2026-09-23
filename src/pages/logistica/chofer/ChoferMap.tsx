@@ -216,8 +216,8 @@ export default function ChoferMap() {
     const acquire = () =>
       (navigator as { wakeLock: { request: (t: string) => Promise<WakeLockSentinel> } })
         .wakeLock.request('screen').then((l) => { lock = l }).catch(() => {})
-    acquire()
-    const onVisible = () => { if (document.visibilityState === 'visible') acquire() }
+    void acquire()
+    const onVisible = () => { if (document.visibilityState === 'visible') void acquire() }
     document.addEventListener('visibilitychange', onVisible)
     return () => {
       document.removeEventListener('visibilitychange', onVisible)
@@ -258,7 +258,7 @@ export default function ChoferMap() {
       // Microtask: si un nuevo efecto ya montó (gen cambió), no desactivar
       // (mismo fix que ChoferDashboard.tsx, para evitar la race condition
       // donde una desactivación en vuelo pisa una reactivación posterior).
-      Promise.resolve().then(() => {
+      void Promise.resolve().then(() => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
         if (locationGenRef.current === gen) {
           deactivateDriverLocation(email).catch((err) => reportError(err, { origen: 'ChoferMap' }))

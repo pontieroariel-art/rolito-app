@@ -31,15 +31,15 @@ export default function SeleccionSistemaPage() {
   // (`homes` undefined) esta pantalla no aplica: a su home.
   useEffect(() => {
     if (!user) return
-    if (!homes) { navigate(ROLE_HOME[user.rol] ?? '/', { replace: true }); return }
-    if (sistemaActual && homes[sistemaActual]) navigate(homes[sistemaActual]!, { replace: true })
+    if (!homes) { void navigate(ROLE_HOME[user.rol] ?? '/', { replace: true }); return }
+    if (sistemaActual && homes[sistemaActual]) void navigate(homes[sistemaActual]!, { replace: true })
   }, [user, sistemaActual, homes, navigate])
 
   if (!user || sistemaActual || !homes) return <LoadingSpinner fullScreen />
 
   const handlePick = (s: Sistema) => {
     elegirSistema(s)
-    navigate(homes[s] ?? '/', { replace: true })
+    void navigate(homes[s] ?? '/', { replace: true })
   }
 
   return (

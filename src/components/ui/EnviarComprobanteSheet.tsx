@@ -71,7 +71,12 @@ export default function EnviarComprobanteSheet({ titulo, nombre, envio, blob, on
       setTelefono((prev) => prev.trim() ? prev : tel)
       setMail((prev) => prev.trim() ? prev : m)
       setCargando(false)
-    })()
+    })().catch((err) => {
+      // Cada lectura de arriba ya tiene su catch; esto es por si acaso, para no
+      // dejar el "cargando" trabado.
+      reportError(err, { origen: 'EnviarComprobanteSheet', accion: 'cargar contacto del cliente' })
+      if (vivo) setCargando(false)
+    })
     return () => { vivo = false }
   }, [cargando, envio])
 

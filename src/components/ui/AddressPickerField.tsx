@@ -43,7 +43,8 @@ export function AddressAutocomplete({
       if (!window.google?.maps?.places) return
       setLoading(true)
       const svc = new google.maps.places.AutocompleteService()
-      svc.getPlacePredictions(
+      // El resultado llega por el callback; la promesa que devuelve Google no se usa.
+      void svc.getPlacePredictions(
         { input: value, componentRestrictions: { country: 'ar' }, types: ['address'] },
         (predictions, status) => {
           setLoading(false)
@@ -194,7 +195,7 @@ export function AddressMapPicker({
     setPos({ lat: newLat, lng: newLng })
     setDragging(false)
     const geocoder = new google.maps.Geocoder()
-    geocoder.geocode({ location: { lat: newLat, lng: newLng } }, (results, status) => {
+    void geocoder.geocode({ location: { lat: newLat, lng: newLng } }, (results, status) => {
       const address = status === 'OK' && results?.[0]
         ? results[0].formatted_address
         : `${newLat.toFixed(6)}, ${newLng.toFixed(6)}`

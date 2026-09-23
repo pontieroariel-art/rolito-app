@@ -8,7 +8,7 @@ import {
   useCallback,
   ReactNode,
 } from 'react'
-import { onAuthStateChanged } from 'firebase/auth'
+import { onAuthStateChanged, type User } from 'firebase/auth'
 import { onSnapshot, doc } from 'firebase/firestore'
 import { auth, SESION_VER_COMO } from '../services/firebase'
 import { db } from '../services/firebase'
@@ -72,7 +72,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const verComoIntentadoRef = useRef(false)
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
+    // onAuthStateChanged espera un callback que devuelve void: la lógica async
+    // va en una función aparte que nunca rechaza (cada rama atrapa su error).
+    const alCambiarSesion = async (firebaseUser: User | null) => {
       const uid = firebaseUser?.uid ?? null
 
       if (uid === lastUidRef.current) return
@@ -130,6 +132,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (userRef.current?.uid === uid) return
         dispatch({ type: 'RESOLVED', user: null })
       }
+    }
+    const unsub = onAuthStateChanged(auth, (firebaseUser) => {
+      alCambiarSesion(firebaseUser).catch((err) => reportError(err, { origen: 'AuthContext.onAuthStateChanged' }))
     })
     return unsub
   }, [])

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { getHeladerasStats } from '../services/heladeraService'
+import { reportError } from '../services/observability'
 import { EstadoHeladera } from '../types'
 
 // Conteo agregado, no en tiempo real — para paneles resumen (tablero de
@@ -14,6 +15,9 @@ export function useHeladerasStats() {
     let activo = true
     getHeladerasStats().then((s) => {
       if (activo) { setStats(s); setLoading(false) }
+    }).catch((err) => {
+      reportError(err, { hook: 'useHeladerasStats' })
+      if (activo) setLoading(false)
     })
     return () => { activo = false }
   }, [])

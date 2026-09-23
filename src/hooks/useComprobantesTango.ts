@@ -34,7 +34,8 @@ export function useComprobantesTango(claves: string[]): {
     if (lista.length === 0) { setEstados(new Map()); return }
     let vivo = true
     setCargando(true)
-    Promise.all(lista.map(async (clave) => {
+    // Cada getDoc atrapa su propio error abajo, así que el Promise.all no rechaza.
+    void Promise.all(lista.map(async (clave) => {
       try {
         const snap = await getDoc(doc(db, 'tangoComprobanteDetalle', clave))
         return [clave, snap.exists() ? String(snap.data()?.estado ?? '') : ''] as const
