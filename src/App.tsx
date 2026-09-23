@@ -9,6 +9,7 @@ import { SistemaProvider } from './context/SistemaContext'
 import ProtectedRoute from './components/layout/ProtectedRoute'
 import LoadingSpinner from './components/ui/LoadingSpinner'
 import { reportError, APP_RELEASE } from './services/observability'
+import { esErrorDeChunkViejo, recargarPorChunkViejo } from '@/utils/chunkViejo'
 import { SESION_VER_COMO } from './services/firebase'
 import VerComoBanner, { VerComoTerminada } from './components/layout/VerComoBanner'
 import { VisorComprobanteProvider } from './components/ui/VisorComprobante'
@@ -160,14 +161,8 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
   static getDerivedStateFromError(error: Error) { return { error } }
   componentDidCatch(error: Error, info: ErrorInfo) {
     reportError(error, { componentStack: info.componentStack, boundary: 'root' })
-    // Chunk stale tras nuevo deploy → recargar automáticamente una vez
-    const isChunkError = error.message?.includes('Failed to fetch dynamically imported module')
-      || error.message?.includes('Importing a module script failed')
-      || error.name === 'ChunkLoadError'
-    if (isChunkError && !sessionStorage.getItem('chunk-reload')) {
-      sessionStorage.setItem('chunk-reload', '1')
-      window.location.reload()
-    }
+    // Chunk viejo tras un deploy → recargar (con freno de 15 s contra bucles; utils/chunkViejo).
+    if (esErrorDeChunkViejo(error)) recargarPorChunkViejo()
   }
   render() {
     if (this.state.error) {

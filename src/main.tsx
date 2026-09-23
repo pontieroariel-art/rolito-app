@@ -2,10 +2,18 @@ import ReactDOM from 'react-dom/client'
 import App from './App'
 import './index.css'
 import { initObservability } from './services/observability'
+import { recargarPorChunkViejo } from '@/utils/chunkViejo'
 
 // Captura de errores en producción (gateada por VITE_SENTRY_DSN). Se inicializa
 // lo antes posible para no perder errores tempranos de arranque.
 initObservability()
+
+// Un chunk que ya no existe en el hosting (deploy nuevo con la pestaña vieja
+// abierta): Vite avisa acá antes de que el error llegue a React. Se recarga y
+// se frena el error; si la recarga no puede (bucle), sigue al ErrorBoundary.
+window.addEventListener('vite:preloadError', (e) => {
+  if (recargarPorChunkViejo()) e.preventDefault()
+})
 
 // ── Auto-actualización del PWA ────────────────────────────────────────────────
 // Cuando el SW nuevo toma control (skipWaiting + clientsClaim en sw.ts),

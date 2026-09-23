@@ -1,6 +1,7 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
 import { useLocation } from 'react-router-dom'
 import { reportError } from '@/services/observability'
+import { esErrorDeChunkViejo } from '@/utils/chunkViejo'
 
 /**
  * ErrorBoundary por PANTALLA (auditoría 2026-09-22). Hasta ahora había uno
@@ -28,7 +29,7 @@ class Boundary extends Component<{ ruta: string; children: ReactNode }, { error:
     if (!error) return this.props.children
     // Un chunk viejo después de un deploy lo resuelve el boundary de la raíz
     // recargando: acá se relanza para que llegue hasta él.
-    if (error.message?.includes('Failed to fetch dynamically imported module') || error.message?.includes('Importing a module script failed')) throw error
+    if (esErrorDeChunkViejo(error)) throw error
     return (
       <div className="min-h-[60vh] flex items-center justify-center p-6">
         <div className="w-full max-w-md bg-white border border-[#D3D1C7] rounded-xl p-6 text-gray-900">
