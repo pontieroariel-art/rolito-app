@@ -21,6 +21,7 @@ import { useCatalogo } from '@/hooks/useCatalogo'
 import BotoneraProductos from '@/components/ventas/BotoneraProductos'
 import { crearVentaCamion, getVentaCamion } from '@/services/ventaCamionService'
 import { empresaDeCanal, motivoSinPrecioTango, precioTangoDe } from '@/utils/precioTango'
+import { SIN_IMPORTE, ventaSinImporte } from '@/utils/ventaSinImporte'
 import { esClienteFacturable } from '@/utils/facturable'
 import { admiteCuentaCorriente } from '@/utils/condicionVenta'
 import { articulosDeCambio, itemsDeCambio } from '@/utils/cambios'
@@ -115,7 +116,7 @@ export default function VentaCamion({ volverA = '/chofer' }: { volverA?: string 
   const [resumenOpen, setResumenOpen] = useState(false)
   const [firmaPreview, setFirmaPreview] = useState<string | null>(null)
   const [guardando, setGuardando] = useState(false)
-  const [exito, setExito] = useState<{ cliente: string; total: number; conIva: boolean; documento: string | null } | null>(null)
+  const [exito, setExito] = useState<{ cliente: string; total: number; conIva: boolean; documento: string | null; sinImporte: boolean } | null>(null)
   // ¿Los precios de lista ya traen el IVA? (config/arca). Con precios netos, la
   // factura suma el 21 %: la pantalla lo muestra para que el chofer le diga al
   // cliente el importe que va a salir en la factura (pedido de Ariel, 2026-09-11).
@@ -236,6 +237,8 @@ export default function VentaCamion({ volverA = '/chofer' }: { volverA?: string 
   // Una operación de solo cambios no cobra nada: preguntarle al chofer cómo
   // cobró sobraría.
   const seCobra = total > 0
+  // Cuenta corriente: el chofer no ve importes (utils/ventaSinImporte).
+  const sinImporte = ventaSinImporte(formaPago)
 
   const reset = () => {
     setClienteId('')
@@ -302,6 +305,7 @@ export default function VentaCamion({ volverA = '/chofer' }: { volverA?: string 
         cliente: cliente.razonSocial || cliente.nombre,
         total: conIva?.total ?? total,
         conIva: conIva !== null,
+        sinImporte,
         documento: tipoInterno
           ? `${ETIQUETA_COMPROBANTE[tipoInterno]} ${comprobanteInterno ? codigoComprobanteInterno(comprobanteInterno) : 'sin número'}`
           : null,
@@ -335,8 +339,8 @@ export default function VentaCamion({ volverA = '/chofer' }: { volverA?: string 
           </div>
           <h2 className="text-2xl font-black animate-in fade-in-0 slide-in-from-bottom-1 duration-300">¡Venta registrada!</h2>
           <p className="text-secundario mt-1 animate-in fade-in-0 duration-500">{exito.cliente}</p>
-          <p className="text-4xl font-black tabular-nums mt-4 animate-in zoom-in-95 duration-300">{money(exito.total)}</p>
-          {exito.conIva && <p className="text-xs text-secundario mt-1">IVA incluido, como sale en la factura</p>}
+          <p className="text-4xl font-black tabular-nums mt-4 animate-in zoom-in-95 duration-300">{exito.sinImporte ? 'Cuenta corriente' : money(exito.total)}</p>
+          {exito.conIva && !exito.sinImporte && <p className="text-xs text-secundario mt-1">IVA incluido, como sale en la factura</p>}
           <div className="mt-4 inline-flex items-center gap-1.5 text-xs font-medium text-amber-700 bg-amber-500/10 border border-amber-500/30 rounded-full px-3 py-1.5">
             {exito.documento
               ? <><FileText size={13} /> {exito.documento} — entregalo desde Mis ventas</>
@@ -494,6 +498,7 @@ export default function VentaCamion({ volverA = '/chofer' }: { volverA?: string 
               catalogo={catalogo}
               precioDe={precioDe}
               sinPrecio={sinPrecio}
+              mostrarPrecios={!sinImporte}
               cantidades={cantidades}
               onChange={setCantidades}
             />
@@ -647,10 +652,10 @@ export default function VentaCamion({ volverA = '/chofer' }: { volverA?: string 
         <div className="max-w-lg mx-auto flex items-center gap-3">
           <div className="flex-1">
             <p className="text-xs uppercase tracking-wide text-secundario">
-              {conIva ? 'Total con IVA' : 'Total'}{unidades > 0 ? ` · ${unidades} u.` : ''}{unidadesCambio > 0 ? ` · ${unidadesCambio} cambio` : ''}
+              {sinImporte ? 'Cuenta corriente' : conIva ? 'Total con IVA' : 'Total'}{unidades > 0 ? ` · ${unidades} u.` : ''}{unidadesCambio > 0 ? ` · ${unidadesCambio} cambio` : ''}
             </p>
-            <p className="text-2xl font-black tabular-nums leading-none">{money(conIva ? conIva.total : total)}</p>
-            {conIva && (
+            <p className="text-2xl font-black tabular-nums leading-none">{sinImporte ? `${unidades} u.` : money(conIva ? conIva.total : total)}</p>
+            {conIva && !sinImporte && (
               <p className="text-[11px] text-secundario mt-0.5 tabular-nums">
                 Neto {money(conIva.neto)} · IVA {money(conIva.iva)}{conIva.percepcion > 0 ? ` · Perc. IIBB ${money(conIva.percepcion)}` : ''}
               </p>
@@ -692,9 +697,9 @@ export default function VentaCamion({ volverA = '/chofer' }: { volverA?: string 
                 <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: colorDe(i.productoId) }} />
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium text-gray-900 truncate">{i.nombre}</p>
-                  <p className="text-xs text-secundario">{i.cantidad} × {money(i.precioUnitario)}</p>
+                  <p className="text-xs text-secundario">{sinImporte ? `${i.cantidad} u.` : `${i.cantidad} × ${money(i.precioUnitario)}`}</p>
                 </div>
-                <p className="text-sm font-semibold tabular-nums shrink-0">{money(i.precioUnitario * i.cantidad)}</p>
+                {!sinImporte && <p className="text-sm font-semibold tabular-nums shrink-0">{money(i.precioUnitario * i.cantidad)}</p>}
               </div>
             ))}
             {/* Los cambios se listan con los productos, en $0: así los va a ver
@@ -706,10 +711,10 @@ export default function VentaCamion({ volverA = '/chofer' }: { volverA?: string 
                   <p className="text-sm font-medium text-gray-900 truncate">{i.nombre}</p>
                   <p className="text-xs text-secundario">{i.cantidad} × sin cargo</p>
                 </div>
-                <p className="text-sm font-semibold tabular-nums shrink-0 text-secundario">{money(0)}</p>
+                {!sinImporte && <p className="text-sm font-semibold tabular-nums shrink-0 text-secundario">{money(0)}</p>}
               </div>
             ))}
-            {conIva && (
+            {conIva && !sinImporte && (
               <div className="px-3.5 py-2 text-xs text-secundario tabular-nums space-y-0.5 border-t border-[#D3D1C7]">
                 <p className="flex justify-between"><span>Neto</span><span>{money(conIva.neto)}</span></p>
                 <p className="flex justify-between"><span>IVA 21 %</span><span>{money(conIva.iva)}</span></p>
@@ -717,8 +722,8 @@ export default function VentaCamion({ volverA = '/chofer' }: { volverA?: string 
               </div>
             )}
             <div className="flex items-center justify-between px-3.5 py-3 bg-[#F8F7F2]">
-              <span className="text-sm font-semibold text-gray-600">{conIva ? 'Total con IVA' : 'Total'}</span>
-              <span className="text-xl font-black tabular-nums">{money(conIva ? conIva.total : total)}</span>
+              <span className="text-sm font-semibold text-gray-600">{sinImporte ? SIN_IMPORTE : conIva ? 'Total con IVA' : 'Total'}</span>
+              <span className="text-xl font-black tabular-nums">{sinImporte ? `${unidades} u.` : money(conIva ? conIva.total : total)}</span>
             </div>
           </div>
 

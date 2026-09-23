@@ -11,6 +11,8 @@ interface Props {
   onClose:        () => void
   producto:       CatalogProducto
   precioUnitario: number
+  /** false: sin importes (venta en cuenta corriente del chofer). */
+  mostrarPrecio?: boolean
   cantidadActual: number
   onConfirm:      (cantidad: number) => void
 }
@@ -18,7 +20,7 @@ interface Props {
 /** Teclado numérico para cargar la cantidad de un producto en la venta. Se abre
  *  al tocar la tarjeta en la botonera. Muestra precio unitario y total en vivo. */
 export default function CalculadoraCantidad({
-  open, onClose, producto, precioUnitario, cantidadActual, onConfirm,
+  open, onClose, producto, precioUnitario, cantidadActual, onConfirm, mostrarPrecio = true,
 }: Props) {
   const [buf, setBuf] = useState('')
 
@@ -37,13 +39,13 @@ export default function CalculadoraCantidad({
   return (
     <Modal open={open} onClose={onClose} title={producto.nombre} variant="light">
       <div className="space-y-4">
-        <p className="text-sm text-secundario -mt-2">{money(precioUnitario)} / {producto.unidad}</p>
+        <p className="text-sm text-secundario -mt-2">{mostrarPrecio ? `${money(precioUnitario)} / ${producto.unidad}` : `Cantidad en ${producto.unidad}`}</p>
 
         <div className="bg-[#F8F7F2] border border-[#D3D1C7] rounded-xl px-4 py-3 text-right">
           <span className="text-4xl font-black tabular-nums text-gray-900">{buf || '0'}</span>
         </div>
         <div className="text-right text-sm font-bold text-accent tabular-nums min-h-[20px]">
-          {n > 0 && <>{n} × {money(precioUnitario)} = {money(n * precioUnitario)}</>}
+          {n > 0 && (mostrarPrecio ? <>{n} × {money(precioUnitario)} = {money(n * precioUnitario)}</> : <>{n} {producto.unidad}</>)}
         </div>
 
         <div className="grid grid-cols-3 gap-2">

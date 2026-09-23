@@ -26,6 +26,7 @@ import { documentoDeVenta } from '@/utils/circuitoDocumento'
 import { tipoComprobanteInterno, ETIQUETA_COMPROBANTE } from '@/utils/comprobanteInterno'
 import { inhabilitadoEnTango, motivoInhabilitado } from '@/utils/inhabilitadoTango'
 import { desgloseFactura, percepcionVigenteDe } from '@/utils/totalFacturado'
+import { SIN_IMPORTE, ventaSinImporte } from '@/utils/ventaSinImporte'
 import { normalizarOrdenCompra } from '@/utils/ordenCompraVenta'
 import { esEntregaParcial, formaPagoInicial, renglonesDelPedido, sucursalDelPedido, type RenglonEntrega } from '@/utils/entregaPedido'
 import type { CanalVenta, ComprobanteInternoVenta, FormaPago, TipoComprobanteInterno, VentaCamionItem } from '@/types'
@@ -70,7 +71,7 @@ export default function EntregarPedidoPage() {
   const [firmante, setFirmante] = useState('')
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState('')
-  const [exito, setExito] = useState<{ documento: string | null; total: number; conIva: boolean; parcial: boolean; mail: string } | null>(null)
+  const [exito, setExito] = useState<{ documento: string | null; total: number; conIva: boolean; parcial: boolean; mail: string; sinImporte: boolean } | null>(null)
   const [preciosIncluyenIva, setPreciosIncluyenIva] = useState(false)
   useEffect(() => { getPreciosIncluyenIva().then(setPreciosIncluyenIva).catch((err) => reportError(err, { origen: 'EntregarPedidoPage', accion: 'leer config de precios con IVA' })) }, [])
 
@@ -116,6 +117,8 @@ export default function EntregarPedidoPage() {
   const total = items.reduce((s, i) => s + i.precioUnitario * i.cantidad, 0)
   const parcial = esEntregaParcial(renglones ?? [])
   const documento = documentoDeVenta(canal, formaPago ?? 'contado_efectivo', total)
+  // Cuenta corriente: el chofer no ve importes (utils/ventaSinImporte).
+  const sinImporte = ventaSinImporte(formaPago)
   const conIva = documento === 'factura_arca' && items.length > 0
     ? desgloseFactura(items, { preciosIncluyenIva, percepcionAlicuota: percepcionVigenteDe(cliente) })
     : null
@@ -182,6 +185,7 @@ export default function EntregarPedidoPage() {
       setExito({
         documento: tipoInterno ? `${ETIQUETA_COMPROBANTE[tipoInterno]} ${comprobanteInterno ? codigoComprobanteInterno(comprobanteInterno) : 'sin número'}` : null,
         total: conIva?.total ?? total, conIva: conIva !== null, parcial, mail: cliente.email && !cliente.email.endsWith('@rolito.app') ? cliente.email : '',
+        sinImporte,
       })
     } catch (err) {
       reportError(err, { origen: 'EntregarPedidoPage', accion: 'confirmar' })
@@ -201,8 +205,8 @@ export default function EntregarPedidoPage() {
           </div>
           <h2 className="text-2xl font-black">¡Entrega registrada!</h2>
           <p className="text-secundario mt-1">{order.clientName}</p>
-          <p className="text-3xl font-black tabular-nums mt-3">{money(exito.total)}</p>
-          {exito.conIva && <p className="text-xs text-secundario mt-0.5">IVA incluido, como sale en la factura</p>}
+          <p className="text-3xl font-black tabular-nums mt-3">{exito.sinImporte ? 'Cuenta corriente' : money(exito.total)}</p>
+          {exito.conIva && !exito.sinImporte && <p className="text-xs text-secundario mt-0.5">IVA incluido, como sale en la factura</p>}
           <div className="mt-5 w-full rounded-2xl border border-[#D3D1C7] bg-white p-4 text-left text-sm space-y-2">
             <p className="flex gap-2"><span className="text-success font-bold">✓</span> Pedido entregado{exito.parcial ? ' (parcial)' : ''}</p>
             <p className="flex gap-2"><span className="text-success font-bold">✓</span> {exito.documento ? `${exito.documento}${order.numeroOC ? ` · OC ${order.numeroOC}` : ''}` : 'Factura en camino: la ves en Mis ventas'}</p>
@@ -334,14 +338,14 @@ export default function EntregarPedidoPage() {
 
             <div className="rounded-2xl border border-[#D3D1C7] bg-white p-4 flex items-end justify-between gap-3">
               <div>
-                <p className="text-xs font-bold uppercase tracking-wide text-secundario">{conIva ? 'Total con IVA' : 'Total'}</p>
+                <p className="text-xs font-bold uppercase tracking-wide text-secundario">{sinImporte ? SIN_IMPORTE : conIva ? 'Total con IVA' : 'Total'}</p>
                 <p className="text-xs text-secundario mt-0.5">
                   {documento === 'factura_arca' ? 'Sale factura' : tipoComprobanteInterno({ canal, formaPago: formaPago ?? 'contado_efectivo', total }) ? `Sale ${ETIQUETA_COMPROBANTE[tipoComprobanteInterno({ canal, formaPago: formaPago ?? 'contado_efectivo', total })!].toLowerCase()}` : ''}
                   {order.numeroOC ? ` · OC ${order.numeroOC}` : ''}
                 </p>
-                {conIva && <p className="text-[11px] text-secundario tabular-nums mt-0.5">Neto {money(conIva.neto)} · IVA {money(conIva.iva)}{conIva.percepcion > 0 ? ` · Perc. IIBB ${money(conIva.percepcion)}` : ''}</p>}
+                {conIva && !sinImporte && <p className="text-[11px] text-secundario tabular-nums mt-0.5">Neto {money(conIva.neto)} · IVA {money(conIva.iva)}{conIva.percepcion > 0 ? ` · Perc. IIBB ${money(conIva.percepcion)}` : ''}</p>}
               </div>
-              <p className="text-2xl font-black tabular-nums">{money(conIva ? conIva.total : total)}</p>
+              <p className="text-2xl font-black tabular-nums">{sinImporte ? `${items.reduce((s, i) => s + i.cantidad, 0)} u.` : money(conIva ? conIva.total : total)}</p>
             </div>
           </>
         )}
@@ -349,10 +353,10 @@ export default function EntregarPedidoPage() {
         {paso === 3 && (
           <>
             <div className="rounded-2xl border border-[#D3D1C7] bg-white p-4 text-sm space-y-1">
-              {items.map((i) => <p key={i.productoId} className="flex justify-between tabular-nums"><span>{i.cantidad} × {i.nombre}</span><span className="text-secundario">{money(i.precioUnitario * i.cantidad)}</span></p>)}
+              {items.map((i) => <p key={i.productoId} className="flex justify-between tabular-nums"><span>{i.cantidad} × {i.nombre}</span>{!sinImporte && <span className="text-secundario">{money(i.precioUnitario * i.cantidad)}</span>}</p>)}
               <p className="flex justify-between border-t border-dashed border-[#D3D1C7] pt-2 mt-1 font-bold">
                 <span>{documento === 'factura_arca' ? 'Factura' : 'Remito'} · {FORMAS.find((f) => f.id === formaPago)?.label.toLowerCase()}</span>
-                <span className="tabular-nums">{money(conIva ? conIva.total : total)}</span>
+                <span className="tabular-nums">{sinImporte ? `${items.reduce((s, i) => s + i.cantidad, 0)} u.` : money(conIva ? conIva.total : total)}</span>
               </p>
             </div>
             <input value={firmante} onChange={(e) => setFirmante(e.target.value)} placeholder="Nombre de quien firma"

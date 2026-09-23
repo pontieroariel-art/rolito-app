@@ -13,12 +13,14 @@ interface Props {
   onChange:   (next: Record<string, number>) => void
   /** Producto sin precio en Tango para este cliente: se muestra deshabilitado, no se puede vender. */
   sinPrecio?: (productoId: string) => boolean
+  /** false: venta en cuenta corriente del chofer, se muestran solo cantidades (utils/ventaSinImporte). */
+  mostrarPrecios?: boolean
 }
 
 /** Botonera de productos en grilla, con foto por producto. Tocar una tarjeta abre
  *  la calculadora para cargar la cantidad. Compartida por ventanilla y chofer.
  *  No guarda nada: mantiene el estado `cantidades` y lo emite por `onChange`. */
-export default function BotoneraProductos({ catalogo, precioDe, cantidades, onChange, sinPrecio }: Props) {
+export default function BotoneraProductos({ catalogo, precioDe, cantidades, onChange, sinPrecio, mostrarPrecios = true }: Props) {
   const [calcProd, setCalcProd] = useState<CatalogProducto | null>(null)
 
   const setCantidad = (id: string, n: number) => {
@@ -39,6 +41,7 @@ export default function BotoneraProductos({ catalogo, precioDe, cantidades, onCh
           producto={p}
           cantidad={cantidades[p.id] ?? 0}
           precio={precioDe(p.id)}
+          mostrarPrecio={mostrarPrecios}
           deshabilitado={sinPrecio?.(p.id) === true}
           onClick={() => setCalcProd(p)}
         />
@@ -65,6 +68,7 @@ export default function BotoneraProductos({ catalogo, precioDe, cantidades, onCh
           onClose={() => setCalcProd(null)}
           producto={calcProd}
           precioUnitario={precioDe(calcProd.id)}
+          mostrarPrecio={mostrarPrecios}
           cantidadActual={cantidades[calcProd.id] ?? 0}
           onConfirm={(n) => setCantidad(calcProd.id, n)}
         />
@@ -94,13 +98,13 @@ function EtiquetaBadge({ text, color }: { text: string; color: string }) {
   )
 }
 
-function ProductoCard({ producto, cantidad, precio, deshabilitado = false, onClick }: {
+function ProductoCard({ producto, cantidad, precio, deshabilitado = false, onClick, mostrarPrecio }: {
   producto: CatalogProducto
   cantidad: number
   precio:   number
   deshabilitado?: boolean
   onClick:  () => void
-}) {
+; mostrarPrecio: boolean }) {
   const activo   = cantidad > 0
   const color    = colorDe(producto)
   const etiqueta = etiquetaDe(producto)
@@ -125,12 +129,14 @@ function ProductoCard({ producto, cantidad, precio, deshabilitado = false, onCli
       </div>
       <div className="min-w-0">
         <p className="text-sm font-semibold text-gray-900 leading-tight">{producto.nombre}</p>
-        <p className="text-xs text-secundario">{money(precio)} <span className="text-inerte">/ {producto.unidad}</span></p>
+        {mostrarPrecio
+          ? <p className="text-xs text-secundario">{money(precio)} <span className="text-inerte">/ {producto.unidad}</span></p>
+          : <p className="text-xs text-secundario">por {producto.unidad}</p>}
       </div>
       {deshabilitado
         ? <p className="text-[11px] font-semibold text-red-500">Sin precio en Tango</p>
         : activo
-          ? <p className="text-xs font-bold text-accent tabular-nums">{money(precio * cantidad)} · {cantidad} u.</p>
+          ? <p className="text-xs font-bold text-accent tabular-nums">{mostrarPrecio ? `${money(precio * cantidad)} · ` : ''}{cantidad} u.</p>
           : <p className="text-[11px] text-inerte">tocá para cantidad</p>}
     </button>
   )

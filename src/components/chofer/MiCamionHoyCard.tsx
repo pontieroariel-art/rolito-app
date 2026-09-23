@@ -3,6 +3,7 @@ import { ChevronDown, ChevronUp, Truck } from 'lucide-react'
 import { subscribeRepartoDelChofer, type FuentesRepartoEnVivo } from '@/services/repartoEnVivoService'
 import { agruparRepartoEnVivo, type CamionEnVivo, type EstadoCamion } from '@/utils/repartoEnVivo'
 import { formatoARS } from '@/utils/money'
+import { ventaAnulada } from '@/utils/anulacionVenta'
 
 // "Mi camión hoy" (2026-09-10, pedido de un chofer): lo que cargó, lo que ya
 // bajó, lo que le queda en el camión por producto, la descarga que contó muelle
@@ -41,6 +42,10 @@ export default function MiCamionHoyCard({ uid, hoy }: { uid: string; hoy: string
   const cobr = liq.cobranzasCalle
   const conDescarga = c.detalle.descargas.length > 0
   const difProductos = liq.productos.filter((p) => conDescarga && p.diferencia !== 0)
+  // El chofer no ve importes de cuenta corriente (utils/ventaSinImporte):
+  // "Cobrado" es lo de contado y la cuenta corriente se cuenta en remitos.
+  const cobrado = liq.importes.contadoEfectivo + liq.importes.contadoTransferencia
+  const remitosCtaCte = fuentes.ventas.filter((v) => v.choferId === uid && v.formaPago === 'cuenta_corriente' && !ventaAnulada(v)).length
 
   return (
     <section className="bg-white border border-[#D3D1C7] rounded-2xl shadow-sm overflow-hidden">
@@ -72,7 +77,7 @@ export default function MiCamionHoyCard({ uid, hoy }: { uid: string; hoy: string
         </div>
 
         <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-          <div><p className="text-xs text-secundario">Vendido</p><p className="text-sm font-semibold text-gray-900">{formatoARS(liq.importes.total)}</p></div>
+          <div><p className="text-xs text-secundario">Cobrado</p><p className="text-sm font-semibold text-gray-900">{formatoARS(cobrado)}</p></div>
           <div><p className="text-xs text-secundario">Efectivo encima</p><p className="text-sm font-semibold text-gray-900">{formatoARS(c.efectivo)}</p></div>
           <div><p className="text-xs text-secundario">Clientes</p><p className="text-sm font-semibold text-gray-900">{c.clientes}</p></div>
         </div>
@@ -121,7 +126,7 @@ export default function MiCamionHoyCard({ uid, hoy }: { uid: string; hoy: string
             <div className="text-xs space-y-1">
               <p className="flex justify-between text-gray-600">Ventas en efectivo <span className={`tabular-nums ${liq.importes.contadoEfectivo === 0 ? 'text-secundario' : 'text-gray-900'}`}>{formatoARS(liq.importes.contadoEfectivo)}</span></p>
               <p className="flex justify-between text-gray-600">Ventas por transferencia <span className={`tabular-nums ${liq.importes.contadoTransferencia === 0 ? 'text-secundario' : 'text-gray-900'}`}>{formatoARS(liq.importes.contadoTransferencia)}</span></p>
-              <p className="flex justify-between text-gray-600">Ventas en cuenta corriente <span className={`tabular-nums ${liq.importes.cuentaCorriente === 0 ? 'text-secundario' : 'text-gray-900'}`}>{formatoARS(liq.importes.cuentaCorriente)}</span></p>
+              <p className="flex justify-between text-gray-600">Remitos en cuenta corriente <span className={`tabular-nums ${remitosCtaCte === 0 ? 'text-secundario' : 'text-gray-900'}`}>{remitosCtaCte}</span></p>
               {cobr && cobr.cantidad > 0 && (
                 <>
                   <p className="flex justify-between text-gray-600">Cobranzas en efectivo ({cobr.cantidad}) <span className={`tabular-nums ${cobr.efectivo === 0 ? 'text-secundario' : 'text-gray-900'}`}>{formatoARS(cobr.efectivo)}</span></p>
