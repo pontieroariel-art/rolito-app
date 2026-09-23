@@ -467,6 +467,7 @@ async function sincronizarSaldos(db, tango, cfg) {
         }
         catch (e) {
             re.error = e.message;
+            re.errorStack = String(e.stack ?? '').split('\n').slice(0, 8).join(' | ').slice(0, 1500);
             // Con la pila: el 22/09 Redonhielo terminaba cada corrida con "The
             // operation was aborted due to timeout" después de procesar los lotes,
             // y sin la pila no se sabe qué llamada es.

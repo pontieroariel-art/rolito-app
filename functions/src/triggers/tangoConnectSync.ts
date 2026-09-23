@@ -455,6 +455,8 @@ export interface ResumenSaldosEmpresa {
   /** Comprobantes en deuda que quedaron sin fecha de emisión (no aparecieron en el detalle de comprobantes). */
   sinFechaEmision?: number
   error?: string
+  /** Primeras líneas de la pila del error, para leerlo desde config/tango sin Cloud Logging (2026-09-22). */
+  errorStack?: string
 }
 
 export interface ResumenSaldos extends ResumenSaldosEmpresa {
@@ -517,6 +519,7 @@ export async function sincronizarSaldos(db: Firestore, tango: TangoClient, cfg: 
       }
     } catch (e) {
       re.error = (e as Error).message
+      re.errorStack = String((e as Error).stack ?? '').split('\n').slice(0, 8).join(' | ').slice(0, 1500)
       // Con la pila: el 22/09 Redonhielo terminaba cada corrida con "The
       // operation was aborted due to timeout" después de procesar los lotes,
       // y sin la pila no se sabe qué llamada es.
