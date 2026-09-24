@@ -84,7 +84,8 @@ export function parametroDeUrl(nombre: string): string | null {
   const buscado = nombre.toLowerCase()
   for (const fuente of [window.location.search, window.location.hash.replace(/^#\/?/, '?')]) {
     for (const [k, v] of new URLSearchParams(fuente)) {
-      if (k.trim().toLowerCase() === buscado) return v.trim()
+      // 'amp;clavetele': la URL pegada desde WhatsApp trae '&amp;' en vez de '&'.
+      if (k.trim().toLowerCase().replace(/^amp;/, '') === buscado) return v.trim()
     }
   }
   return null
