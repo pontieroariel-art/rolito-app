@@ -74,9 +74,25 @@ export const auth = SESION_VER_COMO
 // fuerza el canal por long polling y la caché en memoria (el almacenamiento
 // local de esos navegadores es poco confiable). `?tele=1` en la URL fuerza el
 // mismo modo desde cualquier aparato, para probarlo o para un stick raro.
+/**
+ * Parámetro de la URL sin importar mayúsculas ni si vino en el query o en el
+ * hash (2026-09-24: el navegador de la Samsung no tomaba `claveTele` tal
+ * cual se tipeaba). Devuelve null si no está.
+ */
+export function parametroDeUrl(nombre: string): string | null {
+  if (typeof window === 'undefined') return null
+  const buscado = nombre.toLowerCase()
+  for (const fuente of [window.location.search, window.location.hash.replace(/^#\/?/, '?')]) {
+    for (const [k, v] of new URLSearchParams(fuente)) {
+      if (k.trim().toLowerCase() === buscado) return v.trim()
+    }
+  }
+  return null
+}
+
 export const ES_TELE: boolean = (() => {
   if (typeof navigator === 'undefined') return false
-  if (/[?&]tele=1/.test(window.location.search)) return true
+  if (parametroDeUrl('tele') === '1') return true
   return /SMART-TV|Tizen|Web0S|WebOS|BRAVIA|AFTT|AFTS|CrKey/i.test(navigator.userAgent)
 })()
 
@@ -192,7 +208,7 @@ function vigilarTokenTele(ac: AppCheck): void {
  * de donde haya quedado.
  */
 function claveDeLaTele(): string | null {
-  const deUrl = new URLSearchParams(window.location.search).get('claveTele')?.trim()
+  const deUrl = parametroDeUrl('claveTele')
   let guardada: string | null = null
   try { guardada = localStorage.getItem('claveTele') } catch { /* sin storage */ }
   if (!guardada) {

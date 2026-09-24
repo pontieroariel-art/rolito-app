@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { getApps, initializeApp } from 'firebase/app'
 import { doc, getDoc, initializeFirestore, memoryLocalCache, type Firestore } from 'firebase/firestore'
 import { getToken as getTokenAppCheck } from 'firebase/app-check'
-import { app, appCheck, auth, db, ES_TELE, estadoTokenTele } from '@/services/firebase'
+import { app, appCheck, auth, db, ES_TELE, estadoTokenTele, parametroDeUrl } from '@/services/firebase'
 
 /**
  * Diagnóstico para el televisor del muelle (2026-09-21). Pública y sin datos
@@ -67,7 +67,7 @@ export default function DiagnosticoTelePage() {
     // queda "sin conexión". Acá se ve si tiene clave, si consigue token y
     // hasta cuándo vale; el vigilante de services/firebase.ts lo renueva solo.
     let claveCargada = false
-    try { claveCargada = !!localStorage.getItem('claveTele') || /(?:^|; )claveTele=/.test(document.cookie) || /[?&]claveTele=/.test(window.location.search) } catch { /* sin storage */ }
+    try { claveCargada = !!localStorage.getItem('claveTele') || /(?:^|; )claveTele=/.test(document.cookie) || !!parametroDeUrl('claveTele') } catch { /* sin storage */ }
     if (!appCheck) {
       poner(6, { estado: 'error', detalle: ES_TELE ? (claveCargada ? 'clave cargada pero App Check no inició' : 'SIN CLAVE: abrir la URL con ?tele=1&claveTele=…') : 'no es modo tele (usa reCAPTCHA)' })
     } else {
@@ -86,6 +86,7 @@ export default function DiagnosticoTelePage() {
       <h1 style={{ fontSize: 44, margin: '0 0 24px', fontWeight: 800 }}>Diagnóstico de la tele</h1>
       <p style={{ margin: '0 0 8px' }}><b>Versión de la app:</b> {__APP_RELEASE__}</p>
       <p style={{ margin: '0 0 8px' }}><b>Modo tele:</b> {ES_TELE ? 'SÍ (canal lento y caché en memoria)' : 'NO (esta app no lo detectó como tele)'}</p>
+      <p style={{ margin: '0 0 8px', fontSize: 20, color: '#9ca3af', wordBreak: 'break-all' }}><b>URL que ve la app:</b> {typeof window !== 'undefined' ? `${window.location.pathname}${window.location.search.replace(/(claveTele=)[^&]*/i, '$1…')}${window.location.hash}` : ''}</p>
       <p style={{ margin: '0 0 8px' }}><b>Sesión:</b> {auth.currentUser ? `entrada como ${auth.currentUser.email ?? auth.currentUser.uid}` : 'sin sesión'}</p>
       <p style={{ margin: '0 0 8px' }}><b>Hora de la tele:</b> {new Date().toLocaleString('es-AR')}</p>
       <p style={{ margin: '0 0 8px' }}><b>Conexión:</b> {typeof navigator !== 'undefined' && navigator.onLine ? 'con red' : 'SIN RED'}</p>
