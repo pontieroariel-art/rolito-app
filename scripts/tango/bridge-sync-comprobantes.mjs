@@ -16,9 +16,7 @@
 import { readFileSync, appendFileSync } from 'fs'
 import { fileURLToPath } from 'url'
 import path from 'path'
-import { initializeApp } from 'firebase/app'
-import { getAuth, signInWithEmailAndPassword } from 'firebase/auth'
-import { getFirestore } from 'firebase/firestore'
+import { abrirFirestore } from './firestore-admin.mjs'
 import { sincronizarComprobantes, cerrarConexiones } from './comprobantes-sync.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -42,10 +40,10 @@ function log(linea) {
 async function main() {
   let db = null
   if (!DRY_RUN) {
-    const app = initializeApp(cfg.firebaseConfig)
-    await signInWithEmailAndPassword(getAuth(app), cfg.tangoBridgeEmail, cfg.tangoBridgePassword)
-    db = getFirestore(app)
-    log('Sesión de Firebase OK (tango-bridge).')
+    // Admin SDK con la cuenta de servicio rolito-bridge (2026-09-23, docs/tango §37): sin App Check ni usuario.
+    const abierto = abrirFirestore(cfg, __dirname)
+    db = abierto.db
+    log(`Firestore abierto como ${abierto.cuenta}.`)
   }
   const cliente = arg('cliente')
   const r = await sincronizarComprobantes({
