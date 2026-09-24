@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { getApps, initializeApp } from 'firebase/app'
 import { doc, getDoc, initializeFirestore, memoryLocalCache, type Firestore } from 'firebase/firestore'
-import { app, auth, db, ES_TELE } from '@/services/firebase'
+import { getToken as getTokenAppCheck } from 'firebase/app-check'
+import { app, appCheck, auth, db, ES_TELE, estadoTokenTele } from '@/services/firebase'
 
 /**
  * Diagnóstico para el televisor del muelle (2026-09-21). Pública y sin datos
@@ -24,6 +25,7 @@ export default function DiagnosticoTelePage() {
     { nombre: 'SDK variante D: canal normal (WebChannel)', estado: 'probando', detalle: '' },
     { nombre: 'Base de datos por HTTPS directo (REST)', estado: 'probando', detalle: '' },
     { nombre: 'Login de Firebase (config del proyecto)', estado: 'probando', detalle: '' },
+    { nombre: 'Token de App Check (la tele lo pide con su clave)', estado: 'probando', detalle: '' },
   ])
   const poner = (i: number, p: Partial<Prueba>) => setPruebas((prev) => prev.map((x, j) => (j === i ? { ...x, ...p } : x)))
 
@@ -60,6 +62,20 @@ export default function DiagnosticoTelePage() {
     conTope(fetch(`https://www.googleapis.com/identitytoolkit/v3/relyingparty/getProjectConfig?key=${app.options.apiKey}`), 15000)
       .then((r) => poner(5, { estado: r.ok ? 'ok' : 'error', detalle: `HTTP ${r.status}`, ms: Date.now() - t2 }))
       .catch((e: unknown) => poner(5, { estado: 'error', detalle: describir(e), ms: Date.now() - t2 }))
+
+    // App Check (2026-09-24): sin token, con Firestore en enforcement la tele
+    // queda "sin conexión". Acá se ve si tiene clave, si consigue token y
+    // hasta cuándo vale; el vigilante de services/firebase.ts lo renueva solo.
+    let claveCargada = false
+    try { claveCargada = !!localStorage.getItem('claveTele') || /[?&]claveTele=/.test(window.location.search) } catch { /* sin storage */ }
+    if (!appCheck) {
+      poner(6, { estado: 'error', detalle: ES_TELE ? (claveCargada ? 'clave cargada pero App Check no inició' : 'SIN CLAVE: abrir la URL con ?tele=1&claveTele=…') : 'no es modo tele (usa reCAPTCHA)' })
+    } else {
+      const t3 = Date.now()
+      conTope(getTokenAppCheck(appCheck), 20000)
+        .then(() => poner(6, { estado: 'ok', detalle: `token vigente${estadoTokenTele.vence ? ` hasta el ${estadoTokenTele.vence.toLocaleString('es-AR')}` : ''}${estadoTokenTele.ultimaRenovacion ? ` · renovado ${estadoTokenTele.ultimaRenovacion.toLocaleTimeString('es-AR')}` : ''}`, ms: Date.now() - t3 }))
+        .catch((e: unknown) => poner(6, { estado: 'error', detalle: `${describir(e)}${estadoTokenTele.ultimoError ? ` · último error: ${estadoTokenTele.ultimoError}` : ''}`, ms: Date.now() - t3 }))
+    }
   }, [])
 
   const ua = typeof navigator !== 'undefined' ? navigator.userAgent : ''

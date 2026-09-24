@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app'
-import { initializeAppCheck, CustomProvider, ReCaptchaV3Provider } from 'firebase/app-check'
+import { initializeAppCheck, CustomProvider, ReCaptchaV3Provider, getToken as getTokenAppCheck, type AppCheck } from 'firebase/app-check'
 import { getAuth, initializeAuth, inMemoryPersistence, connectAuthEmulator } from 'firebase/auth'
 import {
   initializeFirestore, persistentLocalCache, persistentMultipleTabManager, memoryLocalCache,
@@ -117,19 +117,72 @@ if (import.meta.env.DEV) {
 // una sola vez por la URL (?claveTele=...) y queda en localStorage. Sin clave
 // no se inicializa App Check y la tele queda afuera hasta que se cargue.
 const recaptchaSiteKey = import.meta.env.VITE_RECAPTCHA_SITE_KEY
+/** Instancia de App Check (null en dev, o en una tele sin clave). */
+export let appCheck: AppCheck | null = null
 if (recaptchaSiteKey && !import.meta.env.DEV) {
   const claveTele = ES_TELE ? claveDeLaTele() : null
   if (!ES_TELE) {
-    initializeAppCheck(app, {
+    appCheck = initializeAppCheck(app, {
       provider: new ReCaptchaV3Provider(recaptchaSiteKey),
       isTokenAutoRefreshEnabled: true,
     })
   } else if (claveTele) {
-    initializeAppCheck(app, {
+    appCheck = initializeAppCheck(app, {
       provider: new CustomProvider({ getToken: () => pedirTokenTele(claveTele) }),
       isTokenAutoRefreshEnabled: true,
     })
+    vigilarTokenTele(appCheck)
   }
+}
+
+/**
+ * Estado del token de App Check de la tele, para /diagnostico-tele (la tele
+ * no tiene consola). Lo mantiene `vigilarTokenTele`.
+ */
+export const estadoTokenTele: { vence: Date | null; ultimaRenovacion: Date | null; ultimoError: string; revisiones: number } =
+  { vence: null, ultimaRenovacion: null, ultimoError: '', revisiones: 0 }
+
+const REVISAR_CADA_MS  = 5 * 60_000
+const RENOVAR_ANTES_MS = 12 * 3_600_000
+
+/** `exp` del JWT de App Check, como Date; null si no se puede leer. */
+function vencimientoDelToken(token: string): Date | null {
+  try {
+    const cuerpo = token.split('.')[1] ?? ''
+    const json = JSON.parse(atob(cuerpo.replace(/-/g, '+').replace(/_/g, '/'))) as { exp?: number }
+    return typeof json.exp === 'number' ? new Date(json.exp * 1000) : null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Vigilante del token en la tele (2026-09-24). La Samsung del muelle estuvo
+ * más de un día con la misma página abierta y, cuando venció el token de 24 h,
+ * el refresco automático del SDK no corrió nunca (ni un pedido al servidor en
+ * todo el día): Firestore empezó a recibir sus consultas sin token, y con App
+ * Check en enforcement la tele quedó "sin conexión". Acá se revisa el token
+ * cada cinco minutos y se fuerza la renovación cuando le quedan menos de doce
+ * horas (el servidor lo acuña por siete días), sin recargar la página: en modo
+ * tele la sesión vive en memoria y una recarga la manda al login.
+ */
+function vigilarTokenTele(ac: AppCheck): void {
+  const revisar = async (forzar: boolean): Promise<void> => {
+    estadoTokenTele.revisiones++
+    try {
+      const { token } = await getTokenAppCheck(ac, forzar)
+      const vence = vencimientoDelToken(token)
+      estadoTokenTele.vence = vence
+      estadoTokenTele.ultimoError = ''
+      if (forzar) estadoTokenTele.ultimaRenovacion = new Date()
+      else if (vence && vence.getTime() - Date.now() < RENOVAR_ANTES_MS) await revisar(true)
+    } catch (e) {
+      estadoTokenTele.ultimoError = `${new Date().toLocaleTimeString('es-AR')} · ${e instanceof Error ? e.message : String(e)}`
+      console.warn('[tele] no se pudo renovar el token de App Check:', estadoTokenTele.ultimoError)
+    }
+  }
+  void revisar(false)
+  setInterval(() => { void revisar(false) }, REVISAR_CADA_MS)
 }
 
 function claveDeLaTele(): string | null {

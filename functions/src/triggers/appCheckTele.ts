@@ -10,7 +10,7 @@ import { assertRateLimit } from '../rateLimit'
 // Firestore la dejaría afuera. La app en modo tele (ES_TELE) usa un
 // CustomProvider de App Check que llama acá con la CLAVE de la tele (secret
 // CLAVE_TELE, va en la URL de la tele una sola vez: ?claveTele=...) y el
-// servidor le acuña un token de App Check con el Admin SDK, válido 24 h.
+// servidor le acuña un token de App Check con el Admin SDK, válido 7 días.
 //
 // Este callable NO exige App Check (si lo exigiera, la tele no podría pedir
 // su primer token) ni sesión (la tele resuelve el login leyendo staffDniIndex,
@@ -19,7 +19,12 @@ import { assertRateLimit } from '../rateLimit'
 export const claveTele = defineSecret('CLAVE_TELE')
 
 const APP_ID_RE = /^1:\d{6,}:web:[a-f0-9]{8,}$/
-const TTL_MS    = 24 * 60 * 60 * 1000
+// Siete días, el máximo que admite createToken (2026-09-24): la tele queda con
+// la misma página abierta días enteros y el refresco automático del SDK no
+// corrió cuando venció el token de 24 h; ahora la app lo renueva sola cada 5
+// min cuando le quedan menos de 12 h (vigilarTokenTele en services/firebase.ts),
+// y el TTL largo deja margen si un día ese pedido falla.
+const TTL_MS    = 7 * 24 * 60 * 60 * 1000
 
 const hash = (s: string) => createHash('sha256').update(s).digest()
 
