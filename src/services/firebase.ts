@@ -185,14 +185,26 @@ function vigilarTokenTele(ac: AppCheck): void {
   setInterval(() => { void revisar(false) }, REVISAR_CADA_MS)
 }
 
+/**
+ * La clave llega por la URL y se guarda en localStorage Y en una cookie de un
+ * año (2026-09-24): el navegador de la Samsung perdió el localStorage y el
+ * diagnóstico de la tele dijo "SIN CLAVE" un día después de cargarla. Se lee
+ * de donde haya quedado.
+ */
 function claveDeLaTele(): string | null {
   const deUrl = new URLSearchParams(window.location.search).get('claveTele')?.trim()
-  try {
-    if (deUrl) localStorage.setItem('claveTele', deUrl)
-    return deUrl || localStorage.getItem('claveTele')
-  } catch {
-    return deUrl || null
+  let guardada: string | null = null
+  try { guardada = localStorage.getItem('claveTele') } catch { /* sin storage */ }
+  if (!guardada) {
+    const m = /(?:^|; )claveTele=([^;]+)/.exec(document.cookie)
+    if (m?.[1]) guardada = decodeURIComponent(m[1])
   }
+  const clave = deUrl || guardada
+  if (clave) {
+    try { localStorage.setItem('claveTele', clave) } catch { /* sin storage */ }
+    try { document.cookie = `claveTele=${encodeURIComponent(clave)}; max-age=31536000; path=/; SameSite=Strict; Secure` } catch { /* sin cookies */ }
+  }
+  return clave || null
 }
 
 /** Por fetch y no por httpsCallable: corre antes de que exista cualquier otro servicio de Firebase. */

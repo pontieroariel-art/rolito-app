@@ -67,7 +67,7 @@ export default function DiagnosticoTelePage() {
     // queda "sin conexión". Acá se ve si tiene clave, si consigue token y
     // hasta cuándo vale; el vigilante de services/firebase.ts lo renueva solo.
     let claveCargada = false
-    try { claveCargada = !!localStorage.getItem('claveTele') || /[?&]claveTele=/.test(window.location.search) } catch { /* sin storage */ }
+    try { claveCargada = !!localStorage.getItem('claveTele') || /(?:^|; )claveTele=/.test(document.cookie) || /[?&]claveTele=/.test(window.location.search) } catch { /* sin storage */ }
     if (!appCheck) {
       poner(6, { estado: 'error', detalle: ES_TELE ? (claveCargada ? 'clave cargada pero App Check no inició' : 'SIN CLAVE: abrir la URL con ?tele=1&claveTele=…') : 'no es modo tele (usa reCAPTCHA)' })
     } else {
