@@ -31,7 +31,7 @@ function esperaDesde(desde: Date): string {
 }
 
 export default function EntregarCamionCard({
-  borrador, entregando, bloqueado, darsena, onDarsena, darsenas, sinTalonario, viajeSinDescargar, cuando, mostrarEspera = true, unidadesPorPallet, onEntregar,
+  borrador, entregando, bloqueado, darsena, onDarsena, darsenas, darsenaOcupada, sinTalonario, viajeSinDescargar, cuando, mostrarEspera = true, unidadesPorPallet, onEntregar,
 }: {
   borrador:   BorradorCarga
   entregando: boolean
@@ -40,6 +40,8 @@ export default function EntregarCamionCard({
   darsena?:   number
   onDarsena:  (n: number) => void
   darsenas:   number[]
+  /** Boca ocupada por otro (camión o cliente de ventanilla): se muestra pero no se elige (2026-09-24). */
+  darsenaOcupada?: (n: number) => boolean
   /** No hay talonario de remito R con CAI vigente: el papel sale sin validez fiscal. */
   sinTalonario?: boolean
   /** El camión tiene un viaje anterior sin descargar: no recibe carga nueva. */
@@ -220,18 +222,25 @@ export default function EntregarCamionCard({
           mientras la carga está en curso. */}
       <div className="flex items-center gap-2 flex-wrap">
         <span className={`text-base shrink-0 ${darsena ? 'text-secundario' : 'text-red-600 font-semibold'}`}>Dársena</span>
-        {darsenas.map((n) => (
-          <button
-            key={n}
-            type="button"
-            onClick={() => onDarsena(n)}
-            className={`w-11 h-11 rounded-lg border text-base font-bold tabular-nums transition-colors ${
-              darsena === n ? 'bg-accent text-white border-accent' : 'bg-white text-gray-600 border-[#D3D1C7]'
-            }`}
-          >
-            {n}
-          </button>
-        ))}
+        {darsenas.map((n) => {
+          const ocupada = darsena !== n && !!darsenaOcupada?.(n)
+          return (
+            <button
+              key={n}
+              type="button"
+              disabled={ocupada}
+              title={ocupada ? 'Ocupada' : undefined}
+              onClick={() => onDarsena(n)}
+              className={`w-11 h-11 rounded-lg border text-base font-bold tabular-nums transition-colors ${
+                darsena === n ? 'bg-accent text-white border-accent'
+                  : ocupada ? 'bg-[#F1EFE8] text-inerte border-[#E7E5DC] line-through cursor-not-allowed'
+                  : 'bg-white text-gray-600 border-[#D3D1C7]'
+              }`}
+            >
+              {n}
+            </button>
+          )
+        })}
       </div>
 
       {/* El remito de carga viaja con la mercadería y tiene que ser el remito R

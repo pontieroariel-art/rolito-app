@@ -11,8 +11,9 @@ import { subscribeDescargasDelDia } from '@/services/descargaCamionService'
 import { manana, subscribeBorradoresDe } from '@/services/borradorCargaService'
 import { claveDia } from '@/utils/diaReparto'
 import {
-  BorradorCarga, DARSENAS_POR_PLANTA, DARSENAS_VENTANILLA, DescargaCamion, PLANTAS, RemitoCarga, VentaVentanilla,
+  BorradorCarga, DARSENAS_POR_PLANTA, DescargaCamion, PLANTAS, RemitoCarga, VentaVentanilla,
 } from '@/types'
+import { darsenasParaVentanilla } from '@/utils/darsenas'
 import { nombreClienteVenta } from '@/utils/nombreClienteVenta'
 import { describirComprobante } from '@/utils/comprobanteDeVenta'
 import {
@@ -40,7 +41,8 @@ export default function MuelleTvPage() {
   const { user } = useAuth()
   const plantaId = user?.planta ?? 'torcuato'
   const totalDarsenas = DARSENAS_POR_PLANTA[plantaId]
-  const dVentanilla   = DARSENAS_VENTANILLA[plantaId]
+  // Bocas compartidas (2026-09-24): la 1 es solo de camiones; de la 2 a la 5 va el que llegue.
+  const dVentanilla   = useMemo(() => darsenasParaVentanilla(plantaId), [plantaId])
   // De izquierda a derecha como se ven desde la tele: 5 4 3 2 1. Si en Merlo la numeración
   // va al revés, este es el único lugar que hay que tocar.
   const ordenFisico   = useMemo(() => Array.from({ length: totalDarsenas }, (_, i) => totalDarsenas - i), [totalDarsenas])
@@ -378,8 +380,9 @@ export default function MuelleTvPage() {
 
       {/* Zona 1: las cinco dársenas en UNA fila, en el orden físico del muelle (2026-09-15,
           pedido de los chicos del muelle vía Ariel): visto desde donde cuelga la tele, las bocas
-          van de izquierda a derecha 5 4 3 2 1, así la pantalla es un espejo del lugar. Las de
-          ventanilla (4 y 5) son las de los clientes que compran para revender. */}
+          van de izquierda a derecha 5 4 3 2 1, así la pantalla es un espejo del lugar. Desde el
+          2026-09-24 la 1 es solo de camiones y de la 2 a la 5 entra camión o cliente de
+          ventanilla: cada boca se pinta según quién esté adentro. */}
       {/* La fila mide 440 y NO crece: sin `gridTemplateRows` la pista se estiraba con
           una carga de cinco productos y la zona de abajo se dibujaba encima (21/09). */}
       <div className="grid gap-4" style={{ height: 440, gridTemplateRows: 'minmax(0, 1fr)', gridTemplateColumns: `repeat(${totalDarsenas}, minmax(0, 1fr))` }}>
@@ -388,10 +391,14 @@ export default function MuelleTvPage() {
           // es la alerta roja (2026-09-15, el chofer elige la dársena al volver).
           const volvio = retornoEnDarsena(n)
           if (volvio) return <DarsenaRetorno key={n} n={n} r={volvio} ahora={ahora} />
-          if (dVentanilla.includes(n)) return <DarsenaVentanilla key={n} n={n} v={turnoEnDarsena(n)} />
           const r = camionEnDarsena(n)
-          // Boca libre: sin cronómetro, no hace falta que el tick la repinte.
-          return <DarsenaCamion key={n} n={n} r={r} desglose={desglose} ahora={r ? ahora : 0} />
+          if (r) return <DarsenaCamion key={n} n={n} r={r} desglose={desglose} ahora={ahora} />
+          const v = turnoEnDarsena(n)
+          if (v) return <DarsenaVentanilla key={n} n={n} v={v} />
+          // Boca libre: sin cronómetro, no hace falta que el tick la repinte. La
+          // etiqueta dice quién puede entrar.
+          if (dVentanilla.includes(n)) return <DarsenaVentanilla key={n} n={n} />
+          return <DarsenaCamion key={n} n={n} desglose={desglose} ahora={0} soloCamiones />
         })}
       </div>
 
@@ -517,20 +524,25 @@ export const comprobanteCorto = (v: VentaVentanilla): string => {
  */
 export type CargaEnBoca = Pick<BorradorCarga, 'id' | 'camionLabel' | 'choferNombre' | 'items' | 'fecha'> & { darsena?: number; codigo?: string }
 
-export const DarsenaCamion = memo(function DarsenaCamion({ n, r, desglose, ahora }: {
+export const DarsenaCamion = memo(function DarsenaCamion({ n, r, desglose, ahora, soloCamiones = false }: {
   n: number
   r?: CargaEnBoca
   desglose: (id: string, cantidad: number) => { pallets: number; sueltas: number }
   ahora: number
+  /** Boca reservada a camiones (la 1): se dice en la etiqueta cuando está libre. */
+  soloCamiones?: boolean
 }) {
   const minutos = r ? minutosDesde(ahora, r.fecha) : 0
   const t = tallaRenglones(r?.items.length ?? 0)
   const tag = (
-    <div className="flex justify-between items-baseline">
-      <span className="text-4xl font-black text-gray-500">{n}</span>
-      <span className={`text-base font-bold tracking-[3px] ${r ? 'text-amber-500' : 'text-gray-500'}`}>
-        {r ? 'CARGANDO' : 'LIBRE'}
-      </span>
+    <div>
+      <div className="flex justify-between items-baseline">
+        <span className="text-4xl font-black text-gray-500">{n}</span>
+        <span className={`text-base font-bold tracking-[3px] ${r ? 'text-amber-500' : 'text-gray-500'}`}>
+          {r ? 'CARGANDO' : 'LIBRE'}
+        </span>
+      </div>
+      {!r && soloCamiones && <p className="text-[17px] font-bold tracking-[1px] text-amber-400/80 -mt-1 whitespace-nowrap">SOLO CAMIONES</p>}
     </div>
   )
   if (!r) {
@@ -581,8 +593,8 @@ export const DarsenaCamion = memo(function DarsenaCamion({ n, r, desglose, ahora
   )
 })
 
-// Misma tarjeta vertical que la de camión (2026-09-15: las cinco bocas van en una fila), con
-// la etiqueta fija de quién usa estas dos dársenas: los clientes que compran para revender.
+// Misma tarjeta vertical que la de camión (2026-09-15: las cinco bocas van en una fila). Con
+// un turno adentro dice de quién es; libre, dice que entra camión o cliente (2026-09-24).
 export const DarsenaVentanilla = memo(function DarsenaVentanilla({ n, v }: { n: number; v?: VentaVentanilla }) {
   const tv = tallaRenglones(v?.items.length ?? 0, UMBRAL_VENTANILLA)
   const tag = (
@@ -593,7 +605,9 @@ export const DarsenaVentanilla = memo(function DarsenaVentanilla({ n, v }: { n: 
           {v ? 'ATENDIENDO' : 'LIBRE'}
         </span>
       </div>
-      <p className="text-[17px] font-bold tracking-[1px] text-sky-400 -mt-1 whitespace-nowrap">CLIENTES / REVENDEDORES</p>
+      <p className={`text-[17px] font-bold tracking-[1px] -mt-1 whitespace-nowrap ${v ? 'text-sky-400' : 'text-gray-500'}`}>
+        {v ? 'CLIENTES / REVENDEDORES' : 'CAMIÓN O CLIENTES'}
+      </p>
     </div>
   )
   if (!v) {

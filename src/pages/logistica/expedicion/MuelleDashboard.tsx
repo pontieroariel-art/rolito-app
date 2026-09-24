@@ -26,9 +26,10 @@ import {
   confirmarEntregaVentanilla, llamarTurno, marcarTurnoAusente, marcarTurnoPreparado,
 } from '@/services/ventaVentanillaService'
 import {
-  BorradorCarga, DARSENAS_POR_PLANTA, DARSENAS_VENTANILLA, DescargaCamion, DescargaCamionItem,
+  BorradorCarga, DescargaCamion, DescargaCamionItem,
   CamionEnViaje, EnvasesCarga, EnvasesDescarga, PLANTAS, RemitoCarga, RemitoCargaItem, VentaVentanilla,
 } from '@/types'
+import { darsenaLibrePara, darsenasParaCamion, darsenasParaVentanilla, ocupacionDarsenas } from '@/utils/darsenas'
 import { reportError } from '@/services/observability'
 import EntregarCamionCard from '@/components/expedicion/EntregarCamionCard'
 import NumeroGrande from '@/components/expedicion/NumeroGrande'
@@ -184,11 +185,9 @@ export default function MuelleDashboard() {
     () => Object.fromEntries(catalogo.map((p) => [p.id, p.unidadesPorPallet])),
     [catalogo],
   )
-  const darsenasDeCamion = useMemo(
-    () => Array.from({ length: DARSENAS_POR_PLANTA[plantaId] }, (_, i) => i + 1)
-      .filter((n) => !DARSENAS_VENTANILLA[plantaId].includes(n)),
-    [plantaId],
-  )
+  // Dársenas (2026-09-24, pedido de Ariel): la 1 es solo de camiones; de la 2 a
+  // la 5 entran camiones o clientes de ventanilla, la que esté libre.
+  const darsenasDeCamion = useMemo(() => darsenasParaCamion(plantaId), [plantaId])
   // El remito que acaba de nacer: se le muestra al chofer para que se lleve el
   // número. Se queda en pantalla hasta que el muellero lo cierra.
   const [emitido, setEmitido] = useState<{ remito: RemitoCarga; cotMsg: string } | null>(null)
@@ -264,9 +263,7 @@ export default function MuelleDashboard() {
     } catch { return 'salidas' }
   })
   useEffect(() => { try { localStorage.setItem(SOLAPA_KEY, solapa) } catch { /* sin storage */ } }, [solapa])
-  const darsenasVentanilla = DARSENAS_VENTANILLA[plantaId]
-  const darsenaLibre = (n: number) =>
-    !colaVentanilla.some((v) => v.turnoEstado === 'llamado' && v.darsena === n)
+  const darsenasVentanilla = useMemo(() => darsenasParaVentanilla(plantaId), [plantaId])
   // Camiones que volvieron y todavía nadie contó: es el trabajo de "Vuelta".
   // Camiones EN REPARTO: remitos entregados de la última semana sin descarga
   // contada. Primero los que ya avisaron "llegué a planta" (con su dársena),
@@ -294,6 +291,14 @@ export default function MuelleDashboard() {
       })
   }, [remitosSemana, remitos, remitosAyer, descargasSemana, descargas, descargasAyer])
   const sinContar = useMemo(() => enReparto.filter((r) => r.regreso), [enReparto])
+  // Qué boca está ocupada y por quién, con lo que la tablet ya tiene en pantalla:
+  // no se llama un turno a una boca con un camión adentro, ni se manda un camión
+  // a una boca con un cliente cargando (2026-09-24, bocas compartidas).
+  const ocupacion = useMemo(
+    () => ocupacionDarsenas({ cargas: porEntregar, regresos: sinContar, ventanillas: colaVentanilla }),
+    [porEntregar, sinContar, colaVentanilla],
+  )
+  const darsenaLibre = (n: number, propioId?: string) => darsenaLibrePara(ocupacion, n, propioId)
   /** "salió ayer" / "salió 19/09": nada si es de hoy. */
   const etiquetaSalida = (r: RemitoCarga): string => {
     const dia = claveDia(r.fecha.toDate())
@@ -669,6 +674,7 @@ export default function MuelleDashboard() {
               darsena={b.darsena}
               onDarsena={(n) => marcarDarsena(b.id, n)}
               darsenas={darsenasDeCamion}
+              darsenaOcupada={(n) => !darsenaLibre(n, b.id)}
               sinTalonario={!talonarioR}
               viajeSinDescargar={enViaje.get(b.camionId) ?? null}
               cuando={cuandoDe(b.paraFecha)}
@@ -697,6 +703,7 @@ export default function MuelleDashboard() {
                   darsena={b.darsena}
                   onDarsena={(n) => marcarDarsena(b.id, n)}
                   darsenas={darsenasDeCamion}
+                  darsenaOcupada={(n) => !darsenaLibre(n, b.id)}
                   sinTalonario={!talonarioR}
                   viajeSinDescargar={enViaje.get(b.camionId) ?? null}
                   cuando={cuandoDe(b.paraFecha)}
