@@ -32,7 +32,7 @@ import path from 'path'
 import { createRequire } from 'module'
 import { doc, writeBatch, serverTimestamp, deleteField } from './firestore-admin.mjs'
 import {
-  MESES_HISTORIAL, aPodar, actualizarCache, diferencias, iso, mapearFacturas, mapearRemitos, relacionDeFilas,
+  MESES_HISTORIAL, aCuentaDeFilas, aPodar, actualizarCache, diferencias, iso, mapearFacturas, mapearRemitos, relacionDeFilas,
   restarDias, restarMeses, seccionesIndice,
 } from './comprobantes-tango.mjs'
 
@@ -129,7 +129,10 @@ async function leerEmpresa({ cfg, log }, empresa, database, desde, codigos) {
     FROM GVA12 WHERE FECHA_EMIS >= @desde${fc('COD_CLIENT').sql}`, params)
   // Lo ya aplicado de cada recibo / NC a cuenta (2026-09-24): gva07 guarda una fila por
   // imputación, con ID_GVA12_CAN = el comprobante que cancela (el recibo) e IMPORT_CAN.
-  const idsCta = facturas.filter((f) => String(f.ESTADO ?? '').trim() === 'CTA').map((f) => f.ID_GVA12).filter((id) => typeof id === 'number')
+  // Sin ventana de fechas: un recibo a cuenta de enero sigue siendo saldo a favor hoy, y la
+  // corrida horaria (45 días) no lo ve entre las facturas.
+  const filasCta = await consulta(p, `SELECT ID_GVA12, T_COMP, TCOMP_IN_V, N_COMP, FECHA_EMIS, IMPORTE, ESTADO, COD_CLIENT FROM GVA12 WHERE ESTADO = 'CTA'${fc('COD_CLIENT').sql}`, params)
+  const idsCta = [...new Set([...filasCta, ...facturas.filter((f) => String(f.ESTADO ?? '').trim() === 'CTA')].map((f) => f.ID_GVA12).filter((id) => typeof id === 'number'))]
   const aplicadoPorId = {}
   for (let i = 0; i < idsCta.length; i += 500) {
     const tanda = idsCta.slice(i, i + 500)
@@ -180,15 +183,31 @@ async function leerEmpresa({ cfg, log }, empresa, database, desde, codigos) {
   const { porFactura, porRemito } = relacionDeFilas(relacion)
   const f = mapearFacturas({ empresa, facturas, renglones: renglonesFac, remitosPorFactura: porFactura, clientes, condiciones, vendedores, columnaOrdenCompra: columnaOc, textos: textosFac, aplicadoPorId })
   const r = mapearRemitos({ empresa, remitos, renglones: renglonesRem, facturasPorRemito: porRemito, talonarios, clientes, condiciones, textos: textosRem })
-  const conACuenta = Object.values(f.aCuenta).filter((a) => a.total > 0).length
+  const aCuenta = aCuentaDeFilas(filasCta, aplicadoPorId)
+  const conACuenta = Object.values(aCuenta).filter((a) => a.total > 0).length
   if (conACuenta) log(`  ${empresa}: ${conACuenta} clientes con saldo a favor en Tango (recibos / NC a cuenta)`)
-  return { resumenFacturas: f.resumen, resumenRemitos: r.resumen, detalles: [...f.detalles, ...r.detalles], clientes, aCuenta: f.aCuenta, conteo: { facturas: facturas.length, remitos: remitos.length } }
+  return { resumenFacturas: f.resumen, resumenRemitos: r.resumen, detalles: [...f.detalles, ...r.detalles], clientes, aCuenta, conteo: { facturas: facturas.length, remitos: remitos.length } }
 }
 
 // ── Cache local ──────────────────────────────────────────────────────────────
 const rutaCache = (empresa) => path.join(__dirname, `comprobantes-cache.${empresa}.json`)
 function leerCache(empresa) {
   try { return existsSync(rutaCache(empresa)) ? JSON.parse(readFileSync(rutaCache(empresa), 'utf8')) : {} } catch { return {} }
+}
+// Cache aparte del saldo a favor (2026-09-24): { codigo: JSON de aCuenta } de lo último escrito.
+const rutaCacheACuenta = (empresa) => path.join(__dirname, `comprobantes-acuenta-cache.${empresa}.json`)
+function leerCacheACuenta(empresa) {
+  try { return existsSync(rutaCacheACuenta(empresa)) ? JSON.parse(readFileSync(rutaCacheACuenta(empresa), 'utf8')) : {} } catch { return {} }
+}
+/** Códigos cuyo saldo a favor cambió respecto de lo escrito (los que tienen o tuvieron). */
+export function codigosACuentaCambiados(aCuenta, previo) {
+  const out = new Set()
+  for (const codigo of new Set([...Object.keys(aCuenta), ...Object.keys(previo)])) {
+    const a = aCuenta[codigo] ?? { total: 0, items: [] }
+    if (a.total <= 0 && !previo[codigo]) continue
+    if (previo[codigo] !== JSON.stringify(a)) out.add(codigo)
+  }
+  return out
 }
 
 // ── Firestore ────────────────────────────────────────────────────────────────
@@ -210,14 +229,14 @@ async function commitConReintento(log, armar, etiqueta) {
  * al final su índice, así cuando un lote confirma se puede marcar en el cache TODO lo de
  * los códigos que quedaron completos. alConfirmar(codigosCompletos) recibe esa lista.
  */
-async function escribir({ db, log }, empresa, porCodigo, podados, detalles, clientes, desdeIso, alConfirmar, aCuenta = {}) {
+async function escribir({ db, log }, empresa, porCodigo, podados, detalles, clientes, desdeIso, alConfirmar, aCuenta = {}, codigosACuenta = new Set()) {
   const detallesPorCodigo = new Map()
   for (const d of detalles) {
     const codigo = d.doc.codigo
     if (!detallesPorCodigo.has(codigo)) detallesPorCodigo.set(codigo, [])
     detallesPorCodigo.get(codigo).push(d)
   }
-  const codigos = [...new Set([...Object.keys(porCodigo), ...Object.keys(podados)])]
+  const codigos = [...new Set([...Object.keys(porCodigo), ...Object.keys(podados), ...codigosACuenta])]
   const ops = []   // { op, cierra?: codigo }
   for (const codigo of codigos) {
     for (const d of detallesPorCodigo.get(codigo) ?? []) ops.push({ op: (b) => b.set(doc(db, 'tangoComprobanteDetalle', d.id), { ...d.doc, actualizadoEn: serverTimestamp() }) })
@@ -276,6 +295,9 @@ export async function sincronizarComprobantes({ cfg, db, log, dryRun = false, ba
     try {
       log(`${empresa} (base ${database}):`)
       const { resumenFacturas, resumenRemitos, detalles, clientes, aCuenta, conteo } = await leerEmpresa({ cfg, log }, empresa, database, desde, listaCodigos)
+      const cacheACuenta = listaCodigos ? {} : leerCacheACuenta(empresa)
+      const codigosACuenta = codigosACuentaCambiados(aCuenta, cacheACuenta)
+      if (codigosACuenta.size) log(`  saldo a favor: ${codigosACuenta.size} códigos cambiaron`)
       // A pedido (lista de códigos) no se usa el cache: se reescribe lo de esos códigos y listo.
       const cache = listaCodigos ? {} : leerCache(empresa)
       const { porCodigo, detallesAEscribir } = diferencias(cache, resumenFacturas, resumenRemitos, detalles)
@@ -292,20 +314,25 @@ export async function sincronizarComprobantes({ cfg, db, log, dryRun = false, ba
         log(`  facturas con CAE: ${conCae}, sin CAE: ${sinCae}; remitos: ${detallesAEscribir.filter((d) => d.doc.tipo === 'REM').length}`)
         continue
       }
-      if (!nCodigos && !nPoda) { log(`  ${empresa}: sin cambios`); continue }
+      if (!nCodigos && !nPoda && !codigosACuenta.size) { log(`  ${empresa}: sin cambios`); continue }
       // El cache avanza por código confirmado y se graba cada tanto: si la corrida se corta, la
       // siguiente retoma desde ahí (los códigos no confirmados vuelven a escribirse, nada más).
       let cacheActual = cache
       let pendientesDeGrabar = 0
-      const grabarCache = () => { if (!listaCodigos) writeFileSync(rutaCache(empresa), JSON.stringify(cacheActual), 'utf8'); pendientesDeGrabar = 0 }
+      const cacheACuentaActual = { ...cacheACuenta }
+      const grabarCache = () => {
+        if (!listaCodigos) { writeFileSync(rutaCache(empresa), JSON.stringify(cacheActual), 'utf8'); writeFileSync(rutaCacheACuenta(empresa), JSON.stringify(cacheACuentaActual), 'utf8') }
+        pendientesDeGrabar = 0
+      }
       const alConfirmar = (cods) => {
         const parcial = Object.fromEntries(cods.filter((c) => porCodigo[c]).map((c) => [c, porCodigo[c]]))
         const podaParcial = Object.fromEntries(cods.filter((c) => podados[c]).map((c) => [c, podados[c]]))
         cacheActual = actualizarCache(cacheActual, parcial, podaParcial)
+        for (const c of cods) cacheACuentaActual[c] = JSON.stringify(aCuenta[c] ?? { total: 0, items: [] })
         if (++pendientesDeGrabar >= 10) grabarCache()
       }
       try {
-        r.escrituras = await escribir({ db, log }, empresa, porCodigo, podados, detallesAEscribir, clientes, iso(desde), alConfirmar, aCuenta)
+        r.escrituras = await escribir({ db, log }, empresa, porCodigo, podados, detallesAEscribir, clientes, iso(desde), alConfirmar, aCuenta, codigosACuenta)
       } finally {
         grabarCache()
       }

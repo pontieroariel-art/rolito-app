@@ -267,6 +267,23 @@ export function mapearFacturas({ empresa, facturas, renglones, remitosPorFactura
  * negativas en la composición y así el cliente que solo tiene plata a favor
  * también aparece (la Live de deudas de Tango no lo trae).
  */
+/** Filas crudas de GVA12 con ESTADO 'CTA' (sin ventana de fechas) → aCuenta por código. */
+export function aCuentaDeFilas(filas, aplicadoPorId = {}) {
+  const resumen = {}
+  for (const f of filas) {
+    const tipo = tipoCorto(f.T_COMP), numero = txt(f.N_COMP).toUpperCase(), codigo = txt(f.COD_CLIENT)
+    if (!codigo || !numero) continue
+    const pendiente = pendienteACuenta(f, aplicadoPorId)
+    if (pendiente == null) continue
+    if (!resumen[codigo]) resumen[codigo] = {}
+    resumen[codigo][claveFactura(tipo, numero)] = {
+      tipo, familia: familiaDe(f.TCOMP_IN_V, tipo), numero, fecha: iso(f.FECHA_EMIS), importe: num(f.IMPORTE), estado: txt(f.ESTADO),
+      ...(typeof f.ID_GVA12 === 'number' ? { idGva12: f.ID_GVA12 } : {}), pendiente,
+    }
+  }
+  return aCuentaPorCodigo(resumen)
+}
+
 export function aCuentaPorCodigo(resumen) {
   const out = {}
   for (const [codigo, entradas] of Object.entries(resumen)) {

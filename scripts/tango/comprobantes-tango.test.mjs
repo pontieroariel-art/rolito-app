@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import {
+import { aCuentaDeFilas,
   aPodar, actualizarCache, cbteTipoDe, claveFactura, diferencias, familiaDe, huella, mapearFacturas, mapearRemitos,
   parsearNumeroTango, relacionDeFilas, seccionesIndice, tipoCorto,
 } from './comprobantes-tango.mjs'
@@ -214,5 +214,17 @@ describe('saldo a favor: recibos y NC con ESTADO CTA (2026-09-24)', () => {
       { tipo: 'REC', numero: 'X0000100031087', fecha: '2026-05-22', importe: 92016, pendiente: 52016, idGva12: 1 },
       { tipo: 'NC', numero: 'A0010900000020', fecha: '2026-05-22', importe: 5000, pendiente: 5000, idGva12: 2 },
     ] })
+  })
+})
+
+describe('aCuentaDeFilas: saldo a favor sin ventana de fechas (2026-09-24)', () => {
+  it('arma el saldo a favor desde las filas CTA crudas, descontando lo aplicado', () => {
+    const filas = [
+      { ID_GVA12: 368907, T_COMP: 'REC', TCOMP_IN_V: 'RC', N_COMP: 'X0000100032056', FECHA_EMIS: new Date('2026-01-19T00:00:00'), IMPORTE: 281184, ESTADO: 'CTA', COD_CLIENT: 'AL.073' },
+      { ID_GVA12: 9, T_COMP: 'NC', TCOMP_IN_V: 'CC', N_COMP: 'A0010900000001', FECHA_EMIS: new Date('2026-02-01T00:00:00'), IMPORTE: 1000, ESTADO: 'CTA', COD_CLIENT: 'ZZ.001' },
+    ]
+    const a = aCuentaDeFilas(filas, { 368907: 280884 })
+    expect(a['AL.073']).toEqual({ total: 300, items: [{ tipo: 'REC', numero: 'X0000100032056', fecha: '2026-01-19', importe: 281184, pendiente: 300, idGva12: 368907 }] })
+    expect(a['ZZ.001'].total).toBe(1000)
   })
 })
