@@ -22,6 +22,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.sumaSaldo = exports.claveComprobante = exports.redondear2 = void 0;
 exports.normalizarComprobante = normalizarComprobante;
 exports.comprobantesDe = comprobantesDe;
+exports.creditosACuentaDelIndice = creditosACuentaDelIndice;
+exports.conCreditosACuenta = conCreditosACuenta;
 exports.comprobanteACuenta = comprobanteACuenta;
 exports.descuentosDeCobranzas = descuentosDeCobranzas;
 exports.aplicarDescuentos = aplicarDescuentos;
@@ -58,6 +60,28 @@ function comprobantesDe(doc) {
 }
 const sumaSaldo = (comprobantes) => (0, exports.redondear2)(comprobantes.reduce((s, c) => s + c.saldoPendiente, 0));
 exports.sumaSaldo = sumaSaldo;
+function creditosACuentaDelIndice(aCuenta, empresa, codigoTango) {
+    if (!aCuenta || !Array.isArray(aCuenta.items))
+        return [];
+    return aCuenta.items
+        .filter((i) => typeof i.numero === 'string' && i.numero && Number(i.pendiente ?? 0) > 0)
+        .map((i) => ({
+        tipo: typeof i.tipo === 'string' && i.tipo ? i.tipo : 'REC',
+        numero: String(i.numero),
+        fechaEmision: typeof i.fecha === 'string' ? i.fecha : '',
+        importeOriginal: -(0, exports.redondear2)(Number(i.importe ?? i.pendiente ?? 0)),
+        saldoPendiente: -(0, exports.redondear2)(Number(i.pendiente)),
+        ...(typeof i.idGva12 === 'number' ? { idComprobanteTango: i.idGva12 } : {}),
+        diasAtraso: 0,
+        empresa,
+        codigoTango,
+    }));
+}
+/** Suma los créditos a la composición sin duplicar (misma empresa, tipo y número). */
+function conCreditosACuenta(comprobantes, creditos) {
+    const vistos = new Set(comprobantes.map((c) => (0, exports.claveComprobante)(c.empresa, c.tipo, c.numero)));
+    return [...comprobantes, ...creditos.filter((c) => !vistos.has((0, exports.claveComprobante)(c.empresa, c.tipo, c.numero)))];
+}
 /** Timestamp de Firestore / Date / string → 'yyyy-MM-dd' (vacío si no se puede). */
 function fechaIso(f) {
     let d = null;

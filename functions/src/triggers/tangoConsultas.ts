@@ -1,7 +1,7 @@
 import { onDocumentUpdated } from 'firebase-functions/v2/firestore'
 import { getFirestore, FieldValue } from 'firebase-admin/firestore'
-import { codigoTangoDe, esEmpresa, type Empresa } from '../services/tango/empresas'
-import { aplicarDescuentos, descuentosDeCobranzas, fusionarRamaEmpresa, normalizarComprobante, type ComprobanteCrudo, type SaldoDoc } from '../services/tango/saldos'
+import { codigoTangoDe, esEmpresa, tangoIdsDe, type Empresa } from '../services/tango/empresas'
+import { aplicarDescuentos, conCreditosACuenta, creditosACuentaDelIndice, descuentosDeCobranzas, fusionarRamaEmpresa, normalizarComprobante, type ComprobanteCrudo, type SaldoDoc } from '../services/tango/saldos'
 
 // Cuando se responde una consulta on-demand de saldo (tango-consultas, estado
 // → 'respondida'), copia el resultado al cache saldosTango/{clienteUid}.
@@ -31,7 +31,18 @@ export const onConsultaRespondida = onDocumentUpdated('tango-consultas/{consulta
   const empresa: Empresa = esEmpresa(after.empresa) ? after.empresa : 'redonhielo'
   const codigoPrincipal = codigoTangoDe(user, empresa) ?? String(user.codigoTango ?? '')
   const crudos = Array.isArray(after.resultado?.comprobantes) ? (after.resultado.comprobantes as ComprobanteCrudo[]) : []
-  const frescos = crudos.map((c) => normalizarComprobante(c, empresa, codigoPrincipal))
+  let frescos = crudos.map((c) => normalizarComprobante(c, empresa, codigoPrincipal))
+  // Saldo a favor en Tango (2026-09-24): recibos / NC a cuenta de cada código del cliente en esta empresa.
+  try {
+    const codigos = [...new Set([codigoPrincipal, ...(tangoIdsDe(user)[empresa] ?? []).map((i) => i.codigo)].filter(Boolean))]
+    const docs = await Promise.all(codigos.map((c) => db.collection('tangoComprobantes').doc(`${empresa}_${c}`).get()))
+    for (const d of docs) {
+      const x = d.data()
+      if (x?.aCuenta) frescos = conCreditosACuenta(frescos, creditosACuentaDelIndice(x.aCuenta, empresa, String(x.codigo ?? codigoPrincipal)))
+    }
+  } catch (e) {
+    console.warn(`[onConsultaRespondida] saldo a favor no leído: ${(e as Error).message}`)
+  }
 
   // Igual que el sync periódico (tangoSaldos.ts): re-aplicar los descuentos de
   // cobranzas de este cliente que Tango todavía no vio (tango.estado !=

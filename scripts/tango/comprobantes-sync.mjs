@@ -127,6 +127,15 @@ async function leerEmpresa({ cfg, log }, empresa, database, desde, codigos) {
            CAT_IVA, COND_VTA, COD_VENDED, CAICAE, CAICAE_VTO, FECHA_ANU,
            LEYENDA_1, LEYENDA_2, LEYENDA_3, LEYENDA_4, LEYENDA_5${columnaOc ? `, ${columnaOc}` : ''}${textosCabecera.length ? `, ${textosCabecera.join(', ')}` : ''}
     FROM GVA12 WHERE FECHA_EMIS >= @desde${fc('COD_CLIENT').sql}`, params)
+  // Lo ya aplicado de cada recibo / NC a cuenta (2026-09-24): gva07 guarda una fila por
+  // imputación, con ID_GVA12_CAN = el comprobante que cancela (el recibo) e IMPORT_CAN.
+  const idsCta = facturas.filter((f) => String(f.ESTADO ?? '').trim() === 'CTA').map((f) => f.ID_GVA12).filter((id) => typeof id === 'number')
+  const aplicadoPorId = {}
+  for (let i = 0; i < idsCta.length; i += 500) {
+    const tanda = idsCta.slice(i, i + 500)
+    const filas = await consulta(p, `SELECT ID_GVA12_CAN, SUM(IMPORT_CAN) AS APLICADO FROM GVA07 WHERE ID_GVA12_CAN IN (${tanda.join(',')}) GROUP BY ID_GVA12_CAN`)
+    for (const r of filas) aplicadoPorId[r.ID_GVA12_CAN] = Number(r.APLICADO ?? 0)
+  }
   const renglonesFac = await consulta(p, `
     SELECT r.T_COMP, r.N_COMP, r.N_RENGL_V, r.COD_ARTICU, a.DESCRIPCIO, r.CANTIDAD, r.PRECIO_NET, r.PORC_DTO, r.PORC_IVA, r.IMP_NETO_P${textoRenglon}
     FROM GVA53 r JOIN GVA12 f ON f.T_COMP = r.T_COMP AND f.N_COMP = r.N_COMP LEFT JOIN STA11 a ON a.COD_ARTICU = r.COD_ARTICU
@@ -169,9 +178,11 @@ async function leerEmpresa({ cfg, log }, empresa, database, desde, codigos) {
   log(`  ${empresa}: ${facturas.length} comprobantes de venta [${detalleTipos}] (${renglonesFac.length} renglones), ${remitos.length} remitos (${renglonesRem.length} renglones), ${relacion.length} cruces, ${Object.keys(clientes).length} clientes — ${((Date.now() - t0) / 1000).toFixed(1)} s`)
 
   const { porFactura, porRemito } = relacionDeFilas(relacion)
-  const f = mapearFacturas({ empresa, facturas, renglones: renglonesFac, remitosPorFactura: porFactura, clientes, condiciones, vendedores, columnaOrdenCompra: columnaOc, textos: textosFac })
+  const f = mapearFacturas({ empresa, facturas, renglones: renglonesFac, remitosPorFactura: porFactura, clientes, condiciones, vendedores, columnaOrdenCompra: columnaOc, textos: textosFac, aplicadoPorId })
   const r = mapearRemitos({ empresa, remitos, renglones: renglonesRem, facturasPorRemito: porRemito, talonarios, clientes, condiciones, textos: textosRem })
-  return { resumenFacturas: f.resumen, resumenRemitos: r.resumen, detalles: [...f.detalles, ...r.detalles], clientes, conteo: { facturas: facturas.length, remitos: remitos.length } }
+  const conACuenta = Object.values(f.aCuenta).filter((a) => a.total > 0).length
+  if (conACuenta) log(`  ${empresa}: ${conACuenta} clientes con saldo a favor en Tango (recibos / NC a cuenta)`)
+  return { resumenFacturas: f.resumen, resumenRemitos: r.resumen, detalles: [...f.detalles, ...r.detalles], clientes, aCuenta: f.aCuenta, conteo: { facturas: facturas.length, remitos: remitos.length } }
 }
 
 // ── Cache local ──────────────────────────────────────────────────────────────
@@ -199,7 +210,7 @@ async function commitConReintento(log, armar, etiqueta) {
  * al final su índice, así cuando un lote confirma se puede marcar en el cache TODO lo de
  * los códigos que quedaron completos. alConfirmar(codigosCompletos) recibe esa lista.
  */
-async function escribir({ db, log }, empresa, porCodigo, podados, detalles, clientes, desdeIso, alConfirmar) {
+async function escribir({ db, log }, empresa, porCodigo, podados, detalles, clientes, desdeIso, alConfirmar, aCuenta = {}) {
   const detallesPorCodigo = new Map()
   for (const d of detalles) {
     const codigo = d.doc.codigo
@@ -221,6 +232,8 @@ async function escribir({ db, log }, empresa, porCodigo, podados, detalles, clie
       email,
       desde: desdeIso,
       actualizadoEn: serverTimestamp(),
+      // Saldo a favor del cliente (2026-09-24): total y detalle de lo que Tango tiene sin imputar.
+      aCuenta: aCuenta[codigo] ?? { total: 0, items: [] },
       ...secciones,
     }
     ops.push({ op: (b) => b.set(doc(db, 'tangoComprobantes', `${empresa}_${codigo}`), datos, { merge: true }), cierra: codigo })
@@ -262,7 +275,7 @@ export async function sincronizarComprobantes({ cfg, db, log, dryRun = false, ba
   for (const [empresa, database] of empresas) {
     try {
       log(`${empresa} (base ${database}):`)
-      const { resumenFacturas, resumenRemitos, detalles, clientes, conteo } = await leerEmpresa({ cfg, log }, empresa, database, desde, listaCodigos)
+      const { resumenFacturas, resumenRemitos, detalles, clientes, aCuenta, conteo } = await leerEmpresa({ cfg, log }, empresa, database, desde, listaCodigos)
       // A pedido (lista de códigos) no se usa el cache: se reescribe lo de esos códigos y listo.
       const cache = listaCodigos ? {} : leerCache(empresa)
       const { porCodigo, detallesAEscribir } = diferencias(cache, resumenFacturas, resumenRemitos, detalles)
@@ -292,7 +305,7 @@ export async function sincronizarComprobantes({ cfg, db, log, dryRun = false, ba
         if (++pendientesDeGrabar >= 10) grabarCache()
       }
       try {
-        r.escrituras = await escribir({ db, log }, empresa, porCodigo, podados, detallesAEscribir, clientes, iso(desde), alConfirmar)
+        r.escrituras = await escribir({ db, log }, empresa, porCodigo, podados, detallesAEscribir, clientes, iso(desde), alConfirmar, aCuenta)
       } finally {
         grabarCache()
       }

@@ -230,7 +230,7 @@ export default function SeccionSaldo({ c, saldoEnVivo }: { c: UserProfile; saldo
                   <div key={f.clave} className="px-3 py-1.5">
                     <div className="flex justify-between items-center gap-2">
                       <div className="min-w-0">
-                        <p className={`text-sm truncate ${f.estado === 'anulada' ? 'text-secundario line-through' : 'text-gray-900'}`}>{f.tipo} {f.numero}</p>
+                        <p className={`text-sm truncate ${f.estado === 'anulada' ? 'text-secundario line-through' : 'text-gray-900'}`}>{(f.pendiente ?? f.importe) < 0 && <span className="text-[#0F6B4E] font-semibold">Saldo a favor · </span>}{f.tipo} {f.numero}</p>
                         <p className="text-[11px] text-secundario">
                           {[fechaCorta(f.fecha) ? `Emitida ${fechaCorta(f.fecha)}` : '', fechaCorta(f.fechaVencimiento) ? `Vto. ${fechaCorta(f.fechaVencimiento)}` : ''].filter(Boolean).join(' · ')}
                           {f.diasAtraso && f.diasAtraso > 0 ? <span className="text-red-500"> · {f.diasAtraso} d de atraso</span> : null}

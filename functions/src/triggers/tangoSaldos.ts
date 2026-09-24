@@ -3,7 +3,7 @@ import { defineSecret } from 'firebase-functions/params'
 import { getFirestore, FieldValue } from 'firebase-admin/firestore'
 import { EMPRESAS, esEmpresa, tangoIdsDe, type Empresa } from '../services/tango/empresas'
 import {
-  aplicarDescuentos, descuentosDeCobranzas, fusionarRamaEmpresa, mismaRama, normalizarComprobante, redondear2, vaciarRamaEmpresa,
+  aplicarDescuentos, conCreditosACuenta, creditosACuentaDelIndice, descuentosDeCobranzas, fusionarRamaEmpresa, mismaRama, normalizarComprobante, redondear2, vaciarRamaEmpresa,
   type ComprobanteSaldo, type DescuentoCliente, type SaldoDoc,
 } from '../services/tango/saldos'
 
@@ -161,6 +161,28 @@ export async function procesarLoteSaldos(
     batch = db.batch()
     enBatch = 0
   }
+
+  // Saldo a favor en Tango (2026-09-24): lo publica el lector SQL en tangoComprobantes.aCuenta.
+  // Entra como líneas negativas; un cliente que SOLO tiene plata a favor no viene en la Live
+  // de deudas, así que acá se lo agrega a la lista.
+  const porCodigo = new Map<string, ClienteIndexado>()
+  for (const c of indice.values()) porCodigo.set(c.codigo, c)
+  const aCuentaSnap = await db.collection('tangoComprobantes').where('aCuenta.total', '>', 0).get()
+  let conSaldoAFavor = 0
+  for (const d of aCuentaSnap.docs) {
+    const x = d.data()
+    if (x.empresa !== empresa) continue
+    const codigo = String(x.codigo ?? '')
+    const cliente = porCodigo.get(codigo)
+    if (!cliente) continue
+    const creditos = creditosACuentaDelIndice(x.aCuenta, empresa, codigo)
+    if (!creditos.length) continue
+    conSaldoAFavor++
+    if (!porUid.has(cliente.uid)) porUid.set(cliente.uid, { cliente, comprobantes: [] })
+    const entrada = porUid.get(cliente.uid)!
+    entrada.comprobantes = conCreditosACuenta(entrada.comprobantes, creditos)
+  }
+  if (conSaldoAFavor) console.log(`[syncSaldos] ${empresa}: ${conSaldoAFavor} clientes con saldo a favor en Tango`)
 
   for (const [uid, { cliente, comprobantes: crudos }] of porUid) {
     const descuento = descuentos.get(uid)

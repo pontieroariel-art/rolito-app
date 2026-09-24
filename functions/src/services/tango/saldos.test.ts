@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
-  aplicarDescuentos, claveComprobante, comprobantesDe, descontarCobranza, descuentosDeCobranzas,
-  fusionarRamaEmpresa, mismaRama, normalizarComprobante, vaciarRamaEmpresa, type ComprobanteSaldo, type SaldoDoc,
+  aplicarDescuentos, claveComprobante, comprobantesDe, conCreditosACuenta, creditosACuentaDelIndice, descontarCobranza, descuentosDeCobranzas,
+  fusionarRamaEmpresa, mismaRama, normalizarComprobante, sumaSaldo, vaciarRamaEmpresa, type ComprobanteSaldo, type SaldoDoc,
 } from './saldos'
 import { agregarTangoId, codigoTangoDe, idGva14De, tangoIdsDe } from './empresas'
 
@@ -209,5 +209,32 @@ describe('cuitValido', () => {
     expect(cuitValido('00000000000')).toBe(false)
     expect(cuitValido('11111111111')).toBe(false)
     expect(cuitValido('1234')).toBe(false)
+  })
+})
+
+describe('saldo a favor en Tango (recibos / NC a cuenta del índice, 2026-09-24)', () => {
+  it('convierte lo disponible de cada recibo o NC a cuenta en una línea negativa con el id de Tango', () => {
+    const creditos = creditosACuentaDelIndice({
+      total: 150,
+      items: [
+        { tipo: 'REC', numero: 'X0010300003691', fecha: '2025-12-18', importe: 200, pendiente: 100, idGva12: 55 },
+        { tipo: 'NC', numero: 'A0010900000012', fecha: '2026-03-01', importe: 50, pendiente: 50 },
+        { tipo: 'REC', numero: 'X0010300003700', fecha: '2026-04-01', importe: 80, pendiente: 0 },
+      ],
+    }, 'redonhielo', 'AA.003')
+    expect(creditos).toEqual([
+      { tipo: 'REC', numero: 'X0010300003691', fechaEmision: '2025-12-18', importeOriginal: -200, saldoPendiente: -100, idComprobanteTango: 55, diasAtraso: 0, empresa: 'redonhielo', codigoTango: 'AA.003' },
+      { tipo: 'NC', numero: 'A0010900000012', fechaEmision: '2026-03-01', importeOriginal: -50, saldoPendiente: -50, diasAtraso: 0, empresa: 'redonhielo', codigoTango: 'AA.003' },
+    ])
+    expect(creditosACuentaDelIndice(undefined, 'rolito', 'X')).toEqual([])
+  })
+
+  it('suma los créditos a la composición sin duplicar y baja el total', () => {
+    const deuda = [comp('redonhielo', 'A0001', 300, { codigoTango: 'AA.003' })]
+    const creditos = creditosACuentaDelIndice({ items: [{ tipo: 'REC', numero: 'X1', fecha: '2026-01-01', importe: 100, pendiente: 100 }] }, 'redonhielo', 'AA.003')
+    const todo = conCreditosACuenta(deuda, creditos)
+    expect(todo).toHaveLength(2)
+    expect(sumaSaldo(todo)).toBe(200)
+    expect(conCreditosACuenta(todo, creditos)).toHaveLength(2)
   })
 })

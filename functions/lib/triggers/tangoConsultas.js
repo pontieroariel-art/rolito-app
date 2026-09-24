@@ -34,7 +34,20 @@ exports.onConsultaRespondida = (0, firestore_1.onDocumentUpdated)('tango-consult
     const empresa = (0, empresas_1.esEmpresa)(after.empresa) ? after.empresa : 'redonhielo';
     const codigoPrincipal = (0, empresas_1.codigoTangoDe)(user, empresa) ?? String(user.codigoTango ?? '');
     const crudos = Array.isArray(after.resultado?.comprobantes) ? after.resultado.comprobantes : [];
-    const frescos = crudos.map((c) => (0, saldos_1.normalizarComprobante)(c, empresa, codigoPrincipal));
+    let frescos = crudos.map((c) => (0, saldos_1.normalizarComprobante)(c, empresa, codigoPrincipal));
+    // Saldo a favor en Tango (2026-09-24): recibos / NC a cuenta de cada código del cliente en esta empresa.
+    try {
+        const codigos = [...new Set([codigoPrincipal, ...((0, empresas_1.tangoIdsDe)(user)[empresa] ?? []).map((i) => i.codigo)].filter(Boolean))];
+        const docs = await Promise.all(codigos.map((c) => db.collection('tangoComprobantes').doc(`${empresa}_${c}`).get()));
+        for (const d of docs) {
+            const x = d.data();
+            if (x?.aCuenta)
+                frescos = (0, saldos_1.conCreditosACuenta)(frescos, (0, saldos_1.creditosACuentaDelIndice)(x.aCuenta, empresa, String(x.codigo ?? codigoPrincipal)));
+        }
+    }
+    catch (e) {
+        console.warn(`[onConsultaRespondida] saldo a favor no leído: ${e.message}`);
+    }
     // Igual que el sync periódico (tangoSaldos.ts): re-aplicar los descuentos de
     // cobranzas de este cliente que Tango todavía no vio (tango.estado !=
     // 'confirmado') — si no, el refresh "resucitaría" deuda ya cobrada en la calle.

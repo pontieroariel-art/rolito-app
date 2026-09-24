@@ -165,7 +165,20 @@ export function textosPorComprobante(filas = []) {
  */
 export const leyendasDe = (f, sep = '_') => [1, 2, 3, 4, 5].map((i) => txt(f[`LEYENDA${sep}${i}`])).filter(Boolean)
 
-export function mapearFacturas({ empresa, facturas, renglones, remitosPorFactura, clientes, condiciones, vendedores, columnaOrdenCompra = null, textos = [] }) {
+/**
+ * Saldo a favor del cliente (2026-09-24, pedido de Ariel: "la composición no
+ * muestra los montos a cuenta"): un recibo o una NC con ESTADO 'CTA' es plata
+ * que Tango tiene sin imputar. Lo disponible es IMPORTE − Σ gva07.IMPORT_CAN
+ * (lo que ya se aplicó después). `aplicadoPorId` trae esa suma por ID_GVA12.
+ */
+export const ESTADO_A_CUENTA = 'CTA'
+export function pendienteACuenta(f, aplicadoPorId = {}) {
+  if (txt(f.ESTADO) !== ESTADO_A_CUENTA) return null
+  const disponible = num(num(f.IMPORTE) - num(aplicadoPorId[f.ID_GVA12] ?? 0))
+  return disponible > 0 ? disponible : 0
+}
+
+export function mapearFacturas({ empresa, facturas, renglones, remitosPorFactura, clientes, condiciones, vendedores, columnaOrdenCompra = null, textos = [], aplicadoPorId = {} }) {
   const textosPor = textosPorComprobante(textos)
   const renglonesPor = new Map()
   for (const r of renglones) {
@@ -212,6 +225,7 @@ export function mapearFacturas({ empresa, facturas, renglones, remitosPorFactura
     const notas = textosPor.get(`${txt(f.T_COMP)}_${numero}`) ?? []
     const observaciones = [f.DESCRIPCION_FACTURA, f.OBSERVAC, f.OBS_COMERC, f.LEYENDA].map(txt).filter(Boolean)
     const ordenCompra = ordenCompraDe(f, columnaOrdenCompra, '_', [...notas, ...rens.map((r) => r.nota ?? ''), ...observaciones])
+    const pendiente = pendienteACuenta(f, aplicadoPorId)
     const detalle = {
       empresa, tipo, familia, numero, codigo, fecha,
       letra:      p?.letra ?? numero.charAt(0),
@@ -219,6 +233,8 @@ export function mapearFacturas({ empresa, facturas, renglones, remitosPorFactura
       nro:        p?.nro ?? 0,
       cbteTipo:   p ? cbteTipoDe(tipo, p.letra) : null,
       estado:     txt(f.ESTADO),
+      // Va en el detalle para que la huella cambie cuando se aplica parte del saldo.
+      ...(pendiente != null ? { pendiente } : {}),
       ...(fechaValida(f.FECHA_ANU) ? { fechaAnulacion: iso(f.FECHA_ANU) } : {}),
       cliente,
       renglones:  rens,
@@ -237,11 +253,30 @@ export function mapearFacturas({ empresa, facturas, renglones, remitosPorFactura
       tipo, familia, numero, fecha, importe: total, estado: detalle.estado,
       ...(typeof f.ID_GVA12 === 'number' ? { idGva12: f.ID_GVA12 } : {}),
       ...(remitos.length ? { remitos } : {}),
+      ...(pendiente != null ? { pendiente } : {}),
       h,
     }
     detalles.push({ id: `${empresa}_${tipo}_${numero}`, doc: detalle, h })
   }
-  return { resumen, detalles }
+  return { resumen, detalles, aCuenta: aCuentaPorCodigo(resumen) }
+}
+
+/**
+ * Resumen del saldo a favor por código de cliente, para el doc del índice
+ * (`tangoComprobantes.aCuenta`): la sync de saldos lo suma como líneas
+ * negativas en la composición y así el cliente que solo tiene plata a favor
+ * también aparece (la Live de deudas de Tango no lo trae).
+ */
+export function aCuentaPorCodigo(resumen) {
+  const out = {}
+  for (const [codigo, entradas] of Object.entries(resumen)) {
+    const items = Object.values(entradas)
+      .filter((e) => (e.familia === 'recibo' || e.familia === 'credito') && e.estado === ESTADO_A_CUENTA && (e.pendiente ?? 0) > 0)
+      .map((e) => ({ tipo: e.tipo, numero: e.numero, fecha: e.fecha, importe: e.importe, pendiente: e.pendiente, ...(e.idGva12 != null ? { idGva12: e.idGva12 } : {}) }))
+      .sort((a, b) => a.fecha.localeCompare(b.fecha))
+    out[codigo] = { total: num(items.reduce((s, i) => s + i.pendiente, 0)), items }
+  }
+  return out
 }
 
 /**

@@ -197,3 +197,22 @@ describe('seccionesIndice (lo que va en el set con merge)', () => {
     expect(r).toEqual({ facturas: { FAC_2: { h: 'b' }, FAC_0: BORRAR }, remitos: { R0: BORRAR } })
   })
 })
+
+describe('saldo a favor: recibos y NC con ESTADO CTA (2026-09-24)', () => {
+  it('calcula lo disponible descontando lo ya aplicado (gva07) y lo resume por código', () => {
+    const base = { COD_CLIENT: 'AA.003', FECHA_EMIS: new Date('2026-05-22T00:00:00'), IMPORTE_GR: 0, IMPORTE_EX: 0, IMPORTE_IV: 0, IMPORTE_IN: 0 }
+    const facturas = [
+      { ...base, ID_GVA12: 1, T_COMP: 'REC', TCOMP_IN_V: 'RC', N_COMP: 'X0000100031087', IMPORTE: 92016, ESTADO: 'CTA' },
+      { ...base, ID_GVA12: 2, T_COMP: 'NC', TCOMP_IN_V: 'CC', N_COMP: 'A0010900000020', IMPORTE: 5000, ESTADO: 'CTA' },
+      { ...base, ID_GVA12: 3, T_COMP: 'REC', TCOMP_IN_V: 'RC', N_COMP: 'X0000100031090', IMPORTE: 1000, ESTADO: 'IMP' },
+    ]
+    const { resumen, aCuenta } = mapearFacturas({ empresa: 'redonhielo', facturas, renglones: [], remitosPorFactura: {}, clientes: {}, condiciones: {}, vendedores: {}, aplicadoPorId: { 1: 40000 } })
+    expect(resumen['AA.003'].REC_X0000100031087).toMatchObject({ estado: 'CTA', importe: 92016, pendiente: 52016 })
+    expect(resumen['AA.003'].NC_A0010900000020).toMatchObject({ estado: 'CTA', pendiente: 5000 })
+    expect(resumen['AA.003'].REC_X0000100031090.pendiente).toBeUndefined()
+    expect(aCuenta['AA.003']).toEqual({ total: 57016, items: [
+      { tipo: 'REC', numero: 'X0000100031087', fecha: '2026-05-22', importe: 92016, pendiente: 52016, idGva12: 1 },
+      { tipo: 'NC', numero: 'A0010900000020', fecha: '2026-05-22', importe: 5000, pendiente: 5000, idGva12: 2 },
+    ] })
+  })
+})

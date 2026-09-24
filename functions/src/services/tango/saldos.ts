@@ -99,6 +99,42 @@ export function comprobantesDe(doc: Partial<SaldoDoc> | undefined | null): Compr
 
 export const sumaSaldo = (comprobantes: ComprobanteSaldo[]): number => redondear2(comprobantes.reduce((s, c) => s + c.saldoPendiente, 0))
 
+// ── Saldo a favor que Tango tiene sin imputar (2026-09-24) ─────────────────
+// Las Live de deudas solo traen lo que el cliente DEBE. Un recibo o una NC con
+// ESTADO 'CTA' es plata a favor, y hasta hoy la composición no la mostraba
+// (Ariel: "no salen los montos a cuenta, solo las facturas pendientes"). El
+// lector SQL de la VM deja en tangoComprobantes.aCuenta lo disponible de cada
+// uno; acá se convierte en líneas de saldo NEGATIVO, con el id de Tango para
+// que la cobranza lo pueda aplicar.
+
+export interface ACuentaIndice {
+  total?: unknown
+  items?: Array<{ tipo?: unknown; numero?: unknown; fecha?: unknown; importe?: unknown; pendiente?: unknown; idGva12?: unknown }>
+}
+
+export function creditosACuentaDelIndice(aCuenta: ACuentaIndice | undefined | null, empresa: Empresa, codigoTango: string): ComprobanteSaldo[] {
+  if (!aCuenta || !Array.isArray(aCuenta.items)) return []
+  return aCuenta.items
+    .filter((i) => typeof i.numero === 'string' && i.numero && Number(i.pendiente ?? 0) > 0)
+    .map((i) => ({
+      tipo: typeof i.tipo === 'string' && i.tipo ? i.tipo : 'REC',
+      numero: String(i.numero),
+      fechaEmision: typeof i.fecha === 'string' ? i.fecha : '',
+      importeOriginal: -redondear2(Number(i.importe ?? i.pendiente ?? 0)),
+      saldoPendiente: -redondear2(Number(i.pendiente)),
+      ...(typeof i.idGva12 === 'number' ? { idComprobanteTango: i.idGva12 } : {}),
+      diasAtraso: 0,
+      empresa,
+      codigoTango,
+    }))
+}
+
+/** Suma los créditos a la composición sin duplicar (misma empresa, tipo y número). */
+export function conCreditosACuenta(comprobantes: ComprobanteSaldo[], creditos: ComprobanteSaldo[]): ComprobanteSaldo[] {
+  const vistos = new Set(comprobantes.map((c) => claveComprobante(c.empresa, c.tipo, c.numero)))
+  return [...comprobantes, ...creditos.filter((c) => !vistos.has(claveComprobante(c.empresa, c.tipo, c.numero)))]
+}
+
 // ── Descuento optimista de cobranzas que Tango todavía no vio ────────────────
 // Cobranzas completas (con imputaciones) cuyo recibo aún no está confirmado en
 // Tango (tango.estado != 'confirmado'): sus imputaciones se restan del
