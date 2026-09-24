@@ -1764,6 +1764,15 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // ── Mails salientes (2026-09-24) ──────────────────────────────────────
+    // Constancia de cada mail que manda la app (a quién, por dónde, qué pasó):
+    // la escribe SOLO el server (email.ts al mandar, resendWebhook al enterarse).
+    // La lee facturación, que corrige el mail del cliente y reenvía.
+    match /mailsSalientes/{mailId} {
+      allow read: if request.auth != null && (esSuperAdmin() || isFacturacion() || isGerenteGeneral());
+      allow write: if false;
+    }
+
     // ── Precios y listas de Tango (Tango es la fuente maestra) ──────────────
     // preciosTango/{empresa} lo escribe la Cloud Function syncPreciosTango
     // (Admin SDK). Lo leen los que venden o miran precios: choferes (venta en

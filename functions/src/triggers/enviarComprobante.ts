@@ -147,8 +147,16 @@ export const enviarComprobantePorMail = onCall({ secrets: MAIL_SECRETS, memory: 
   const emailOperador = (perfil?.email as string | undefined) ?? ''
   const conCopia = d.conCopia === true && EMAIL_RE.test(emailOperador) && !emailOperador.endsWith('.internal') && !emailOperador.endsWith('@rolito.app')
 
-  // El proveedor (SMTP / Resend) y el modo test de configuracion/notificaciones los resuelve enviarMail.
+  // El proveedor (Resend / SMTP) y el modo test de configuracion/notificaciones los resuelve enviarMail.
+  // El registro se crea con id de antemano para que el webhook del proveedor
+  // pueda anotarle qué pasó con el mail (rebotó, se entregó) — 2026-09-24.
+  const registroRef = db.collection('enviosComprobantes').doc()
   const { proveedor, id, error, respaldo, errorPrimero } = await enviarMail({
+    tipo: 'comprobante',
+    referencias: [
+      { coleccion: 'enviosComprobantes', id: registroRef.id, campo: 'entrega' },
+      ...(ventaRef ? [{ coleccion: ventaRef.parent.id, id: ventaRef.id, campo: 'envioMail.entrega' }] : []),
+    ],
     to: para,
     ...(conCopia ? { cc: emailOperador } : {}),
     ...(EMAIL_RE.test(emailOperador) && !emailOperador.endsWith('.internal') && !emailOperador.endsWith('@rolito.app') ? { replyTo: emailOperador } : {}),
@@ -172,7 +180,7 @@ export const enviarComprobantePorMail = onCall({ secrets: MAIL_SECRETS, memory: 
     ...(respaldo ? { respaldo, errorPrimero } : {}),
     ...(id ? { mailId: id } : {}),
   }
-  await db.collection('enviosComprobantes').add(registro)
+  await registroRef.set(registro)
   if (ventaRef) {
     await ventaRef.set({
       envioMail: {

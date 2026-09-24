@@ -217,6 +217,7 @@ export const CATALOGO: RutaConfig[] = [
   R('/comercial/reporte-precios', 'Reporte de precios',       'comercial', REPORTES, { icon: 'DollarSign', menuGroup: 'precios' }),
   R('/admin/comprobantes',        'Comprobantes de clientes', 'comercial', ['super_admin', 'facturacion', 'comercial', 'gerente_comercial'], { icon: 'Files', menuGroup: 'facturacion', externa: true }),
   R('/admin/recupero-facturas',   'Recupero de facturas',     'comercial', ['super_admin', 'facturacion'], { icon: 'FileText', menuGroup: 'facturacion' }),
+  R('/admin/mails',               'Mails enviados',           'comercial', ['super_admin', 'facturacion', 'gerente_general'], { icon: 'Mail', menuGroup: 'facturacion' }),
   R('/anulaciones',               'Anulaciones y faltantes',  'comercial',
     ['super_admin', 'gerente_general', 'gerente_comercial', 'logistica', 'comercial', 'facturacion', 'tesoreria', 'supervisor', 'heladeras_encargado', 'produccion_encargado'],
     { icon: 'Ban', menuGroup: 'facturacion', externa: true }),
@@ -287,7 +288,7 @@ export const SIDEBARS: Record<Sistema, GrupoSidebar[]> = {
     { id: 'clientes',     label: 'Clientes',     entradas: ['/usuarios', '/admin/mapa-clientes', '/admin/visitas'] },
     { id: 'precios',      label: 'Precios',      entradas: ['/admin/precios', '/comercial/reporte-precios'] },
     // /anulaciones: DominioLayout la esconde a quien no tiene el permiso individual `autorizaAnulaciones` (salvo super_admin).
-    { id: 'facturacion',  label: 'Facturación',  entradas: ['/movimientos', '/admin/comprobantes', '/admin/recupero-facturas', '/anulaciones'] },
+    { id: 'facturacion',  label: 'Facturación',  entradas: ['/movimientos', '/admin/comprobantes', '/admin/recupero-facturas', '/admin/mails', '/anulaciones'] },
     { id: 'supervisores', label: 'Supervisores', entradas: [{ path: '/supervisor', label: 'Supervisores (calle)', icon: 'UserCheck' }] },
   ],
   heladeras: [
@@ -348,7 +349,7 @@ export const NAVBAR: Record<UserRole, string[]> = {
 /** Accesos del panel de control del super_admin (/admin), por área y en orden. */
 export const PANEL: Array<{ id: string; titulo: string; entradas: EntradaMenu[] }> = [
   { id: 'admin',       titulo: 'Administración',         entradas: ['/admin/usuarios', '/admin/general', '/usuarios', '/admin/mapa-clientes', '/gerente'] },
-  { id: 'facturacion', titulo: 'Facturación',            entradas: ['/movimientos', '/admin/comprobantes', '/admin/recupero-facturas', '/anulaciones'] },
+  { id: 'facturacion', titulo: 'Facturación',            entradas: ['/movimientos', '/admin/comprobantes', '/admin/recupero-facturas', '/admin/mails', '/anulaciones'] },
   { id: 'logistica',   titulo: 'Logística',              entradas: ['/logistica', '/admin/historial-despacho', '/admin/monitoreo', '/admin/visitas', '/admin/incidencias', '/admin/clima', '/admin/flota', '/admin/precios'] },
   { id: 'comercial',   titulo: 'Comercial',              entradas: ['/comercial', '/comercial/mapa', '/comercial/reporte-precios', '/comercial/ventas'] },
   { id: 'expedicion',  titulo: 'Expedición y tesorería', entradas: ['/caja/remitos', '/caja/ventanilla', '/caja/liquidaciones', '/muelle', '/muelle/tv', '/logistica/tiempos-muelle', '/seguridad', '/tesoreria', '/tesoreria/recepcion', '/tesoreria/entregas', { path: '/supervisor', label: 'Supervisor (calle)', icon: 'UserCheck' }] },

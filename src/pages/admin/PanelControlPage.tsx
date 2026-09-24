@@ -220,6 +220,16 @@ export default function PanelControlPage() {
             ]}
             to="/caja/remitos" toLabel="Ver remitos de carga"
           />
+          {/* Mails (2026-09-24): Resend cuenta por webhook qué pasó con cada mail;
+              un rebote es un cliente que no recibió su comprobante. */}
+          <TileEstado
+            titulo="Mails al cliente"
+            tono={tonoConteo(c?.mailsRebotados, true)}
+            valor={c?.mailsRebotados ?? null}
+            sufijo="rebotados (7 d)"
+            lineas={[['Rebotados o spam', c?.mailsRebotados ?? '—']]}
+            to="/admin/mails" toLabel="Ver mails enviados"
+          />
         </div>
       </section>
 

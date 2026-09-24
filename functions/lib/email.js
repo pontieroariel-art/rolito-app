@@ -33,25 +33,37 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.sendEmail = exports.enviarMail = exports.destinatariosAviso = exports.REPLY_TO_EMAIL = exports.APP_URL = exports.FROM_EMAIL = exports.MAIL_SECRETS = exports.smtpPassword = exports.resendApiKey = void 0;
+exports.sendEmail = exports.enviarMail = exports.idMailSaliente = exports.destinatariosAviso = exports.REPLY_TO_EMAIL = exports.APP_URL = exports.RESEND_FROM = exports.FROM_EMAIL = exports.MAIL_SECRETS = exports.smtpPassword = exports.resendApiKey = void 0;
 const firestore_1 = require("firebase-admin/firestore");
 const params_1 = require("firebase-functions/params");
-// Salida de mails de la app (2026-09-17): SMTP de Microsoft 365 de Redonhielo
-// (casilla técnica WebMail@redonhielo.com.ar, 10.000 destinatarios/día, 30
-// mails/minuto; decisión de Ariel: ya tienen la licencia) como proveedor
-// principal, y Resend (100 mails/día en el plan gratuito, que se agotó el
-// 14/09) como respaldo. El proveedor se elige por `configuracion/
-// notificaciones.proveedorMail` ('smtp' | 'resend'); sin ese campo, SMTP si
-// hay contraseña cargada y si no Resend. Host, puerto, usuario y remitentes
-// van en functions/.env (no son secretos); la contraseña de la casilla es el
-// secret SMTP_PASSWORD (`firebase functions:secrets:set SMTP_PASSWORD`).
+// Salida de mails de la app (2026-09-24): Resend Pro con el dominio
+// rolito.com.ar verificado (DKIM + return-path en el DNS de Hostinger) como
+// proveedor principal, y el SMTP de Microsoft 365 de Redonhielo (casilla
+// técnica WebMail@redonhielo.com.ar) como respaldo. Antes era al revés
+// (2026-09-17) y Microsoft restringió la casilla dos veces en tres días por
+// "patrones de envío anómalos": cien comprobantes por día con PDF, a
+// destinatarios distintos, desde una casilla de PERSONA con contraseña, se
+// parece a una cuenta tomada. Y el mail figuraba "enviado" aunque Microsoft
+// lo frenara después de aceptarlo. Con correo transaccional de verdad el
+// proveedor avisa por webhook lo que pasó con cada mail (`resendWebhook`) y
+// el estado real queda en `mailsSalientes`.
+// El proveedor se elige por `configuracion/notificaciones.proveedorMail`
+// ('resend' | 'smtp'); sin ese campo, Resend si hay clave. Remitentes, host y
+// usuario van en functions/.env (no son secretos); la clave de Resend y la
+// contraseña de la casilla son secrets.
 // OJO: Microsoft apaga el SMTP con contraseña a fines de diciembre de 2026;
-// antes de eso hay que pasar `porSmtp` a OAuth (XOAUTH2 con una app de Entra).
+// si el respaldo se quiere mantener hay que pasar `porSmtp` a OAuth.
 exports.resendApiKey = (0, params_1.defineSecret)('RESEND_API_KEY');
 exports.smtpPassword = (0, params_1.defineSecret)('SMTP_PASSWORD');
 /** Secrets que declara TODA function que manda mails (`secrets: MAIL_SECRETS`). */
 exports.MAIL_SECRETS = [exports.smtpPassword, exports.resendApiKey];
 exports.FROM_EMAIL = process.env.FROM_EMAIL ?? 'Rolito <onboarding@resend.dev>';
+/**
+ * Remitente para Resend: tiene que ser del dominio verificado ahí
+ * (rolito.com.ar). El de SMTP (FROM_EMAIL) tiene que ser la casilla que se
+ * autentica en Microsoft, así que no pueden ser el mismo.
+ */
+exports.RESEND_FROM = process.env.RESEND_FROM ?? exports.FROM_EMAIL;
 exports.APP_URL = process.env.APP_URL ?? 'https://rolito-app.web.app';
 /**
  * Adónde van las respuestas de los clientes cuando el mail no lleva un
@@ -105,8 +117,8 @@ const ordenProveedores = (cfg) => {
         disponibles.push('smtp');
     if (valorSecreto(exports.resendApiKey))
         disponibles.push('resend');
-    const preferido = cfg.proveedorMail;
-    if (!preferido || !disponibles.includes(preferido))
+    const preferido = cfg.proveedorMail ?? 'resend';
+    if (!disponibles.includes(preferido))
         return disponibles;
     return [preferido, ...disponibles.filter((p) => p !== preferido)];
 };
@@ -179,7 +191,7 @@ const porResend = async (mail) => {
     const { Resend } = await Promise.resolve().then(() => __importStar(require('resend')));
     const resend = new Resend(valorSecreto(exports.resendApiKey));
     const { data, error } = await resend.emails.send({
-        from: exports.FROM_EMAIL,
+        from: exports.RESEND_FROM,
         to: mail.to,
         ...(mail.cc ? { cc: mail.cc } : {}),
         ...(mail.replyTo ? { replyTo: mail.replyTo } : {}),
@@ -191,6 +203,42 @@ const porResend = async (mail) => {
         throw new Error(String(error.message ?? error));
     return data?.id;
 };
+/**
+ * Id del registro en `mailsSalientes`: proveedor + id del proveedor, así el
+ * webhook de Resend encuentra el doc sin consultar (el id de Resend es un
+ * uuid; el messageId de SMTP trae <> y @, que se limpian).
+ */
+const idMailSaliente = (proveedor, id) => `${proveedor}_${id.replace(/[^A-Za-z0-9_.-]/g, '')}`.slice(0, 200);
+exports.idMailSaliente = idMailSaliente;
+/**
+ * Deja constancia de cada mail que salió, en `mailsSalientes` (2026-09-24):
+ * a quién, qué, por dónde y, cuando el proveedor avise, qué pasó
+ * (`entrega`). Es lo que mira la pantalla "Mails enviados" de facturación y
+ * el tile del panel. Nunca hace fallar el envío: el mail ya salió.
+ */
+async function registrarMailSaliente(mail, r) {
+    if (r.proveedor === 'ninguno')
+        return;
+    try {
+        const db = (0, firestore_1.getFirestore)();
+        const ref = r.id ? db.collection('mailsSalientes').doc((0, exports.idMailSaliente)(r.proveedor, r.id)) : db.collection('mailsSalientes').doc();
+        await ref.set({
+            proveedor: r.proveedor,
+            ...(r.id ? { mailId: r.id } : {}),
+            para: [mail.to].flat().map((t) => String(t)).slice(0, 10),
+            asunto: mail.subject.slice(0, 200),
+            tipo: mail.tipo ?? 'aviso',
+            adjuntos: mail.attachments?.length ?? 0,
+            estado: 'aceptado',
+            fecha: firestore_1.FieldValue.serverTimestamp(),
+            ...(r.respaldo ? { respaldo: r.respaldo, errorPrimero: r.errorPrimero ?? '' } : {}),
+            ...(mail.referencias?.length ? { referencias: mail.referencias } : {}),
+        });
+    }
+    catch (e) {
+        console.error('[mail] no se pudo registrar el mail saliente:', e.message);
+    }
+}
 /**
  * Manda un mail por el proveedor configurado, respetando el modo test
  * (`configuracion/notificaciones.modoTest` + `testEmail`: todo se desvía a la
@@ -220,9 +268,13 @@ const enviarMail = async (mail) => {
                 // pero el proveedor de siempre está caído y alguien tiene que mirarlo.
                 console.warn(`[mail] ${principal} falló y salió por ${proveedor}. Motivo: ${errorPrimero}`);
                 await avisarProveedorCaido(principal, proveedor, errorPrimero);
-                return { proveedor, ...(id ? { id } : {}), respaldo: proveedor, errorPrimero };
+                const r = { proveedor, ...(id ? { id } : {}), respaldo: proveedor, errorPrimero };
+                await registrarMailSaliente(mail, r);
+                return r;
             }
-            return { proveedor, ...(id ? { id } : {}) };
+            const r = { proveedor, ...(id ? { id } : {}) };
+            await registrarMailSaliente(mail, r);
+            return r;
         }
         catch (err) {
             const error = err instanceof Error ? err.message : String(err);

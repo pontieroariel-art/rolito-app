@@ -4552,6 +4552,26 @@ describe('tangoComprobantes — facturas y remitos de Tango leídos por el bridg
     await assertFails(setDoc(doc(db('sup'), 'enviosComprobantes/e2'), { para: 'a@b.com', enviadoPor: { uid: 'sup' } }))
     await assertFails(deleteDoc(doc(db('fac'), 'enviosComprobantes/e1')))
   })
+
+  test('mailsSalientes: lo leen facturación, gerencia y super_admin; nadie escribe por reglas', async () => {
+    await seedTodos()
+    await seed(async (d) => {
+      await setDoc(doc(d, 'users/fac'), { rol: 'facturacion', estado: 'activo' })
+      await setDoc(doc(d, 'users/gg'), { rol: 'gerente_general', estado: 'activo' })
+      await setDoc(doc(d, 'users/sa'), { rol: 'super_admin', estado: 'activo' })
+      await setDoc(doc(d, 'mailsSalientes/resend_abc'), { proveedor: 'resend', mailId: 'abc', para: ['x@y.com'], asunto: 'Factura', tipo: 'comprobante', adjuntos: 1, estado: 'aceptado' })
+    })
+    await assertSucceeds(getDoc(doc(db('fac'), 'mailsSalientes/resend_abc')))
+    await assertSucceeds(getDoc(doc(db('gg'), 'mailsSalientes/resend_abc')))
+    await assertSucceeds(getDoc(doc(db('sa'), 'mailsSalientes/resend_abc')))
+    await assertFails(getDoc(doc(db('sup'), 'mailsSalientes/resend_abc')))
+    await assertFails(getDoc(doc(db('tes'), 'mailsSalientes/resend_abc')))
+    await assertFails(getDoc(doc(db('ch'), 'mailsSalientes/resend_abc')))
+    await assertFails(getDoc(doc(db('cli'), 'mailsSalientes/resend_abc')))
+    await assertFails(updateDoc(doc(db('fac'), 'mailsSalientes/resend_abc'), { estado: 'entregado' }))
+    await assertFails(setDoc(doc(db('sa'), 'mailsSalientes/resend_zzz'), { proveedor: 'resend', estado: 'aceptado' }))
+    await assertFails(deleteDoc(doc(db('sa'), 'mailsSalientes/resend_abc')))
+  })
 })
 
 // ── rollupsPedidos: agregados de solo lectura para staff ──────────────────────

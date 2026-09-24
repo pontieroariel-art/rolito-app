@@ -104,8 +104,45 @@ export interface EnvioMailVenta {
   /** Id que devolvió el proveedor (messageId de SMTP o id de Resend); antes `resendId`. */
   mailId?:     string
   proveedor?:  'smtp' | 'resend'
+  /** Lo que el proveedor contó después de aceptarlo (webhook de Resend, 2026-09-24). */
+  entrega?:    EntregaMail
   /** @deprecated envíos anteriores al 2026-09-17 */
   resendId?:   string
+}
+
+/**
+ * Qué pasó con un mail después de que el proveedor lo aceptó (2026-09-24):
+ * lo cuenta Resend por webhook. Sin este campo, solo se sabe que salió.
+ */
+export type EstadoEntregaMail = 'entregado' | 'rebotado' | 'queja' | 'demorado'
+export interface EntregaMail {
+  estado:   EstadoEntregaMail
+  detalle?: string
+  en:       Timestamp
+}
+
+/**
+ * Constancia de cada mail que manda la app (`mailsSalientes`, 2026-09-24):
+ * la escribe SOLO el server al mandar, y el webhook de Resend la completa con
+ * `entrega`. Id = `{proveedor}_{id del proveedor}`. La lee facturación en
+ * "Mails enviados" y el panel de control cuenta los rebotados.
+ */
+export interface MailSaliente {
+  id:            string
+  proveedor:     'smtp' | 'resend'
+  mailId?:       string
+  para:          string[]
+  asunto:        string
+  tipo:          'comprobante' | 'aviso'
+  adjuntos:      number
+  /** 'aceptado' = el proveedor lo tomó; el resto lo pone el webhook. */
+  estado:        'aceptado' | EstadoEntregaMail
+  fecha:         Timestamp
+  entrega?:      EntregaMail
+  /** Salió por el respaldo porque el principal falló. */
+  respaldo?:     'smtp' | 'resend'
+  errorPrimero?: string
+  referencias?:  Array<{ coleccion: string; id: string; campo: string }>
 }
 
 export type FormaPago = 'contado_efectivo' | 'contado_transferencia' | 'cuenta_corriente'

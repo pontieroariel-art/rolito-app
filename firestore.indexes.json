@@ -1,6 +1,20 @@
 {
   "indexes": [
     {
+      "collectionGroup": "mailsSalientes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "estado",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fecha",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
       "collectionGroup": "tango-altas",
       "queryScope": "COLLECTION",
       "fields": [

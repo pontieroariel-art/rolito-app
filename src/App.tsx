@@ -53,6 +53,7 @@ const ClimaPage           = lazy(() => import('@/pages/logistica/flota/ClimaPage
 // Lazy con doble motivo: además del peso normal, arrastra pdfjs-dist (448K).
 const RecuperoFacturasPage = lazy(() => import('@/pages/comercial/facturacion/RecuperoFacturasPage'))
 const ComprobantesClientesPage = lazy(() => import('@/pages/comercial/facturacion/ComprobantesClientesPage'))
+const MailsEnviadosPage = lazy(() => import('@/pages/comercial/facturacion/MailsEnviadosPage'))
 
 const ComercialDashboard   = lazy(() => import('./pages/comercial/ComercialDashboard'))
 const ComercialOrders      = lazy(() => import('./pages/comercial/ComercialOrders'))
@@ -420,6 +421,10 @@ function AppContent() {
           </Route>
           <Route element={<ProtectedRoute allowedRoles={rolesDe('/admin/recupero-facturas')} />}>
             <Route path="/admin/recupero-facturas" element={<RecuperoFacturasPage />} />
+          </Route>
+          {/* Mails enviados (2026-09-24): qué mandó la app, por dónde y qué pasó con cada uno (entregado / rebotado). */}
+          <Route element={<ProtectedRoute allowedRoles={rolesDe('/admin/mails')} />}>
+            <Route path="/admin/mails" element={<MailsEnviadosPage />} />
           </Route>
           {/* Anulaciones de facturas (2026-09-09): la bandeja la abre cualquier
               staff de oficina; aprobar exige users.autorizaAnulaciones. */}

@@ -200,7 +200,10 @@ function EstadoMail({ venta }: { venta: VentaCamion }) {
   const e = venta.envioMail
   let texto = ''
   let tono = 'text-secundario'
-  if (e?.estado === 'enviado') { texto = `Mail enviado a ${e.para}`; tono = 'text-emerald-700' }
+  // Lo que contó el proveedor después de aceptarlo (webhook de Resend, 2026-09-24).
+  if (e?.entrega?.estado === 'rebotado') { texto = `El mail a ${e.para} rebotó: avisá a facturación`; tono = 'text-red-700' }
+  else if (e?.entrega?.estado === 'entregado') { texto = `Mail entregado a ${e.para}`; tono = 'text-emerald-700' }
+  else if (e?.estado === 'enviado') { texto = `Mail enviado a ${e.para}`; tono = 'text-emerald-700' }
   else if (e?.estado === 'error') { texto = 'El mail no salió: mandalo desde "Enviar o descargar"'; tono = 'text-red-700' }
   else {
     const l = estadoEnvioLocal(venta.id)

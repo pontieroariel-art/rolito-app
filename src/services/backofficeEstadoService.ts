@@ -26,6 +26,8 @@ export interface ConteosBackoffice {
   arcaInciertas:       number | null
   cotPendientes:       number | null
   cotError:            number | null
+  /** Mails rebotados o marcados como spam en los últimos 7 días (mailsSalientes, 2026-09-24). */
+  mailsRebotados:      number | null
 }
 
 async function contar(nombre: string, q: ReturnType<typeof query>): Promise<number | null> {
@@ -42,7 +44,7 @@ export async function contarEstadoBackoffice(): Promise<ConteosBackoffice> {
   const [
     usuariosPendientes, clientesSinTango, ticketsAbiertos, ticketsUrgentes,
     outboxEnCurso, outboxError, consultasPendientes, consultasError, altasError,
-    arcaRechazadas, arcaInciertas, cotPendientes, cotError,
+    arcaRechazadas, arcaInciertas, cotPendientes, cotError, mailsRebotados,
   ] = await Promise.all([
     contar('usuariosPendientes',  query(c('users'), where('rol', '==', 'cliente'), where('estado', '==', 'pendiente'))),
     contar('clientesSinTango',    query(c('clientesIndex'), where('estado', '==', 'activo'), where('vinculadoTango', '==', false))),
@@ -57,11 +59,12 @@ export async function contarEstadoBackoffice(): Promise<ConteosBackoffice> {
     contar('arcaInciertas',       query(c('facturasArca'), where('estado', '==', 'incierta'))),
     contar('cotPendientes',       query(c('remitosCarga'), where('cot.estado', '==', 'pendiente'))),
     contar('cotError',            query(c('remitosCarga'), where('cot.estado', '==', 'error'))),
+    contar('mailsRebotados',      query(c('mailsSalientes'), where('estado', 'in', ['rebotado', 'queja']), where('fecha', '>=', new Date(Date.now() - 7 * 86_400_000)))),
   ])
   return {
     usuariosPendientes, clientesSinTango, ticketsAbiertos, ticketsUrgentes,
     outboxEnCurso, outboxError, consultasPendientes, consultasError, altasError,
-    arcaRechazadas, arcaInciertas, cotPendientes, cotError,
+    arcaRechazadas, arcaInciertas, cotPendientes, cotError, mailsRebotados,
   }
 }
 
