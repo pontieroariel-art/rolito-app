@@ -22,7 +22,10 @@ export function marcarSesionVerComo(): void { sesionVerComo = true }
 
 // SHA corto del commit del build (ver vite.config.ts). Se muestra en la
 // pantalla de error para que soporte sepa qué versión tiene el usuario.
-export const APP_RELEASE: string = typeof __APP_RELEASE__ === 'string' ? __APP_RELEASE__ : 'local'
+// Viene de la <meta name="app-release"> del index.html, no del código: así el
+// nombre de los chunks no cambia en cada deploy.
+export const APP_RELEASE: string =
+  (typeof document !== 'undefined' && document.querySelector<HTMLMetaElement>('meta[name="app-release"]')?.content) || 'local'
 
 export function initObservability(): void {
   if (!dsn || import.meta.env.DEV) return

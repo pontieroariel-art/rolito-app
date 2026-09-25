@@ -3,6 +3,7 @@ import { getApps, initializeApp } from 'firebase/app'
 import { doc, getDoc, initializeFirestore, memoryLocalCache, type Firestore } from 'firebase/firestore'
 import { getToken as getTokenAppCheck } from 'firebase/app-check'
 import { app, appCheck, auth, db, ES_TELE, estadoTokenTele, parametroDeUrl } from '@/services/firebase'
+import { APP_RELEASE } from '@/services/observability'
 
 /**
  * Diagnóstico para el televisor del muelle (2026-09-21). Pública y sin datos
@@ -84,7 +85,7 @@ export default function DiagnosticoTelePage() {
   return (
     <div style={{ minHeight: '100vh', background: '#0b1220', color: '#fff', padding: 40, fontFamily: 'Inter, system-ui, sans-serif', fontSize: 28, lineHeight: 1.4 }}>
       <h1 style={{ fontSize: 44, margin: '0 0 24px', fontWeight: 800 }}>Diagnóstico de la tele</h1>
-      <p style={{ margin: '0 0 8px' }}><b>Versión de la app:</b> {__APP_RELEASE__}</p>
+      <p style={{ margin: '0 0 8px' }}><b>Versión de la app:</b> {APP_RELEASE}</p>
       <p style={{ margin: '0 0 8px' }}><b>Modo tele:</b> {ES_TELE ? 'SÍ (canal lento y caché en memoria)' : 'NO (esta app no lo detectó como tele)'}</p>
       <p style={{ margin: '0 0 8px', fontSize: 20, color: '#9ca3af', wordBreak: 'break-all' }}><b>URL que ve la app:</b> {typeof window !== 'undefined' ? `${window.location.pathname}${window.location.search.replace(/(claveTele=)[^&]*/i, '$1…')}${window.location.hash}` : ''}</p>
       <p style={{ margin: '0 0 8px' }}><b>Sesión:</b> {auth.currentUser ? `entrada como ${auth.currentUser.email ?? auth.currentUser.uid}` : 'sin sesión'}</p>

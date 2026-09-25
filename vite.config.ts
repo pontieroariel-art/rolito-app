@@ -15,10 +15,18 @@ function resolveRelease(): string {
   catch { return 'local' }
 }
 
+// La versión va en una <meta> del index.html y NO en el código con `define`
+// (2026-09-25): metida en un chunk compartido cambiaba el nombre de 228 de 382
+// archivos en cada deploy aunque no se tocara nada, y toda pestaña abierta con
+// una pantalla sin bajar caía en "Failed to fetch dynamically imported module".
+const appRelease = {
+  name: 'app-release',
+  transformIndexHtml: (html: string) =>
+    html.replace('</head>', `  <meta name="app-release" content="${resolveRelease()}" />
+  </head>`),
+}
+
 export default defineConfig({
-  define: {
-    __APP_RELEASE__: JSON.stringify(resolveRelease()),
-  },
   resolve: {
     alias: {
       '@': path.resolve(import.meta.dirname, './src'),
@@ -54,6 +62,7 @@ export default defineConfig({
     chunkSizeWarningLimit: 600,
   },
   plugins: [
+    appRelease,
     react(),
     VitePWA({
       strategies:   'injectManifest',

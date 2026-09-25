@@ -54,6 +54,33 @@ jobs:
           VITE_SENTRY_DSN:                    ${{ secrets.VITE_SENTRY_DSN }}
         run: npm run build
 
+      # Archivos de las versiones anteriores (2026-09-25, "Failed to fetch
+      # dynamically imported module"): cada deploy reemplaza todo el hosting y
+      # una pestaña abierta con la versión vieja pide chunks que ya no existen.
+      # Se guardan los assets de cada build en la caché de Actions y se suman
+      # al deploy los que falten, mientras tengan menos de 14 días. Los nuevos
+      # nunca se pisan (cp -n) y el precache del SW no los ve (van después del build).
+      - name: Restaurar assets de deploys anteriores
+        uses: actions/cache/restore@v4
+        with:
+          path: assets-anteriores
+          key: hosting-assets-${{ github.sha }}
+          restore-keys: hosting-assets-
+
+      - name: Sumar assets anteriores al deploy
+        run: |
+          mkdir -p assets-anteriores
+          find assets-anteriores -type f -mtime +14 -delete
+          cp -n -p assets-anteriores/* dist/assets/ 2>/dev/null || true
+          cp -n -p dist/assets/* assets-anteriores/
+          echo "assets en el deploy: $(ls dist/assets | wc -l) · guardados: $(ls assets-anteriores | wc -l)"
+
+      - name: Guardar assets para el próximo deploy
+        uses: actions/cache/save@v4
+        with:
+          path: assets-anteriores
+          key: hosting-assets-${{ github.sha }}
+
       - name: Deploy to Firebase Hosting
         env:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
