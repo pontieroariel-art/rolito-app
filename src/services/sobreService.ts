@@ -58,7 +58,7 @@ export interface DatosCierreTurno {
  */
 export async function cerrarTurnoYRendir(datos: DatosCierreTurno, actor: ActorSobre): Promise<Sobre> {
   const { sesion, sistema } = datos
-  const sinDecidir = valoresSinDecidir(sistema, [...datos.declarado.cheques, ...datos.declarado.retenciones])
+  const sinDecidir = valoresSinDecidir(sistema, [...datos.declarado.cheques, ...datos.declarado.retenciones, ...(datos.declarado.vales ?? [])])
   if (sinDecidir.length > 0) throw new Error(`Faltan tildar ${sinDecidir.length} valor(es) en papel antes de firmar.`)
   if (!datos.firmaRinde) throw new Error('Falta la firma de quien rinde.')
   const diferencia = diferenciaDeclarada(sistema, datos.declarado)
@@ -100,6 +100,8 @@ export async function cerrarTurnoYRendir(datos: DatosCierreTurno, actor: ActorSo
     tx.set(counterRef, { next: numero + 1 })
     tx.set(sobreRef, sobre)
     tx.update(sesionRef, { estado: 'cerrada', cerradaEn: ahora, rendicionId: id })
+    // Los vales del turno (2026-09-25) viajan en este sobre: se los anota.
+    for (const v of sistema.vales ?? []) tx.update(doc(db, 'valesCaja', v.id), { sobreId: id })
     return sobre
   })
   return { id, ...data }
@@ -224,6 +226,8 @@ export interface DatosRecepcion {
   fajos?:      Record<EmpresaTango, number>
   cheques:     ValorRecibido[]
   retenciones: ValorRecibido[]
+  /** Vales de caja del sobre tildados (2026-09-25); si el sobre no trae vales, vacío u omitido. */
+  vales?:      ValorRecibido[]
   /** Obligatorios si hay diferencia (se valida acá también). */
   motivo?: MotivoDiferenciaLiquidacion
   nota?:   string
@@ -238,7 +242,7 @@ export interface DatosRecepcion {
  * `estado`, `custodia` y `recepcion` (lo único que las reglas dejan tocar).
  */
 export async function recibirSobre(sobreId: string, datos: DatosRecepcion, actor: ActorSobre): Promise<Sobre> {
-  const valores = [...datos.cheques, ...datos.retenciones]
+  const valores = [...datos.cheques, ...datos.retenciones, ...(datos.vales ?? [])]
   const sinMotivo = recibidosSinMotivo(valores)
   if (sinMotivo.length > 0) throw new Error(`Hay ${sinMotivo.length} valor(es) marcados como no recibidos sin motivo.`)
   if (!datos.firmaRecibe) throw new Error('Falta la firma de quien recibe.')
@@ -263,6 +267,7 @@ export async function recibirSobre(sobreId: string, datos: DatosRecepcion, actor
       ...(datos.fajos ? { fajos: datos.fajos } : {}),
       cheques:         datos.cheques.map(limpiarRecibido),
       retenciones:     datos.retenciones.map(limpiarRecibido),
+      ...(sobre.sistema.vales?.length ? { vales: (datos.vales ?? []).map(limpiarRecibido) } : {}),
       conformidad,
       ...(motivo ? { diferencia: { ...dif, ...motivo } } : {}),
       firmaRecibe:     datos.firmaRecibe,
@@ -270,6 +275,11 @@ export async function recibirSobre(sobreId: string, datos: DatosRecepcion, actor
     }
     const custodia = { ...actor, desde: ahora }
     tx.update(ref, { estado: 'recibida', custodia, recepcion })
+    // Cada vale del sobre queda tildado en su propio doc (2026-09-25): tesorería lo cierra después desde Recepción.
+    for (const v of sobre.sistema.vales ?? []) {
+      const d = (datos.vales ?? []).find((x) => x.clave === `vale|${v.id}`)
+      tx.update(doc(db, 'valesCaja', v.id), { recibido: { por: actor, en: ahora, recibido: d?.recibido ?? true, ...(d && !d.recibido && d.motivoNoRecibido ? { motivoNoRecibido: d.motivoNoRecibido } : {}) } })
+    }
     return { ...sobre, estado: 'recibida', custodia, recepcion }
   })
 }
@@ -386,6 +396,7 @@ const limpiarDeclarado = (d: SobreDeclarado): SobreDeclarado => {
     ...(d.conteoBilletes ? { conteoBilletes: d.conteoBilletes } : {}),
     cheques:     d.cheques.map(limpiarValorDeclarado),
     retenciones: d.retenciones.map(limpiarValorDeclarado),
+    ...(d.vales?.length ? { vales: d.vales.map(limpiarValorDeclarado) } : {}),
     ...(observacion ? { observacion } : {}),
   }
 }

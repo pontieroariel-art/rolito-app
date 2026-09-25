@@ -9,7 +9,7 @@ import { NOMBRE_EMPRESA, TEXTO_EMPRESA, TablaCheques, type DecisionCheque } from
 import LiquidacionComoCaja from '@/components/tesoreria/LiquidacionComoCaja'
 import { formatoARS } from '@/utils/money'
 import { desgloseContado, desgloseVacio } from '@/utils/billetes'
-import { claveDeCheque, claveDeRetencion, conformidadDe, diferenciaRecepcion, empresaDeAnticipo, esAnticipo } from '@/utils/sobres'
+import { claveDeCheque, claveDeRetencion, claveDeVale, conformidadDe, diferenciaRecepcion, empresaDeAnticipo, esAnticipo } from '@/utils/sobres'
 import type { DatosRecepcion } from '@/services/sobreService'
 import { MOTIVOS_DIFERENCIA_LIQUIDACION, MOTIVOS_ENTREGA_TESORERIA, PLANTAS, type DesgloseBilletes, type MotivoDiferenciaLiquidacion, type Sobre, type ValorRecibido } from '@/types'
 
@@ -62,7 +62,12 @@ export default function RecibirSobreModal({ sobre, anticipos = [], firmante, gua
       return d && !d.recibido ? { clave, recibido: false, motivoNoRecibido: d.motivo } : { clave, recibido: true }
     }
     // Las retenciones no se tildan (2026-09-24, Ariel: van por otro lado): quedan como recibidas.
-    return { cheques: sistema.cheques.map((c) => aRecibido(claveDeCheque(c))), retenciones: sistema.retenciones.map((r) => ({ clave: claveDeRetencion(r), recibido: true })) }
+    return {
+      cheques: sistema.cheques.map((c) => aRecibido(claveDeCheque(c))),
+      retenciones: sistema.retenciones.map((r) => ({ clave: claveDeRetencion(r), recibido: true })),
+      // Vales de caja (2026-09-25): se tildan como los cheques.
+      vales: (sistema.vales ?? []).map((v) => aRecibido(claveDeVale(v))),
+    }
   }, [sistema, decisiones])
   const dif = useMemo(() => diferenciaRecepcion(sistema, { efectivoContado, ...valores }), [sistema, efectivoContado, valores])
   const conformidad = contoTodo ? conformidadDe(dif) : null
@@ -71,11 +76,11 @@ export default function RecibirSobreModal({ sobre, anticipos = [], firmante, gua
   const recibir = () => {
     setFalta('')
     if (!contoTodo) { setFalta('Contá el efectivo billete por billete. Si no hay nada, marcá "No hay efectivo".'); return }
-    const claves = sistema.cheques.map(claveDeCheque)
+    const claves = [...sistema.cheques.map(claveDeCheque), ...(sistema.vales ?? []).map(claveDeVale)]
     const sinDecidir = claves.filter((k) => !decisiones[k])
-    if (sinDecidir.length) { setFalta(`Falta tildar ${sinDecidir.length} cheque(s): marcá cada uno como recibido o no vino.`); return }
+    if (sinDecidir.length) { setFalta(`Falta tildar ${sinDecidir.length} valor(es): marcá cada cheque y cada vale como recibido o no vino.`); return }
     const sinMotivo = claves.filter((k) => { const d = decisiones[k]; return d && !d.recibido && !d.motivo.trim() })
-    if (sinMotivo.length) { setFalta('Poné el motivo de cada cheque que no vino.'); return }
+    if (sinMotivo.length) { setFalta('Poné el motivo de cada cheque o vale que no vino.'); return }
     if (conformidad === 'con_diferencia') {
       if (!motivo) { setFalta('Hay diferencia: elegí el motivo.'); return }
       if (!nota.trim()) { setFalta('Hay diferencia: escribí una nota con qué pasó.'); return }
@@ -123,6 +128,21 @@ export default function RecibirSobreModal({ sobre, anticipos = [], firmante, gua
           <section className="rounded-xl border border-[#D3D1C7] bg-white p-3 space-y-2">
             <h3 className="text-xs font-semibold uppercase tracking-wide text-secundario">Cheques entregados, tildá cada uno</h3>
             <TablaCheques cheques={sistema.cheques} decisiones={decisiones} onDecision={decidir} />
+          </section>
+        )}
+        {(sistema.vales ?? []).length > 0 && (
+          <section className="rounded-xl border border-[#D3D1C7] bg-white p-3 space-y-2">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-secundario">Vales de caja en el sobre, tildá cada uno</h3>
+            {(sistema.vales ?? []).map((v) => { const k = claveDeVale(v); const d = decisiones[k]; const noVino = !!d && !d.recibido; return (
+              <div key={k} className={`flex flex-wrap items-center gap-2 rounded-lg border px-3 py-2 ${noVino ? 'border-red-200 bg-red-50' : d ? 'border-[#B3DDD3] bg-[#F1F9F5]' : 'border-[#D3D1C7]'}`}>
+                <span className="flex-1 min-w-0 text-sm"><b>{v.codigo}</b> · {v.receptorNombre} <span className="text-secundario">· {v.motivo}</span></span>
+                <span className="font-semibold tabular-nums">{formatoARS(v.importe)}</span>
+                <button type="button" onClick={() => decidir(k, { recibido: true })} className={`h-9 px-3 rounded-lg border text-xs font-semibold ${d?.recibido ? 'border-[#1D9E75] bg-[#E6F5EF] text-[#178760]' : 'border-[#D3D1C7] bg-white text-gray-700'}`}>Recibido</button>
+                <button type="button" onClick={() => decidir(k, { recibido: false, motivo: d && !d.recibido ? d.motivo : '' })} className={`h-9 px-3 rounded-lg border text-xs font-semibold ${noVino ? 'border-red-400 bg-red-50 text-red-700' : 'border-[#D3D1C7] bg-white text-gray-700'}`}>No vino</button>
+                {d && !d.recibido && <input value={d.motivo} onChange={(e) => decidir(k, { recibido: false, motivo: e.target.value })} placeholder="Motivo (obligatorio)" className="w-full bg-white border border-[#D3D1C7] rounded-lg px-3 py-1.5 text-sm" />}
+              </div>
+            ) })}
+            <p className="text-xs text-secundario">Un vale que vino queda abierto hasta que lo cierres desde Recepción (comprobante, descuento de sueldo o devolución).</p>
           </section>
         )}
 

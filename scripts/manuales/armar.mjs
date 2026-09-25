@@ -37,7 +37,7 @@ const faqTodo = entre('<h2 style="margin-top:22pt">4 · Preguntas frecuentes</h2
 const faqs = [...faqTodo.matchAll(/<p><b>[\s\S]*?<\/p>/g)].map((m) => m[0])
 const faqDe = (claves) => faqs.filter((f) => claves.some((k) => f.includes(k))).join('\n')
 
-const FAQ_CAJA = ['me equivoqué en un billete', 'no está para firmar', 'volvió tarde', 'no me lo entregó', 'Falta mercadería', 'plata que sigue en la calle']
+const FAQ_CAJA = ['me equivoqué en un billete', 'no está para firmar', 'volvió tarde', 'alguien necesita plata', 'no me lo entregó', 'Falta mercadería', 'plata que sigue en la calle']
 const FAQ_TESO = ['un solo total', 'no está para firmar', 'plata que sigue en la calle', 'me equivoqué en un billete']
 
 const manuales = {
@@ -46,7 +46,7 @@ const manuales = {
     sub: 'Tu turno en la ventanilla, la liquidación de choferes y cobradores, y cómo cerrás y entregás tu Liquidación de caja.',
     contenido: `<ol class="indice">
   <li>Cómo se mueve la plata <ul><li>Los cuatro lugares</li><li>Las tres firmas</li></ul></li>
-  <li>Caja <ul><li>Abrir el turno</li><li>Durante el día: ventas, cobranzas y liquidar a choferes y cobradores</li><li>Leer tu Liquidación de caja</li><li>Anticipo a tesorería</li><li>Cerrar la liquidación</li><li>Entregar la liquidación a tesorería, en mano</li><li>Después de entregar</li></ul></li>
+  <li>Caja <ul><li>Abrir el turno</li><li>Durante el día: ventas, cobranzas y liquidar a choferes y cobradores</li><li>Leer tu Liquidación de caja</li><li>Anticipo a tesorería</li><li>Vale de caja</li><li>Cerrar la liquidación</li><li>Entregar la liquidación a tesorería, en mano</li><li>Después de entregar</li></ul></li>
   <li>Avisos automáticos</li>
   <li>Preguntas frecuentes</li>
 </ol>`,
@@ -58,7 +58,7 @@ const manuales = {
     sub: 'Dónde está la plata hoy, cómo recibís las liquidaciones de caja en mano y cómo las contás y validás.',
     contenido: `<ol class="indice">
   <li>Cómo se mueve la plata <ul><li>Los cuatro lugares</li><li>Las tres firmas</li></ul></li>
-  <li>Tesorería <ul><li>La pantalla de entrada: ¿dónde está la plata hoy?</li><li>Los tres carriles de Recepción</li><li>Recibir en mano</li><li>Contar y validar</li><li>Anticipos</li><li>Las otras pantallas</li></ul></li>
+  <li>Tesorería <ul><li>La pantalla de entrada: ¿dónde está la plata hoy?</li><li>Los tres carriles de Recepción</li><li>Recibir en mano</li><li>Contar y validar</li><li>Anticipos</li><li>Vales de caja abiertos</li><li>Las otras pantallas</li></ul></li>
   <li>Avisos automáticos</li>
   <li>Preguntas frecuentes</li>
 </ol>`,

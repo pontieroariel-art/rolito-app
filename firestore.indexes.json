@@ -690,6 +690,20 @@
           "order": "ASCENDING"
         }
       ]
+    },
+    {
+      "collectionGroup": "valesCaja",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "estado",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "emitidoEn",
+          "order": "ASCENDING"
+        }
+      ]
     }
   ],
   "fieldOverrides": [

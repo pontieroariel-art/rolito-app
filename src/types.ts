@@ -2679,7 +2679,9 @@ export interface SobrePlataEmpresa {
   recibidoDeSobres:        number
   /** Anticipos a tesorería ya entregados en el turno (2026-09-23): salieron del cajón de esta empresa. */
   anticipos?:              number
-  /** Ventas + cobranzas + recibido de liquidaciones y sobres − anticipos: el efectivo de esta empresa que tiene que haber. */
+  /** Vales de caja del turno (2026-09-25): plata que salió del cajón de esta empresa contra un vale firmado. */
+  vales?:                  number
+  /** Ventas + cobranzas + recibido de liquidaciones y sobres − anticipos − vales: el efectivo de esta empresa que tiene que haber. */
   efectivo:                number
   transferencias:          number
   cheques:                 { cantidad: number; total: number }
@@ -2695,6 +2697,8 @@ export interface SobreSistema {
   transferencias: { cantidad: number; total: number }      // reservado: hoy no se cobran
   /** Por empresa (2026-09-16). Los sobres anteriores no lo tienen. */
   porEmpresa?:    SobrePorEmpresa
+  /** Vales de caja que viajan en el sobre como un papel más (2026-09-25): foto al cerrar. */
+  vales?:         ValeEnSobre[]
   // Solo ventanilla: de dónde sale el efectivo.
   detalle?: {
     fondoInicial:            number
@@ -2704,8 +2708,10 @@ export interface SobreSistema {
     recibidoDeSobres:        number   // cobradores (Fase 2)
     /** Anticipos entregados a tesorería durante el turno (2026-09-23): ya no están en el cajón. */
     anticipos?:              number
+    /** Vales de caja del turno (2026-09-25): plata que salió contra un vale firmado. */
+    vales?:                  number
   }
-  origenIds: { ventasIds: string[]; cobranzasIds: string[]; liquidacionesIds: string[]; sobresRecibidosIds: string[]; anticiposIds?: string[] }
+  origenIds: { ventasIds: string[]; cobranzasIds: string[]; liquidacionesIds: string[]; sobresRecibidosIds: string[]; anticiposIds?: string[]; valesIds?: string[] }
 }
 
 /** Lo que declaró quien rinde, ANTES de ver el sistema (arqueo ciego). */
@@ -2715,6 +2721,8 @@ export interface SobreDeclarado {
   conteoBilletes?: DesgloseBilletes
   cheques:      ValorDeclarado[]
   retenciones:  ValorDeclarado[]
+  /** Vales de caja tildados como "va en el sobre" (2026-09-25; clave = utils/sobres.claveDeVale). */
+  vales?:       ValorDeclarado[]
   observacion?: string
 }
 
@@ -2725,6 +2733,8 @@ export interface SobreRecepcion {
   efectivoContado: number
   cheques:         ValorRecibido[]
   retenciones:     ValorRecibido[]
+  /** Vales de caja tildados por tesorería al contar (2026-09-25). */
+  vales?:          ValorRecibido[]
   conformidad:     Conformidad
   diferencia?:     DiferenciaSobre & { motivo: MotivoDiferenciaLiquidacion; nota: string }
   /** Contado por fajo (2026-09-23): cuánto contó tesorería de cada empresa; `efectivoContado` es la suma. */
@@ -2780,3 +2790,48 @@ export interface Sobre {
   anticipo?: { empresa: EmpresaTango }
   createdAt: Timestamp
 }
+
+/**
+ * VALE DE CAJA (2026-09-25, definido por Ariel: "muchas veces se dan vales a
+ * personas porque tesorería no está y sale un vale de caja"; cualquier persona
+ * lo puede recibir, sin autorización, sin tope, motivo escrito a mano, solo en
+ * la app). Plata que sale de la caja contra un papel firmado por quien la
+ * recibe. Descuenta del cajón de su empresa como el anticipo, pero NO va a
+ * tesorería: viaja adentro del sobre como un papel más (`SobreSistema.vales`),
+ * tesorería lo tilda al contar y lo deja "abierto" hasta que se cierra con el
+ * comprobante del gasto, un descuento de sueldo o la devolución de la plata.
+ * Colección `valesCaja/{cajaSesionId}_vale_{k}`, código VC-DT-000012.
+ */
+export type FormaCierreVale = 'comprobante' | 'descuento_sueldo' | 'devolucion'
+export const FORMAS_CIERRE_VALE: Record<FormaCierreVale, string> = {
+  comprobante:      'Trajo el comprobante del gasto',
+  descuento_sueldo: 'Se descuenta del sueldo',
+  devolucion:       'Devolvió la plata',
+}
+export interface ReceptorVale { uid?: string; nombre: string; dni?: string }
+export interface ValeCaja {
+  id:           string
+  plantaId:     PlantaId
+  fecha:        string
+  numero:       number
+  codigo:       string                 // VC-DT-000012
+  cajaSesionId: string
+  emitio:       ActorSobre
+  empresa:      EmpresaTango
+  importe:      number
+  receptor:     ReceptorVale
+  motivo:       string
+  firmaRecibe:    string               // dataURL PNG, firmada en la tablet del cajero
+  firmanteRecibe: string
+  emitidoEn:    Timestamp
+  estado:       'abierto' | 'cerrado'
+  /** El sobre en el que viajó a tesorería (lo anota el cierre del turno). */
+  sobreId?:     string
+  /** Tesorería lo tildó al contar el sobre. */
+  recibido?:    { por: ActorSobre; en: Timestamp; recibido: boolean; motivoNoRecibido?: string }
+  /** Cómo se cerró (tesorería). */
+  cierre?:      { forma: FormaCierreVale; nota: string; por: ActorSobre; en: Timestamp }
+  createdAt:    Timestamp
+}
+/** La foto del vale que queda en el sobre. */
+export interface ValeEnSobre { id: string; codigo: string; importe: number; empresa: EmpresaTango; receptorNombre: string; motivo: string }

@@ -8,7 +8,7 @@ import { cobranzasVigentes } from './anulacionCobranza'
 // custodia), sin React ni Firebase, con tests.
 import type {
   CajaSesion, ChequeRendido, Cobranza, Conformidad, DiferenciaSobre, EmpresaTango, Liquidacion, PlantaId, RetencionRendida,
-  Sobre, SobreDeclarado, SobrePlataEmpresa, SobrePorEmpresa, SobreRecepcion, SobreSistema, TipoSobre, ValorDeclarado, ValorRecibido, VentaVentanilla,
+  Sobre, SobreDeclarado, SobrePlataEmpresa, SobrePorEmpresa, SobreRecepcion, SobreSistema, TipoSobre, ValeCaja, ValeEnSobre, ValorDeclarado, ValorRecibido, VentaVentanilla,
 } from '@/types'
 import { PLANTA_INFO } from './constants'
 import { chequesDe, efectivoDe, retencionesDe, transferenciaDe } from './medios'
@@ -64,6 +64,26 @@ export const anticiposDelTurno = (sobres: Sobre[], cajaSesionId: string): Sobre[
 export const topeAnticipo = (porEmpresa: SobrePorEmpresa | undefined, empresa: EmpresaTango): number =>
   Math.max(0, porEmpresa?.[empresa].efectivo ?? 0)
 
+// ── Vales de caja (2026-09-25) ───────────────────────────────────────────────
+// Plata que sale de la caja contra un papel firmado por quien la recibe
+// (cualquier persona, sin autorización ni tope: definiciones de Ariel). Resta
+// del cajón de su empresa como el anticipo, pero no va a tesorería: viaja en el
+// sobre como un papel más y tesorería lo cierra después.
+
+/** Un vale cuelga del turno: `{cajaSesionId}_vale_{k}` (las reglas exigen ese molde). */
+export const valeId = (cajaSesionId: string, k: number): string => `${cajaSesionId}_vale_${k}`
+export const codigoVale = (numero: number, plantaId: PlantaId): string => `VC-${PLANTA_INFO[plantaId].prefijoCodigo}-${String(numero).padStart(6, '0')}`
+export const contadorVale = (plantaId: PlantaId): string => `valeCajaCounter_${plantaId}`
+/** Clave con la que el vale se tilda en el sobre (declarado y recepción), como los cheques. */
+export const claveDeVale = (v: Pick<ValeEnSobre, 'id'>): string => `vale|${v.id}`
+/** Los vales que salieron de un turno, en orden. */
+export const valesDelTurno = (vales: ValeCaja[], cajaSesionId: string): ValeCaja[] =>
+  vales.filter((v) => v.cajaSesionId === cajaSesionId).sort((a, b) => a.emitidoEn.toMillis() - b.emitidoEn.toMillis())
+/** La foto del vale que queda en el sobre. */
+export const valeEnSobre = (v: ValeCaja): ValeEnSobre => ({ id: v.id, codigo: v.codigo, importe: v.importe, empresa: v.empresa, receptorNombre: v.receptor.nombre, motivo: v.motivo })
+/** Cuánto se puede dar de una empresa: lo que físicamente hay en el cajón de esa empresa (no es un tope de política: Ariel, sin tope). */
+export const topeVale = topeAnticipo
+
 // ── Sistema (teórico) ────────────────────────────────────────────────────────
 
 export const claveDeCheque    = (c: Pick<ChequeRendido, 'cobranzaId' | 'numero'>): string => claveCheque(c)
@@ -79,6 +99,8 @@ export interface FuentesVentanilla {
   sobresRecibidos: Sobre[]
   /** Anticipos que este turno ya le entregó a tesorería (2026-09-23): se restan del cajón. */
   anticipos?: Sobre[]
+  /** Vales de caja del turno (2026-09-25): se restan del cajón y viajan en el sobre. */
+  vales?: ValeCaja[]
 }
 
 /**
@@ -100,8 +122,10 @@ export function sistemaVentanilla(f: FuentesVentanilla): SobreSistema {
   const cheques = [...propios.cheques, ...chequesDeLiq, ...chequesDeSob]
   const retenciones = [...propios.retenciones, ...retDeLiq, ...retDeSob]
   const anticipos = (f.anticipos ?? []).reduce((s, a) => s + a.sistema.efectivo, 0)
+  const vales = (f.vales ?? []).reduce((s, v) => s + v.importe, 0)
   return {
-    efectivo: redondear2(f.fondoInicial + m.ventas.contadoEfectivo + m.ventas.promoEfectivo + m.cobranzas.efectivo + m.recibido.efectivo + recibidoDeSobres - anticipos),
+    efectivo: redondear2(f.fondoInicial + m.ventas.contadoEfectivo + m.ventas.promoEfectivo + m.cobranzas.efectivo + m.recibido.efectivo + recibidoDeSobres - anticipos - vales),
+    ...(f.vales?.length ? { vales: f.vales.map(valeEnSobre) } : {}),
     cheques,
     retenciones,
     transferencias: { cantidad: 0, total: m.ventas.contadoTransferencia + m.ventas.promoTransferencia + m.cobranzas.transferencia },
@@ -113,6 +137,7 @@ export function sistemaVentanilla(f: FuentesVentanilla): SobreSistema {
       recibidoDeLiquidaciones: m.recibido.efectivo,
       recibidoDeSobres,
       anticipos,
+      vales,
     },
     origenIds: {
       ventasIds:          f.ventas.map((v) => v.id),
@@ -120,11 +145,12 @@ export function sistemaVentanilla(f: FuentesVentanilla): SobreSistema {
       liquidacionesIds:   f.liquidacionesRecibidas.map((l) => l.id),
       sobresRecibidosIds: f.sobresRecibidos.map((s) => s.id),
       anticiposIds:       (f.anticipos ?? []).map((a) => a.id),
+      valesIds:           (f.vales ?? []).map((v) => v.id),
     },
   }
 }
 
-const plataEmpresaVacia = (): SobrePlataEmpresa => ({ ventasEfectivo: 0, cobranzasEfectivo: 0, recibidoDeLiquidaciones: 0, recibidoDeSobres: 0, anticipos: 0, efectivo: 0, transferencias: 0, cheques: { cantidad: 0, total: 0 }, retenciones: { cantidad: 0, total: 0 } })
+const plataEmpresaVacia = (): SobrePlataEmpresa => ({ ventasEfectivo: 0, cobranzasEfectivo: 0, recibidoDeLiquidaciones: 0, recibidoDeSobres: 0, anticipos: 0, vales: 0, efectivo: 0, transferencias: 0, cheques: { cantidad: 0, total: 0 }, retenciones: { cantidad: 0, total: 0 } })
 export const EMPRESAS_SOBRE: EmpresaTango[] = ['redonhielo', 'rolito']
 
 /**
@@ -153,9 +179,11 @@ export function plataPorEmpresaSobre(f: FuentesVentanilla, cheques: ChequeRendid
   out.redonhielo.recibidoDeSobres += f.fondoInicial
   // Anticipos (2026-09-23): salieron del cajón de su empresa antes del cierre.
   for (const a of f.anticipos ?? []) out[empresaDeAnticipo(a)].anticipos! += a.sistema.efectivo
+  // Vales de caja (2026-09-25): salieron del cajón de su empresa contra un papel firmado.
+  for (const v of f.vales ?? []) out[v.empresa].vales! += v.importe
   for (const ch of cheques) { const e = out[ch.empresa ?? 'redonhielo']; e.cheques.cantidad++; e.cheques.total += ch.importe }
   for (const re of retenciones) { const e = out[re.empresa ?? 'redonhielo']; e.retenciones.cantidad++; e.retenciones.total += re.importe }
-  for (const e of EMPRESAS_SOBRE) out[e].efectivo = redondear2(out[e].ventasEfectivo + out[e].cobranzasEfectivo + out[e].recibidoDeLiquidaciones + out[e].recibidoDeSobres - (out[e].anticipos ?? 0))
+  for (const e of EMPRESAS_SOBRE) out[e].efectivo = redondear2(out[e].ventasEfectivo + out[e].cobranzasEfectivo + out[e].recibidoDeLiquidaciones + out[e].recibidoDeSobres - (out[e].anticipos ?? 0) - (out[e].vales ?? 0))
   return out
 }
 
@@ -205,18 +233,23 @@ export function valoresRecibidosDe(s: Sobre): { cheques: ChequeRendido[]; retenc
 function faltantesDe(sistema: SobreSistema, presentes: Set<string>): { cantidad: number; total: number } {
   const faltanC = sistema.cheques.filter((c) => !presentes.has(claveDeCheque(c)))
   const faltanR = sistema.retenciones.filter((r) => !presentes.has(claveDeRetencion(r)))
-  return { cantidad: faltanC.length + faltanR.length, total: faltanC.reduce((s, c) => s + c.importe, 0) + faltanR.reduce((s, r) => s + r.importe, 0) }
+  // Un vale que no está en el sobre es plata que falta sin justificar (2026-09-25).
+  const faltanV = (sistema.vales ?? []).filter((v) => !presentes.has(claveDeVale(v)))
+  return {
+    cantidad: faltanC.length + faltanR.length + faltanV.length,
+    total: faltanC.reduce((s, c) => s + c.importe, 0) + faltanR.reduce((s, r) => s + r.importe, 0) + faltanV.reduce((s, v) => s + v.importe, 0),
+  }
 }
 
 /** Diferencia de quien rinde: lo que declaró contra lo que el sistema dice. Negativo = falta. */
 export function diferenciaDeclarada(sistema: SobreSistema, declarado: SobreDeclarado): DiferenciaSobre {
-  const presentes = new Set([...declarado.cheques, ...declarado.retenciones].filter((v) => v.presente).map((v) => v.clave))
+  const presentes = new Set([...declarado.cheques, ...declarado.retenciones, ...(declarado.vales ?? [])].filter((v) => v.presente).map((v) => v.clave))
   return { efectivo: redondear(declarado.efectivo - sistema.efectivo), valoresFaltantes: faltantesDe(sistema, presentes) }
 }
 
 /** Diferencia de quien recibe: lo que contó contra lo que el sistema dice (no contra lo declarado: el sistema es el que manda). */
-export function diferenciaRecepcion(sistema: SobreSistema, rec: Pick<SobreRecepcion, 'efectivoContado' | 'cheques' | 'retenciones'>): DiferenciaSobre {
-  const presentes = new Set([...rec.cheques, ...rec.retenciones].filter((v) => v.recibido).map((v) => v.clave))
+export function diferenciaRecepcion(sistema: SobreSistema, rec: Pick<SobreRecepcion, 'efectivoContado' | 'cheques' | 'retenciones' | 'vales'>): DiferenciaSobre {
+  const presentes = new Set([...rec.cheques, ...rec.retenciones, ...(rec.vales ?? [])].filter((v) => v.recibido).map((v) => v.clave))
   return { efectivo: redondear(rec.efectivoContado - sistema.efectivo), valoresFaltantes: faltantesDe(sistema, presentes) }
 }
 
@@ -229,6 +262,7 @@ export function valoresSinDecidir(sistema: SobreSistema, decididos: (ValorDeclar
   return [
     ...sistema.cheques.map(claveDeCheque),
     ...sistema.retenciones.map(claveDeRetencion),
+    ...(sistema.vales ?? []).map(claveDeVale),
   ].filter((k) => !vistos.has(k))
 }
 

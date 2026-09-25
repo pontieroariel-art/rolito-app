@@ -1,8 +1,9 @@
 import { describe, it, expect } from 'vitest'
-import type { CajaSesion, Cobranza, Liquidacion, Sobre, SobreSistema, VentaVentanilla } from '@/types'
+import { Timestamp } from 'firebase/firestore'
+import type { CajaSesion, Cobranza, Liquidacion, Sobre, SobreSistema, ValeCaja, VentaVentanilla } from '@/types'
 import {
-  anticipoId, anticiposDelTurno, antiguedadHoras, codigoSobre, conformidadDe, contadorDeSobre, custodiaDePlanta, custodioDe, diferenciaDeclarada,
-  diferenciaPorEmpresaSobre, diferenciaRecepcion, fajosDe, hayDiferencia, recibidosSinMotivo, sistemaVentanilla, sobreId, topeAnticipo, valoresSinDecidir,
+  anticipoId, anticiposDelTurno, antiguedadHoras, claveDeVale, codigoSobre, codigoVale, conformidadDe, contadorDeSobre, custodiaDePlanta, custodioDe, diferenciaDeclarada,
+  diferenciaPorEmpresaSobre, diferenciaRecepcion, fajosDe, hayDiferencia, recibidosSinMotivo, sistemaVentanilla, sobreId, topeAnticipo, valeId, valoresSinDecidir,
 } from './sobres'
 
 const ts = (ms: number) => ({ toMillis: () => ms, toDate: () => new Date(ms) }) as unknown as import('firebase/firestore').Timestamp
@@ -38,9 +39,9 @@ describe('sistemaVentanilla', () => {
   it('suma fondo + efectivo de ventas (contado y promo) + cobranzas + lo recibido de choferes; nada de transferencias ni cta. cte.', () => {
     const s = sistemaVentanilla({ fondoInicial: 0, ventas, cobranzas, liquidacionesRecibidas: liqs, sobresRecibidos: [] })
     expect(s.efectivo).toBe(1000 + 300 + 200 + 700)
-    expect(s.detalle).toEqual({ fondoInicial: 0, ventasEfectivo: 1300, cobranzasEfectivo: 200, recibidoDeLiquidaciones: 700, recibidoDeSobres: 0, anticipos: 0 })
+    expect(s.detalle).toEqual({ fondoInicial: 0, ventasEfectivo: 1300, cobranzasEfectivo: 200, recibidoDeLiquidaciones: 700, recibidoDeSobres: 0, anticipos: 0, vales: 0 })
     expect(s.transferencias.total).toBe(500)
-    expect(s.origenIds).toEqual({ ventasIds: ['v1', 'v2', 'v3', 'v4'], cobranzasIds: ['c1'], liquidacionesIds: ['l1'], sobresRecibidosIds: [], anticiposIds: [] })
+    expect(s.origenIds).toEqual({ ventasIds: ['v1', 'v2', 'v3', 'v4'], cobranzasIds: ['c1'], liquidacionesIds: ['l1'], sobresRecibidosIds: [], anticiposIds: [], valesIds: [] })
   })
   it('los cheques son los propios más los que el chofer SÍ entregó; el que no entregó no viaja', () => {
     const s = sistemaVentanilla({ fondoInicial: 0, ventas, cobranzas, liquidacionesRecibidas: liqs, sobresRecibidos: [] })
@@ -144,5 +145,37 @@ describe('custodia', () => {
   })
   it('antigüedad nunca negativa', () => {
     expect(antiguedadHoras({ cerradaEn: ts(10_000) }, 0)).toBe(0)
+  })
+})
+
+describe('vales de caja (2026-09-25)', () => {
+  const vale = (id: string, empresa: 'redonhielo' | 'rolito', importe: number): ValeCaja => ({
+    id, plantaId: 'torcuato', fecha: '2026-09-25', numero: 1, codigo: 'VC-DT-000001', cajaSesionId: '2026-09-25_caja1_1',
+    emitio: { uid: 'caja1', nombre: 'Nico', rol: 'caja' }, empresa, importe, receptor: { nombre: 'Juan Pérez', dni: '30123456' }, motivo: 'combustible',
+    firmaRecibe: 'x', firmanteRecibe: 'Juan Pérez', emitidoEn: Timestamp.fromDate(new Date('2026-09-25T10:40:00')), estado: 'abierto', createdAt: Timestamp.fromDate(new Date('2026-09-25T10:40:00')),
+  })
+  const base = { fondoInicial: 0, ventas: [], cobranzas: [], liquidacionesRecibidas: [], sobresRecibidos: [] }
+
+  it('resta del cajón y de SU empresa, y deja su foto en el sobre', () => {
+    const v = vale('2026-09-25_caja1_1_vale_1', 'rolito', 20000)
+    const s = sistemaVentanilla({ ...base, fondoInicial: 100000, vales: [v] })
+    expect(s.efectivo).toBe(80000)
+    expect(s.detalle?.vales).toBe(20000)
+    expect(s.porEmpresa?.rolito.vales).toBe(20000)
+    expect(s.porEmpresa?.rolito.efectivo).toBe(-20000)   // Rolito no tenía ventas: el cajón de esa empresa queda en negativo, Redonhielo con el fondo
+    expect(s.porEmpresa?.redonhielo.efectivo).toBe(100000)
+    expect(s.vales).toEqual([{ id: v.id, codigo: 'VC-DT-000001', importe: 20000, empresa: 'rolito', receptorNombre: 'Juan Pérez', motivo: 'combustible' }])
+    expect(s.origenIds.valesIds).toEqual([v.id])
+    expect(codigoVale(12, 'torcuato')).toBe('VC-DT-000012')
+    expect(valeId('2026-09-25_caja1_1', 3)).toBe('2026-09-25_caja1_1_vale_3')
+  })
+
+  it('un vale que no está en el sobre es un valor faltante; tildado, cuadra', () => {
+    const v = vale('2026-09-25_caja1_1_vale_1', 'redonhielo', 20000)
+    const s = sistemaVentanilla({ ...base, fondoInicial: 100000, vales: [v] })
+    const clave = claveDeVale(s.vales![0]!)
+    expect(valoresSinDecidir(s, [])).toEqual([clave])
+    expect(diferenciaDeclarada(s, { efectivo: 80000, cheques: [], retenciones: [], vales: [{ clave, presente: false }] })).toEqual({ efectivo: 0, valoresFaltantes: { cantidad: 1, total: 20000 } })
+    expect(diferenciaRecepcion(s, { efectivoContado: 80000, cheques: [], retenciones: [], vales: [{ clave, recibido: true }] })).toEqual({ efectivo: 0, valoresFaltantes: { cantidad: 0, total: 0 } })
   })
 })

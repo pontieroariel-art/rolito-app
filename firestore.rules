@@ -797,10 +797,10 @@ service cloud.firestore {
       // updates solo puede avanzar `next` (el doc nace en el primer uso con
       // next >= 2: número emitido + 1).
       allow create: if request.auth != null
-        && docId.matches('(rendicionCounter|entregaCounter|sobreVentanillaCounter|sobreAnticipoCounter)_(torcuato|merlo)') && isCajaDe(docId.split('_')[1])
+        && docId.matches('(rendicionCounter|entregaCounter|sobreVentanillaCounter|sobreAnticipoCounter|valeCajaCounter)_(torcuato|merlo)') && isCajaDe(docId.split('_')[1])
         && request.resource.data.next is int && request.resource.data.next > 1;
       allow update: if request.auth != null
-        && docId.matches('(rendicionCounter|entregaCounter|sobreVentanillaCounter|sobreAnticipoCounter)_(torcuato|merlo)') && isCajaDe(docId.split('_')[1])
+        && docId.matches('(rendicionCounter|entregaCounter|sobreVentanillaCounter|sobreAnticipoCounter|valeCajaCounter)_(torcuato|merlo)') && isCajaDe(docId.split('_')[1])
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['next'])
         && request.resource.data.next > resource.data.next;
       // Contador de DESCARGAS por planta (descargaCounter_torcuato /
@@ -2044,6 +2044,8 @@ service cloud.firestore {
           && r.efectivoContado is number
           && r.cheques is list && r.cheques.size() == sistema.cheques.size()
           && r.retenciones is list && r.retenciones.size() == sistema.retenciones.size()
+          // Vales de caja en el sobre (2026-09-25): tildados uno por uno, como los cheques.
+          && r.get('vales', []).size() == sistema.get('vales', []).size()
           && r.conformidad in ['conforme', 'con_diferencia']
           && (r.conformidad == 'conforme'
               || (r.diferencia.motivo is string
@@ -2176,6 +2178,68 @@ service cloud.firestore {
         && resource.data.entregaId == null
         && request.resource.data.entregaId is string
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['entregaId']);
+
+      allow delete: if false;
+    }
+
+    // ── Vales de caja (2026-09-25) ────────────────────────────────────────
+    // Plata que sale de la caja contra un papel firmado por quien la recibe
+    // (cualquier persona, sin autorización ni tope: Ariel). El cajero lo crea
+    // desde SU turno abierto (id `{cajaSesionId}_vale_{k}`), nace 'abierto',
+    // importe positivo, receptor con nombre, motivo, firma; nada del server ni
+    // de tesorería adentro. El cierre del turno le anota `sobreId` (solo eso).
+    // Tesorería (o el operador) lo tilda al contar el sobre (`recibido`) y lo
+    // cierra una sola vez (`estado` + `cierre`, con su uid). Nadie borra.
+    match /valesCaja/{valeId} {
+      function turnoAbiertoDelVale(d) {
+        let s = get(/databases/$(database)/documents/cajaSesiones/$(d.cajaSesionId)).data;
+        return s.estado == 'abierta' && s.cajero.uid == request.auth.uid
+          && s.plantaId == d.plantaId && s.fecha == d.fecha;
+      }
+      allow read: if request.auth != null
+        && (isCaja() || isTesoreria() || isOperator() || isManager() || isGerenteGeneral());
+
+      allow create: if request.auth != null && isCajaDe(request.resource.data.plantaId)
+        && request.resource.data.emitio.uid == request.auth.uid
+        && request.resource.data.emitio.rol == 'caja'
+        && request.resource.data.estado == 'abierto'
+        && !request.resource.data.keys().hasAny(['sobreId', 'recibido', 'cierre'])
+        && request.resource.data.fecha is string
+        && request.resource.data.cajaSesionId is string
+        && valeId.matches(request.resource.data.cajaSesionId + '_vale_[0-9]+')
+        && turnoAbiertoDelVale(request.resource.data)
+        && request.resource.data.numero is int && request.resource.data.numero > 0
+        && request.resource.data.codigo is string
+        && request.resource.data.empresa in ['redonhielo', 'rolito']
+        && request.resource.data.importe is number && request.resource.data.importe > 0
+        && request.resource.data.receptor.nombre is string && request.resource.data.receptor.nombre.size() > 0
+        && request.resource.data.motivo is string && request.resource.data.motivo.size() > 0
+        && request.resource.data.firmaRecibe is string && request.resource.data.firmaRecibe.size() > 0
+        && request.resource.data.firmanteRecibe is string
+        && request.resource.data.emitidoEn is timestamp;
+
+      // El cierre del turno anota en qué sobre viajó (el cajero que lo dio, una vez).
+      allow update: if request.auth != null && isCaja()
+        && resource.data.emitio.uid == request.auth.uid
+        && !('sobreId' in resource.data)
+        && request.resource.data.sobreId is string
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['sobreId']);
+
+      // Tesorería lo tilda al contar el sobre, y lo cierra una sola vez.
+      allow update: if request.auth != null && (isTesoreria() || isOperator())
+        && (
+          (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['recibido'])
+            && request.resource.data.recibido.por.uid == request.auth.uid
+            && request.resource.data.recibido.en is timestamp
+            && request.resource.data.recibido.recibido is bool)
+          || (resource.data.estado == 'abierto'
+            && request.resource.data.estado == 'cerrado'
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['estado', 'cierre'])
+            && request.resource.data.cierre.por.uid == request.auth.uid
+            && request.resource.data.cierre.en is timestamp
+            && request.resource.data.cierre.forma in ['comprobante', 'descuento_sueldo', 'devolucion']
+            && request.resource.data.cierre.nota is string)
+        );
 
       allow delete: if false;
     }

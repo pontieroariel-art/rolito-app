@@ -95,6 +95,11 @@ export function seccionesDelActa(f: Fuentes): SeccionActa[] {
     f.anticipos.map((a) => fila(`${a.codigo}  recibió ${a.entrega?.recibio.nombre ?? a.custodia.nombre} · ${horaCorta(a.cerradaEn)}${a.recepcion ? ' · ya contado por tesorería' : ''}`, empresaDeAnticipo(a), a.sistema.efectivo, { resta: true })),
     'Ningún anticipo en este turno.', true)
 
+  // Vales de caja (2026-09-25): salieron del cajón contra un papel firmado; van en el sobre. La foto vive en el sobre.
+  const vales = bloque('Vales de caja',
+    (f.sobre.sistema.vales ?? []).map((v) => fila(`${v.codigo}  ${v.receptorNombre} · ${v.motivo}`, v.empresa, v.importe, { resta: true })),
+    'Ningún vale en este turno.', true)
+
   const ventasCC = bloque('Ventas en cuenta corriente',
     ventas.filter((v) => v.formaPago === 'cuenta_corriente' && vigente(v)).map((v) => fila(textoVenta(v), empresaDeVenta(v), importeCobrado(v))),
     'Sin ventas en cuenta corriente en este turno.')
@@ -114,7 +119,7 @@ export function seccionesDelActa(f: Fuentes): SeccionActa[] {
     'Sin retenciones en este turno.')
 
   return [
-    { titulo: 'LO LÍQUIDO · EFECTIVO Y CHEQUES', bloques: [ventasEf, cobEf, cobCh, liqEf, liqCh, anticipos] },
+    { titulo: 'LO LÍQUIDO · EFECTIVO Y CHEQUES', bloques: [ventasEf, cobEf, cobCh, liqEf, liqCh, anticipos, ...(vales.cantidad ? [vales] : [])] },
     { titulo: 'NO ENTRA A LA CAJA · SE REGISTRA, NO SE RINDE', bloques: [ventasCC, transferencias, retenciones] },
   ]
 }

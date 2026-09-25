@@ -8,7 +8,7 @@ import { textoCheque } from '@/components/expedicion/SobresCaja'
 import { TablaCheques } from '@/components/tesoreria/plata'
 import { formatoARS } from '@/utils/money'
 import { desgloseContado, desgloseVacio } from '@/utils/billetes'
-import { claveDeCheque, claveDeRetencion, diferenciaDeclarada, hayDiferencia, valoresSinDecidir } from '@/utils/sobres'
+import { claveDeCheque, claveDeRetencion, claveDeVale, diferenciaDeclarada, hayDiferencia, valoresSinDecidir } from '@/utils/sobres'
 import { MOTIVOS_CIERRE_MOSTRADOR, MOTIVOS_DIFERENCIA_LIQUIDACION, type DesgloseBilletes, type MotivoDiferenciaLiquidacion, type SobreDeclarado, type SobreSistema } from '@/types'
 
 export interface DatosCierreTurnoModal {
@@ -38,6 +38,8 @@ export default function CierreTurnoModal({ cajero, sistema, resumen, guardando, 
   // confirman en el cierre. Van al sobre como presentes.
   const valores = useMemo(() => [
     ...sistema.cheques.map((ch) => ({ clave: claveDeCheque(ch), texto: textoCheque(ch), detalle: `acredita ${ch.fechaAcreditacion || '—'} · ${ch.clienteNombre}${ch.numeroRecibo ? ` · ${ch.numeroRecibo}` : ''}`, importe: ch.importe, empresa: ch.empresa, tipo: 'cheque' as const })),
+    // Vales de caja (2026-09-25): el papel que justifica la plata que salió; va en el sobre.
+    ...(sistema.vales ?? []).map((v) => ({ clave: claveDeVale(v), texto: `Vale ${v.codigo} · ${v.receptorNombre}`, detalle: v.motivo, importe: v.importe, empresa: v.empresa, tipo: 'vale' as const })),
   ], [sistema])
   const retencionesDeclaradas = useMemo(() => sistema.retenciones.map((re) => ({ clave: claveDeRetencion(re), presente: true })), [sistema])
   const hayValores = valores.length > 0
@@ -59,6 +61,7 @@ export default function CierreTurnoModal({ cajero, sistema, resumen, guardando, 
     conteoBilletes: conteo,
     cheques:        sistema.cheques.map((ch) => { const k = claveDeCheque(ch); const presente = presentes[k] === true; return { clave: k, presente, ...(!presente && motivos[k]?.trim() ? { motivo: motivos[k].trim() } : {}) } }),
     retenciones:    retencionesDeclaradas,
+    ...(sistema.vales?.length ? { vales: sistema.vales.map((v) => { const k = claveDeVale(v); const presente = presentes[k] === true; return { clave: k, presente, ...(!presente && motivos[k]?.trim() ? { motivo: motivos[k].trim() } : {}) } }) } : {}),
   }), [conteo, presentes, motivos, sistema, retencionesDeclaradas])
   const diferencia = useMemo(() => diferenciaDeclarada(sistema, declarado), [sistema, declarado])
   const conDiferencia = hayDiferencia(diferencia)
@@ -121,12 +124,26 @@ export default function CierreTurnoModal({ cajero, sistema, resumen, guardando, 
 
         {paso === 2 && (
           <div className="space-y-3">
-            <h3 className="text-lg font-semibold text-gray-900">Cheques que van en el sobre, tildá cada uno</h3>
+            <h3 className="text-lg font-semibold text-gray-900">{sistema.vales?.length ? 'Cheques y vales que van en el sobre, tildá cada uno' : 'Cheques que van en el sobre, tildá cada uno'}</h3>
             <p className="text-sm text-secundario">Estos son los cheques que tendrías que tener en mano: de dónde salió cada uno, cuándo se paga y quién lo cobró.</p>
             {sistema.cheques.length > 0 && (
               <TablaCheques cheques={sistema.cheques} etiquetaSi="Lo tengo" etiquetaNo="No lo tengo"
                 decisiones={Object.fromEntries(sistema.cheques.map((ch) => { const k = claveDeCheque(ch); const p = presentes[k]; return [k, p === undefined ? undefined : p ? { recibido: true } : { recibido: false, motivo: motivos[k] ?? '' }] }))}
                 onDecision={(clave, d) => { setPresentes((p) => ({ ...p, [clave]: d.recibido })); if (!d.recibido) setMotivos((m) => ({ ...m, [clave]: d.motivo })) }} />
+            )}
+            {(sistema.vales ?? []).length > 0 && (
+              <div className="space-y-1.5">
+                <p className="text-sm font-semibold text-gray-900 pt-1">Vales de caja: el papel firmado de cada uno va en el sobre</p>
+                {(sistema.vales ?? []).map((v) => { const k = claveDeVale(v); const p = presentes[k]; return (
+                  <div key={k} className={`flex flex-wrap items-center gap-2 rounded-lg border px-3 py-2 ${p === false ? 'border-red-200 bg-red-50' : p ? 'border-[#B3DDD3] bg-[#F1F9F5]' : 'border-[#D3D1C7]'}`}>
+                    <span className="flex-1 min-w-0 text-sm"><b>{v.codigo}</b> · {v.receptorNombre} <span className="text-secundario">· {v.motivo}</span></span>
+                    <span className="font-semibold tabular-nums">{formatoARS(v.importe)}</span>
+                    <button type="button" onClick={() => setPresentes((x) => ({ ...x, [k]: true }))} className={`h-9 px-3 rounded-lg border text-xs font-semibold ${p ? 'border-[#1D9E75] bg-[#E6F5EF] text-[#178760]' : 'border-[#D3D1C7] bg-white text-gray-700'}`}>Lo tengo</button>
+                    <button type="button" onClick={() => setPresentes((x) => ({ ...x, [k]: false }))} className={`h-9 px-3 rounded-lg border text-xs font-semibold ${p === false ? 'border-red-400 bg-red-50 text-red-700' : 'border-[#D3D1C7] bg-white text-gray-700'}`}>No lo tengo</button>
+                    {p === false && <input value={motivos[k] ?? ''} onChange={(e) => setMotivos((m) => ({ ...m, [k]: e.target.value }))} placeholder="Motivo (obligatorio)" className="w-full bg-white border border-[#D3D1C7] rounded-lg px-3 py-1.5 text-sm" />}
+                  </div>
+                ) })}
+              </div>
             )}
           </div>
         )}
@@ -146,7 +163,7 @@ export default function CierreTurnoModal({ cajero, sistema, resumen, guardando, 
 
             {sistema.detalle && (
               <p className="text-xs text-secundario tabular-nums">
-                Fondo inicial {formatoARS(sistema.detalle.fondoInicial)} + ventas en efectivo {formatoARS(sistema.detalle.ventasEfectivo)} + cobranzas en efectivo {formatoARS(sistema.detalle.cobranzasEfectivo)} + recibido de choferes {formatoARS(sistema.detalle.recibidoDeLiquidaciones)}{sistema.detalle.anticipos ? ` − anticipos a tesorería ${formatoARS(sistema.detalle.anticipos)}` : ''}
+                Fondo inicial {formatoARS(sistema.detalle.fondoInicial)} + ventas en efectivo {formatoARS(sistema.detalle.ventasEfectivo)} + cobranzas en efectivo {formatoARS(sistema.detalle.cobranzasEfectivo)} + recibido de choferes {formatoARS(sistema.detalle.recibidoDeLiquidaciones)}{sistema.detalle.anticipos ? ` − anticipos a tesorería ${formatoARS(sistema.detalle.anticipos)}` : ''}{sistema.detalle.vales ? ` − vales de caja ${formatoARS(sistema.detalle.vales)}` : ''}
               </p>
             )}
             {sistema.porEmpresa && diferencia.efectivo === 0 && (

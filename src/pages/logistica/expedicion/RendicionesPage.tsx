@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { AlertTriangle, Clock, Eye, Handshake, History, Landmark, Share2, Wallet } from 'lucide-react'
+import { AlertTriangle, Clock, Eye, Handshake, History, Landmark, Receipt, Share2, Wallet } from 'lucide-react'
 import { useVisorComprobante } from '@/components/ui/VisorComprobante'
 import Button from '@/components/ui/Button'
 import Badge from '@/components/common/Badge'
@@ -8,6 +8,7 @@ import PageHeader from '@/components/common/PageHeader'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
 import AbrirTurnoPanel from '@/components/expedicion/AbrirTurnoPanel'
 import AnticipoModal, { type DatosAnticipoModal } from '@/components/expedicion/AnticipoModal'
+import ValeModal, { type DatosValeModal } from '@/components/expedicion/ValeModal'
 import CierreTurnoModal, { type DatosCierreTurnoModal } from '@/components/expedicion/CierreTurnoModal'
 import { BadgeRecepcion, TablaSobres, dif, textoRecepcion } from '@/components/expedicion/SobresCaja'
 import { BloqueRenglones, CeldasRH, EfectivoCheques, Renglon, TextoRH, VerMas } from '@/components/tesoreria/plata'
@@ -20,6 +21,8 @@ import { useSesionAbierta } from '@/hooks/useCajaSesion'
 import { subscribeVentasVentanillaDeUsuarioEnRango } from '@/services/ventaVentanillaService'
 import { cerrarTurnoYRendir, crearAnticipo, entregarSobre, subscribeSobresDe, SobreYaExisteError, type DatosEntregaSobre } from '@/services/sobreService'
 import { getUsuariosTesoreria } from '@/services/userService'
+import { crearVale, subscribeValesDeTurno } from '@/services/valeService'
+import { generateVale } from '@/utils/valePdf'
 import { reportError } from '@/services/observability'
 import { addDaysStr } from '@/utils/helpers'
 import { formatoARS } from '@/utils/money'
@@ -34,7 +37,7 @@ import { empresaDeCobranza, empresaDeVenta } from '@/utils/liquidacion'
 import { nombreClienteVenta } from '@/utils/nombreClienteVenta'
 import { numeroComprobanteVenta } from '@/utils/numeroComprobanteVenta'
 import { anulacionCobranzaEnCurso } from '@/utils/anulacionCobranza'
-import { MOTIVOS_DIFERENCIA_LIQUIDACION, PLANTAS, type Sobre, type VentaVentanilla } from '@/types'
+import { MOTIVOS_DIFERENCIA_LIQUIDACION, PLANTAS, type Sobre, type VentaVentanilla, type ValeCaja } from '@/types'
 
 const comprobanteDe = numeroComprobanteVenta
 const diaLargo = (fecha: string) => new Date(`${fecha}T12:00:00`).toLocaleDateString('es-AR', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' })
@@ -63,6 +66,10 @@ export default function RendicionesPage() {
   const [cargandoSobres, setCargandoSobres] = useState(true)
   const [confirmando, setConfirmando] = useState(false)
   const [anticipando, setAnticipando] = useState(false)
+  // Vales de caja (2026-09-25): plata que sale contra un papel firmado; viajan en el sobre.
+  const [valeando, setValeando] = useState(false)
+  const [errorVale, setErrorVale] = useState('')
+  const [vales, setVales] = useState<ValeCaja[]>([])
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState('')
   const [errorAnticipo, setErrorAnticipo] = useState('')
@@ -89,6 +96,11 @@ export default function RendicionesPage() {
     return () => { offV(); offS() }
   }, [user, hoy, diaTurno])
 
+  useEffect(() => {
+    if (!sesion) { setVales([]); return }
+    return subscribeValesDeTurno(sesion.id, setVales)
+  }, [sesion])
+
   // Cobranzas del día del turno y liquidaciones de choferes de los últimos 7 días
   // (una cerrada a última hora se rinde en el turno siguiente).
   const mio = useMiMostrador(user?.uid, diaTurno, ventas, { diasLiquidaciones: 7 })
@@ -97,8 +109,8 @@ export default function RendicionesPage() {
   const liquidaciones  = useMemo(() => (user ? liquidacionesPorRendir(mio.liquidacionesRecibidas, user.uid, sobres) : []), [mio.liquidacionesRecibidas, user, sobres])
   const anticipos      = useMemo(() => (sesion ? anticiposDelTurno(sobres, sesion.id) : []), [sobres, sesion])
   const sistema = useMemo(
-    () => (sesion ? sistemaVentanilla({ fondoInicial: sesion.fondoInicial, ventas: ventasTurno, cobranzas: cobranzasTurno, liquidacionesRecibidas: liquidaciones, sobresRecibidos: [], anticipos }) : null),
-    [sesion, ventasTurno, cobranzasTurno, liquidaciones, anticipos],
+    () => (sesion ? sistemaVentanilla({ fondoInicial: sesion.fondoInicial, ventas: ventasTurno, cobranzas: cobranzasTurno, liquidacionesRecibidas: liquidaciones, sobresRecibidos: [], anticipos, vales }) : null),
+    [sesion, ventasTurno, cobranzasTurno, liquidaciones, anticipos, vales],
   )
   const calc = useMemo(() => calcularMostrador(ventasTurno, cobranzasTurno, liquidaciones), [ventasTurno, cobranzasTurno, liquidaciones])
   const sobresHoy = useMemo(() => sobres.filter((s) => s.fecha === hoy && s.tipo === 'ventanilla'), [sobres, hoy])
@@ -161,6 +173,33 @@ export default function RendicionesPage() {
     } catch (err) {
       reportError(err, { origen: 'RendicionesPage', accion: 'anticipo a tesorería' })
       setErrorAnticipo(err instanceof Error ? err.message : 'No se pudo registrar el anticipo.')
+    } finally { setGuardando(false) }
+  }
+
+  const verVale = async (v: ValeCaja) => {
+    try {
+      const { blob, nombre } = await generateVale(v)
+      abrir({ blob, nombre, titulo: `Vale de caja ${v.codigo}`, subtitulo: `${v.receptor.nombre} · ${formatoARS(v.importe)}` })
+    } catch (err) {
+      reportError(err, { origen: 'RendicionesPage', accion: 'error al generar el vale' })
+      setAviso('No se pudo generar el vale en PDF.')
+    }
+  }
+
+  const darVale = async (datos: DatosValeModal) => {
+    if (!user || !sesion || !sistema) return
+    setGuardando(true); setErrorVale('')
+    try {
+      const v = await crearVale(
+        { sesion, importe: datos.importe, empresa: datos.empresa, porEmpresa: sistema.porEmpresa, receptor: datos.receptor, motivo: datos.motivo, firmaRecibe: datos.firmaRecibe, firmanteRecibe: datos.receptor.nombre },
+        { uid: user.uid, nombre: user.nombre, rol: 'caja' },
+      )
+      setValeando(false)
+      setAviso('')
+      void verVale(v)
+    } catch (err) {
+      reportError(err, { origen: 'RendicionesPage', accion: 'vale de caja' })
+      setErrorVale(err instanceof Error ? err.message : 'No se pudo registrar el vale.')
     } finally { setGuardando(false) }
   }
 
@@ -340,6 +379,14 @@ export default function RendicionesPage() {
               ))}
             </BloqueRenglones>
 
+            <BloqueRenglones titulo="Vales de caja" cantidad={vales.length} total={sistema.detalle?.vales ?? 0} redonhielo={pe?.redonhielo.vales ?? 0} rolito={pe?.rolito.vales ?? 0} resta abiertoInicial={vales.length > 0}
+              vacio="Ningún vale en este turno. Si sale plata de la caja contra un vale firmado, registralo acá: sale de tu caja y viaja en el sobre.">
+              {vales.map((v) => (
+                <Renglon key={v.id} clave={v.codigo.replace(/^VC-DT-0+/, 'VC-DT-')} texto={`${v.receptor.nombre} · ${v.motivo}`} empresa={v.empresa}
+                  sub={`${horaCorta(v.emitidoEn)}${v.estado === 'cerrado' ? ' · ya cerrado por tesorería' : ''}`} importe={v.importe} />
+              ))}
+            </BloqueRenglones>
+
             <h2 className="text-xs font-semibold uppercase tracking-wide text-secundario pt-2">No entra a la caja · se registra, no se rinde</h2>
             <BloqueRenglones titulo="Ventas en cuenta corriente" cantidad={ventasCC.length} total={totCC.total} redonhielo={totCC.redonhielo} rolito={totCC.rolito}
               vacio="Sin ventas en cuenta corriente en este turno.">
@@ -372,7 +419,10 @@ export default function RendicionesPage() {
 
             {bloqueo && <p className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-sm text-amber-800">{bloqueo}</p>}
             {error && !confirmando && <p className="text-sm text-red-600">{error}</p>}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
+              <Button size="lg" variant="outline" onClick={() => { setErrorVale(''); setValeando(true) }} disabled={!sistema.efectivo}>
+                <Receipt /> Vale de caja
+              </Button>
               <Button size="lg" variant="outline" onClick={() => { setErrorAnticipo(''); setAnticipando(true) }} disabled={!sistema.efectivo}>
                 <Handshake /> Anticipo a tesorería
               </Button>
@@ -413,6 +463,9 @@ export default function RendicionesPage() {
         <Link to="/caja/rendiciones/historial" className="inline-flex items-center gap-1 text-sm text-secundario hover:text-accent"><History size={16} /> Historial completo de cierres</Link>
       </p>
 
+      {valeando && sesion && sistema && (
+        <ValeModal porEmpresa={sistema.porEmpresa} guardando={guardando} error={errorVale} onCancelar={() => setValeando(false)} onEntregar={darVale} />
+      )}
       {anticipando && sesion && sistema && (
         <AnticipoModal porEmpresa={sistema.porEmpresa} receptores={receptores} guardando={guardando} error={errorAnticipo} onCancelar={() => setAnticipando(false)} onEntregar={anticipar} />
       )}

@@ -5,6 +5,8 @@ import HistorialTable, { type ColumnaHistorial } from '@/components/common/Histo
 import PageHeader from '@/components/common/PageHeader'
 import { CAMPO_FILTRO } from '@/components/common/tabla'
 import RecibirSobreModal from '@/components/tesoreria/RecibirSobreModal'
+import CerrarValeModal from '@/components/tesoreria/CerrarValeModal'
+import { cerrarVale, subscribeValesAbiertos, subscribeValesDelDia } from '@/services/valeService'
 import FranjaRendicionesPendientes from '@/components/tesoreria/FranjaRendicionesPendientes'
 import { EfectivoCheques, NOMBRE_EMPRESA, TextoRH } from '@/components/tesoreria/plata'
 import Button from '@/components/ui/Button'
@@ -25,7 +27,7 @@ import { useLiveDelDia } from '@/hooks/useLiveDelDia'
 import { sumaImportes } from '@/utils/medios'
 import { actaSobreBlob } from '@/services/actaSobreService'
 import { useVisorComprobante } from '@/components/ui/VisorComprobante'
-import { MOTIVOS_DIFERENCIA_LIQUIDACION, PLANTAS, type PlantaId, type Sobre } from '@/types'
+import { MOTIVOS_DIFERENCIA_LIQUIDACION, PLANTAS, type FormaCierreVale, type PlantaId, type Sobre, type ValeCaja } from '@/types'
 
 // Home de tesorería (2026-09-24: reemplazó a "Plata del día", que Ariel no
 // entendía). Arriba, la tira "¿Dónde está la plata hoy?" en cuatro lugares;
@@ -51,6 +53,14 @@ export default function RecepcionPage() {
   const [planta, setPlanta] = useState<FiltroPlanta>('todas')
   const c = useCustodiaTesoreria(dia)
   const [recibiendo, setRecibiendo] = useState<Sobre | null>(null)
+  // Vales de caja (2026-09-25): los del día restan de los turnos abiertos; los abiertos se cierran desde acá.
+  const [valesDia, setValesDia] = useState<ValeCaja[]>([])
+  const [valesAbiertos, setValesAbiertos] = useState<ValeCaja[]>([])
+  const [cerrandoVale, setCerrandoVale] = useState<ValeCaja | null>(null)
+  const [guardandoVale, setGuardandoVale] = useState(false)
+  const [errorVale, setErrorVale] = useState('')
+  useEffect(() => subscribeValesDelDia(dia, setValesDia), [dia])
+  useEffect(() => subscribeValesAbiertos(setValesAbiertos), [])
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState('')
   const [ultimoRecibido, setUltimoRecibido] = useState<Sobre | null>(null)
@@ -87,8 +97,8 @@ export default function RecepcionPage() {
     sesiones: live.sesiones, sobres: live.sobres, liquidaciones: live.liquidaciones,
     calle: live.resumen.calle, supervisores: live.resumen.supervisores,
     ventanilla: [...live.resumen.ventanilla.torcuato, ...live.resumen.ventanilla.merlo],
-    porRecibir, aContar, contados: recibidos,
-  }), [live.sesiones, live.sobres, live.liquidaciones, live.resumen, porRecibir, aContar, recibidos])
+    porRecibir, aContar, contados: recibidos, vales: valesDia,
+  }), [live.sesiones, live.sobres, live.liquidaciones, live.resumen, porRecibir, aContar, recibidos, valesDia])
 
   const acta = useCallback(async (s: Sobre) => {
     setAviso('')
@@ -113,6 +123,20 @@ export default function RecepcionPage() {
       setError(err instanceof SobreYaRecibidoError || err instanceof Error ? err.message : 'No se pudo recibir el sobre.')
     } finally {
       setGuardando(false)
+    }
+  }
+
+  const cerrarElVale = async (datos: { forma: FormaCierreVale; nota: string }) => {
+    if (!user || !cerrandoVale) return
+    setGuardandoVale(true); setErrorVale('')
+    try {
+      await cerrarVale(cerrandoVale.id, datos, { uid: user.uid, nombre: user.nombre, rol: user.rol })
+      setCerrandoVale(null)
+    } catch (err) {
+      reportError(err, { origen: 'RecepcionPage', accion: 'error al cerrar el vale' })
+      setErrorVale(err instanceof Error ? err.message : 'No se pudo cerrar el vale.')
+    } finally {
+      setGuardandoVale(false)
     }
   }
 
@@ -172,10 +196,34 @@ export default function RecepcionPage() {
         </Columna>
       </div>
 
+      {/* Vales de caja abiertos (2026-09-25): plata que salió de alguna caja contra un papel firmado y todavía no se cerró. */}
+      <section className="rounded-2xl border border-[#D3D1C7] bg-white p-4 space-y-2">
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="text-xs font-semibold uppercase tracking-wide text-secundario">Vales de caja abiertos · {valesAbiertos.length}</h2>
+          <span className="text-sm font-bold tabular-nums">{formatoARS(valesAbiertos.reduce((a, v) => a + v.importe, 0))}</span>
+        </div>
+        {valesAbiertos.length === 0
+          ? <p className="text-sm text-secundario">Ningún vale abierto. Cuando caja da plata contra un vale, aparece acá hasta que lo cierres con el comprobante, un descuento de sueldo o la devolución.</p>
+          : (
+            <ul className="divide-y divide-[#E7E5DC]">
+              {valesAbiertos.map((v) => (
+                <li key={v.id} className="py-2 flex flex-wrap items-center gap-2">
+                  <span className="min-w-0 flex-1 text-sm text-gray-900"><b>{v.codigo}</b> · {v.receptor.nombre}{v.receptor.dni ? ` (DNI ${v.receptor.dni})` : ''} <span className="text-secundario">· {v.motivo} · lo dio {v.emitio.nombre} el {v.fecha.slice(8, 10)}/{v.fecha.slice(5, 7)}{v.recibido ? (v.recibido.recibido ? ' · en tu poder' : ' · NO VINO en el sobre') : v.sobreId ? ' · en el sobre, sin contar' : ' · todavía en la caja'}</span></span>
+                  <span className="font-semibold tabular-nums">{formatoARS(v.importe)}</span>
+                  {puedeRecibir && <button type="button" onClick={() => { setErrorVale(''); setCerrandoVale(v) }} className={btn}><CheckCircle2 size={12} /> Cerrar vale</button>}
+                </li>
+              ))}
+            </ul>
+          )}
+      </section>
+
       <Plegable titulo="Historial (30 días)">
         <HistorialSobres hoy={hoy} planta={planta} onActa={acta} />
       </Plegable>
 
+      {cerrandoVale && user && (
+        <CerrarValeModal vale={cerrandoVale} guardando={guardandoVale} error={errorVale} onCancelar={() => setCerrandoVale(null)} onCerrar={cerrarElVale} />
+      )}
       {recibiendo && user && (
         <RecibirSobreModal
           sobre={recibiendo}

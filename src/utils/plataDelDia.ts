@@ -1,8 +1,8 @@
-import type { CajaSesion, EmpresaTango, Liquidacion, Sobre } from '@/types'
+import type { CajaSesion, EmpresaTango, Liquidacion, Sobre, ValeCaja } from '@/types'
 import type { FilaCalle, FilaSupervisor, FilaVentanilla, PorEmpresaYTotal } from './tesoreriaLive'
 import { porEmpresaYTotalVacio } from './tesoreriaLive'
 import { esRecibido } from './valoresEnPapel'
-import { anticiposDelTurno, claveDeCheque, claveDeRetencion, empresaDeAnticipo, esAnticipo, sistemaVentanilla } from './sobres'
+import { anticiposDelTurno, claveDeCheque, claveDeRetencion, empresaDeAnticipo, esAnticipo, sistemaVentanilla, valesDelTurno } from './sobres'
 import { delTurno, liquidacionesPorRendir } from './turnoCaja'
 
 // Plata del día (2026-09-23, rediseño caja ↔ tesorería aprobado por Ariel):
@@ -211,7 +211,7 @@ const sumarLugar = (l: LugarPlata, p: PersonaConPlata, cheques: { cantidad: numb
 const totalCheques = (xs: { importe: number }[]) => ({ cantidad: xs.length, total: r2(xs.reduce((a, c) => a + c.importe, 0)) })
 
 /** Lo que un turno ABIERTO tiene ahora mismo: la misma cuenta que ve el cajero en su pantalla (`sistemaVentanilla`). */
-export function plataDelTurnoAbierto(sesion: CajaSesion, fila: Pick<FilaVentanilla, 'ventas' | 'recibos'> | undefined, liquidaciones: Liquidacion[], sobres: Sobre[]): { efectivo: number; cheques: { cantidad: number; total: number } } {
+export function plataDelTurnoAbierto(sesion: CajaSesion, fila: Pick<FilaVentanilla, 'ventas' | 'recibos'> | undefined, liquidaciones: Liquidacion[], sobres: Sobre[], vales: ValeCaja[] = []): { efectivo: number; cheques: { cantidad: number; total: number } } {
   const uid = sesion.cajero.uid
   const sobresDelCajero = sobres.filter((s) => s.rindio.uid === uid && s.tipo === 'ventanilla')
   const sistema = sistemaVentanilla({
@@ -221,6 +221,7 @@ export function plataDelTurnoAbierto(sesion: CajaSesion, fila: Pick<FilaVentanil
     liquidacionesRecibidas: liquidacionesPorRendir(liquidaciones, uid, sobresDelCajero),
     sobresRecibidos: [],
     anticipos: anticiposDelTurno(sobres, sesion.id),
+    vales: valesDelTurno(vales, sesion.id),
   })
   return { efectivo: r2(sistema.efectivo), cheques: totalCheques(sistema.cheques) }
 }
@@ -236,8 +237,10 @@ export function dondeEstaLaPlata(args: {
   porRecibir: Sobre[]
   aContar: Sobre[]
   contados: Sobre[]
+  /** Vales de caja del día (2026-09-25): restan de los turnos abiertos. */
+  vales?: ValeCaja[]
 }): DondeEstaLaPlata {
-  const { sesiones, sobres, liquidaciones, calle, supervisores, ventanilla, porRecibir, aContar, contados } = args
+  const { sesiones, sobres, liquidaciones, calle, supervisores, ventanilla, porRecibir, aContar, contados, vales = [] } = args
   const out: DondeEstaLaPlata = { calle: lugarVacio(), caja: lugarVacio(), entregada: lugarVacio(), contada: { ...lugarVacio(), diferencia: 0 } }
 
   // 1. En la calle: los pendientes de rendir de Plata del día.
@@ -248,7 +251,7 @@ export function dondeEstaLaPlata(args: {
   // 2. En caja: turnos abiertos (lo que junta la ventanilla ahora) + liquidaciones cerradas sin entregar.
   for (const s of sesiones.filter((x) => x.estado === 'abierta').sort((a, b) => a.abiertaEn.toMillis() - b.abiertaEn.toMillis())) {
     const fila = ventanilla.find((f) => f.cajaId === s.cajero.uid)
-    const t = plataDelTurnoAbierto(s, fila, liquidaciones, sobres)
+    const t = plataDelTurnoAbierto(s, fila, liquidaciones, sobres, vales)
     sumarLugar(out.caja, { id: s.id, nombre: s.cajero.nombre, detalle: `turno ${s.numero} abierto`, efectivo: t.efectivo }, t.cheques)
   }
   for (const s of porRecibir) {
