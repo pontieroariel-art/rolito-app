@@ -16,7 +16,10 @@ precacheAndRoute(self.__WB_MANIFEST)
 // (/admin/despacho, /heladeras/panol, ...) sin señal, servir el app-shell
 // precacheado en vez de dejar la pantalla en blanco. React Router toma el
 // control del lado del cliente una vez que el shell cargó.
-registerRoute(new NavigationRoute(createHandlerBoundToURL('/index.html')))
+// Los manuales (public/manuales/*.html) se abren en un iframe: también son una
+// "navegación", y sin esta lista el SW les devolvía el index.html precacheado
+// (con su X-Frame-Options: DENY) y el marco quedaba en blanco (2026-09-24).
+registerRoute(new NavigationRoute(createHandlerBoundToURL('/index.html'), { denylist: [/^\/manuales\//] }))
 
 // Chunks pesados de uso puntual (excluidos del precache, ver vite.config.ts):
 // se cachean recién la primera vez que el usuario realmente los pide
