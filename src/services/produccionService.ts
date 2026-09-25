@@ -1,4 +1,4 @@
-import { collection, doc, getDoc, getDocs, onSnapshot, query, where, orderBy, limit, setDoc, serverTimestamp, Timestamp } from 'firebase/firestore'
+import { collection, doc, getDoc, getDocs, onSnapshot, query, where, orderBy, limit, setDoc, updateDoc, serverTimestamp, Timestamp } from 'firebase/firestore'
 import { db } from './firebase'
 import { PalletProduccion, PlantaId, ProductoHieloId } from '../types'
 import { PLANTA_INFO } from '../utils/constants'
@@ -44,6 +44,17 @@ export function crearPallet(
   precargarSiSeAcerca(actor.uid, data.plantaId, online)
 
   return { pallet: { id: palletRef.id, ...pallet, fechaFabricacion }, codigo }
+}
+
+/**
+ * Anula un pallet cargado por error (2026-09-25). Solo el encargado de
+ * producción o super_admin (reglas). El pallet no se borra: queda con la
+ * anulación, su motivo y quién la hizo, y deja de contar en los totales.
+ */
+export async function anularPallet(palletId: string, motivo: string, actor: ActorProduccion): Promise<void> {
+  await updateDoc(doc(db, PALLETS, palletId), {
+    anulacion: { motivo: motivo.trim(), por: actor, en: serverTimestamp() },
+  })
 }
 
 export const getPalletProduccion = async (id: string): Promise<PalletProduccion | null> => {

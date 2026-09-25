@@ -2098,6 +2098,12 @@ export type ProductoHieloId =
   | 'barras_hielo'
   | 'rembolsado_cementera_10kg'
 
+export interface AnulacionPallet {
+  motivo: string
+  por:    { uid: string; nombre: string }
+  en:     Timestamp
+}
+
 export interface PalletProduccion {
   id:               string
   codigo:           string   // "DT-000123" — correlativo por planta, va en QR/barcode en texto plano
@@ -2108,6 +2114,11 @@ export interface PalletProduccion {
   unidades:         number   // denormalizado del catálogo (protege el historial si el catálogo cambia)
   operador:         { uid: string; nombre: string }
   fechaFabricacion: Timestamp   // Timestamp.now() del cliente — se necesita para imprimir ya, no depende de serverTimestamp()
+  /**
+   * Pallet cargado por error (2026-09-25): lo anula el encargado con motivo.
+   * No se borra (la etiqueta ya está pegada) y deja de contar en todos lados.
+   */
+  anulacion?:       AnulacionPallet
   createdAt:        Timestamp   // serverTimestamp(), solo para orden/sincronización
 }
 

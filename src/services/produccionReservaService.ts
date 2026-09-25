@@ -20,7 +20,13 @@ interface ReservaLocalProduccion {
 
 const STALE_LOCK_MS = 20_000   // una reserva "en curso" de más de 20s se considera abandonada (pestaña cerrada a mitad de la llamada)
 
-const storageKey = (uid: string) => `produccionReserva_${uid}`
+// La reserva es de la TABLET, no del operario (2026-09-25). Antes la clave era
+// por uid: con 13 operarios cada uno tenía su lote de 30 y las etiquetas salían
+// desordenadas (el 14/09 se cargó un DT-000006 con el contador en 121). Ahora
+// todos los que cargan en la misma tablet consumen el mismo lote y la
+// numeración de una planta con una sola tablet sale corrida. El `uid` se sigue
+// recibiendo para no cambiar las firmas, pero no entra en la clave.
+const storageKey = (_uid: string) => 'produccionReserva_tablet'
 
 function leerReserva(uid: string): ReservaLocalProduccion | null {
   try {

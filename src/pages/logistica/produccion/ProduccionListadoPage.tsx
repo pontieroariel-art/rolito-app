@@ -2,6 +2,7 @@ import { lazy, Suspense, useMemo, useState, ChangeEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { Printer } from 'lucide-react'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
+import Badge from '@/components/common/Badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useProduccionPallets } from '@/hooks/useProduccionPallets'
 import { PLANTAS, PlantaId } from '@/types'
@@ -88,9 +89,15 @@ export default function ProduccionListadoPage() {
               </thead>
               <tbody>
                 {filtrados.map((p) => (
-                  <tr key={p.id} className="border-b border-[#D3D1C7]/60 last:border-0">
-                    <td className="px-4 py-2">
-                      <Link to={`/produccion/ficha/${p.id}`} className="text-accent hover:underline">{p.codigo}</Link>
+                  <tr key={p.id} className={`border-b border-[#D3D1C7]/60 last:border-0 ${p.anulacion ? 'text-secundario' : ''}`}>
+                    <td className="px-4 py-2 whitespace-nowrap">
+                      <Link
+                        to={`/produccion/ficha/${p.id}`}
+                        className={`text-accent hover:underline ${p.anulacion ? 'line-through' : ''}`}
+                      >
+                        {p.codigo}
+                      </Link>
+                      {p.anulacion && <span className="ml-2"><Badge tono="cancelado" title={p.anulacion.motivo}>Anulado</Badge></span>}
                     </td>
                     <td className="px-4 py-2">{PLANTAS[p.plantaId].label}</td>
                     <td className="px-4 py-2">{p.productoNombre}</td>

@@ -843,11 +843,13 @@ service cloud.firestore {
       allow create: if request.auth != null && docId.matches('produccionCounter_.*')
         && isProduccionEncargado();
       // Reserva de lote: el operario de producción solo puede incrementar
-      // `next`, nunca retroceder ni tocar otro campo.
+      // `next`, nunca retroceder ni tocar otro campo. Tope de 30 por reserva
+      // (2026-09-25): nadie adelanta el contador de a miles desde una tablet.
       allow update: if request.auth != null && docId.matches('produccionCounter_.*')
         && isProduccion()
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['next'])
-        && request.resource.data.next > resource.data.next;
+        && request.resource.data.next > resource.data.next
+        && request.resource.data.next <= resource.data.next + 30;
 
       // Contador de recibos de cobranza de supervisor (único, global — los
       // supervisores no están fijos a una planta). Alta inicial solo por
@@ -1112,7 +1114,20 @@ service cloud.firestore {
         && request.resource.data.unidades is int && request.resource.data.unidades > 0
         && request.resource.data.codigo is string;
 
-      allow update, delete: if false;
+      // Anulación (2026-09-25): un pallet cargado por error NO se borra ni se
+      // edita (la etiqueta ya está pegada); el encargado lo anula con motivo y
+      // deja de contar. Una sola vez, solo el campo `anulacion`, a su nombre.
+      allow update: if request.auth != null && isProduccionEncargado()
+        && !('anulacion' in resource.data)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['anulacion'])
+        && request.resource.data.anulacion.keys().hasOnly(['motivo', 'por', 'en'])
+        && request.resource.data.anulacion.motivo is string
+        && request.resource.data.anulacion.motivo.size() >= 3
+        && request.resource.data.anulacion.motivo.size() <= 200
+        && request.resource.data.anulacion.por.uid == request.auth.uid
+        && request.resource.data.anulacion.en == request.time;
+
+      allow delete: if false;
     }
 
     // ── Producción de hielo: parte de máquinas del maquinista ──────────────

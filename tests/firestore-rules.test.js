@@ -5,7 +5,7 @@ import {
   assertFails,
   assertSucceeds,
 } from '@firebase/rules-unit-testing'
-import { doc, getDoc, getDocs, collection, setDoc, updateDoc, deleteDoc, arrayUnion, deleteField, writeBatch, runTransaction } from 'firebase/firestore'
+import { doc, getDoc, getDocs, collection, setDoc, updateDoc, deleteDoc, arrayUnion, deleteField, writeBatch, runTransaction, serverTimestamp } from 'firebase/firestore'
 
 // Tests de las reglas de Firestore contra el emulador. Verifican de forma
 // automática y repetible los invariantes de seguridad que antes se validaban a
@@ -1892,6 +1892,38 @@ describe('produccionPallets', () => {
     await assertFails(deleteDoc(doc(db('op1'), 'produccionPallets/p1')))
   })
 
+  const anulacion = (extra = {}) => ({
+    anulacion: { motivo: 'Producto equivocado', por: { uid: 'enc', nombre: 'Osvaldo' }, en: serverTimestamp(), ...extra },
+  })
+  const seedEncargado = () =>
+    seed((d) => setDoc(doc(d, 'users/enc'), { rol: 'produccion_encargado', estado: 'activo' }))
+
+  test('el encargado puede anular un pallet con motivo', async () => {
+    await seedEncargado()
+    await seed((d) => setDoc(doc(d, 'produccionPallets/p1'), pallet()))
+    await assertSucceeds(updateDoc(doc(db('enc'), 'produccionPallets/p1'), anulacion()))
+  })
+
+  test('el operario NO puede anular un pallet, ni el suyo', async () => {
+    await seedOperario()
+    await seed((d) => setDoc(doc(d, 'produccionPallets/p1'), pallet()))
+    await assertFails(updateDoc(doc(db('op1'), 'produccionPallets/p1'), anulacion({ por: { uid: 'op1', nombre: 'Juan' } })))
+  })
+
+  test('un pallet anulado no se puede volver a anular', async () => {
+    await seedEncargado()
+    await seed((d) => setDoc(doc(d, 'produccionPallets/p1'), { ...pallet(), anulacion: { motivo: 'Otro', por: { uid: 'enc', nombre: 'O' }, en: new Date() } }))
+    await assertFails(updateDoc(doc(db('enc'), 'produccionPallets/p1'), anulacion()))
+  })
+
+  test('la anulación exige motivo, firma propia y no toca otros campos', async () => {
+    await seedEncargado()
+    await seed((d) => setDoc(doc(d, 'produccionPallets/p1'), pallet()))
+    await assertFails(updateDoc(doc(db('enc'), 'produccionPallets/p1'), anulacion({ motivo: '' })))
+    await assertFails(updateDoc(doc(db('enc'), 'produccionPallets/p1'), anulacion({ por: { uid: 'otro', nombre: 'X' } })))
+    await assertFails(updateDoc(doc(db('enc'), 'produccionPallets/p1'), { ...anulacion(), unidades: 1 }))
+  })
+
   test('gerente_general puede leer pallets pero no crearlos', async () => {
     await seed((d) => setDoc(doc(d, 'users/gg'), { rol: 'gerente_general', estado: 'activo' }))
     await seed((d) => setDoc(doc(d, 'produccionPallets/p1'), pallet()))
@@ -2357,6 +2389,12 @@ describe('config/produccionCounter_*', () => {
     await seedOperario()
     await seed((d) => setDoc(doc(d, 'config/produccionCounter_torcuato'), { next: 500 }))
     await assertFails(updateDoc(doc(db('op1'), 'config/produccionCounter_torcuato'), { next: 499 }))
+  })
+
+  test('operario NO puede adelantar el contador más de 30', async () => {
+    await seedOperario()
+    await seed((d) => setDoc(doc(d, 'config/produccionCounter_torcuato'), { next: 500 }))
+    await assertFails(updateDoc(doc(db('op1'), 'config/produccionCounter_torcuato'), { next: 531 }))
   })
 
   test('operario NO puede tocar otro campo del contador', async () => {

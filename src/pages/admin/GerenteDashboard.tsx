@@ -8,6 +8,7 @@ import LoadingSpinner from '@/components/ui/LoadingSpinner'
 import { useAllOrders } from '@/hooks/useOrders'
 import { useHeladerasStats } from '@/hooks/useHeladerasStats'
 import { useProduccionPallets } from '@/hooks/useProduccionPallets'
+import { palletVigente } from '@/utils/cargaPallets'
 import { useRollupsUltimosDias } from '@/hooks/useRollups'
 import { useClientesIndexTodos } from '@/hooks/useClientesIndex'
 import { updateUserDocument } from '@/services/userService'
@@ -165,6 +166,7 @@ export default function GerenteDashboard() {
   // ── Producción de hielo: pallets cargados hoy / últimos 7 días ──────────
   const palletsHoy = useMemo(
     () => pallets.filter((p) => {
+      if (!palletVigente(p)) return false
       try { return toDateStr(p.fechaFabricacion.toDate()) === today } catch { return false }
     }),
     [pallets, today],
@@ -172,6 +174,7 @@ export default function GerenteDashboard() {
   const palletsSemana = useMemo(() => {
     const cutoff = nDaysAgo(6)
     return pallets.filter((p) => {
+      if (!palletVigente(p)) return false
       try { return p.fechaFabricacion.toDate() >= cutoff } catch { return false }
     })
   }, [pallets])

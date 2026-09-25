@@ -3,6 +3,7 @@ import { PalletProduccion } from '../types'
 import { subscribePalletsEnRango } from '../services/produccionService'
 import { useFirestoreSubscription } from './useFirestoreSubscription'
 import { useDiaActual } from './useDiaActual'
+import { palletsVigentes } from '../utils/cargaPallets'
 
 export type PeriodoResumen = 'hoy' | '7d' | '30d'
 
@@ -31,5 +32,8 @@ export function useProduccionResumen(periodo: PeriodoResumen) {
     [],
   )
 
-  return { pallets, loading, desde, hasta }
+  // Los anulados por el encargado no suman en ningún total (2026-09-25).
+  const vigentes = useMemo(() => palletsVigentes(pallets), [pallets])
+
+  return { pallets: vigentes, loading, desde, hasta }
 }

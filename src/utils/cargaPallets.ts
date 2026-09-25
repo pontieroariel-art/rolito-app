@@ -43,6 +43,17 @@ export function accionDelToque(armado: Armado | null, productoId: ProductoHieloI
 
 export type PalletMinimo = Pick<PalletProduccion, 'id' | 'productoId' | 'codigo'> & {
   fechaFabricacion: { toDate(): Date }
+  anulacion?: unknown
+}
+
+/** Un pallet anulado por el encargado no cuenta en ningún total (2026-09-25). */
+export function palletVigente(p: { anulacion?: unknown }): boolean {
+  return !p.anulacion
+}
+
+/** Solo los pallets que cuentan: sin anular. */
+export function palletsVigentes<T extends { anulacion?: unknown }>(pallets: T[]): T[] {
+  return pallets.every(palletVigente) ? pallets : pallets.filter(palletVigente)
 }
 
 export interface UltimoPallet {
@@ -85,6 +96,7 @@ export function resumenDelDia(pallets: PalletMinimo[], pendientes: PalletMinimo[
   const sumar = (p: PalletMinimo) => {
     if (vistos.has(p.id)) return
     vistos.add(p.id)
+    if (!palletVigente(p)) return
     const hora = p.fechaFabricacion.toDate()
     const t = hora.getTime()
     if (t < desde || t >= hasta) return

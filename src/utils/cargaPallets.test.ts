@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   accionDelToque, armar, ARMADO_MS, ANTI_DOBLE_TOQUE_MS, codigoDePallet,
-  pendientesSinConfirmar, resumenDelDia, type PalletMinimo,
+  palletsVigentes, pendientesSinConfirmar, resumenDelDia, type PalletMinimo,
 } from './cargaPallets'
 
 const ts = (iso: string) => ({ toDate: () => new Date(iso) })
@@ -50,6 +50,24 @@ describe('resumenDelDia', () => {
   })
   it('vacío', () => {
     expect(resumenDelDia([], [], inicio)).toEqual({ total: 0, porProducto: {}, ultimo: null })
+  })
+  it('un pallet anulado no cuenta ni es el último', () => {
+    const bueno = pallet('a', 'picado_10kg', '2026-09-14T10:00:00')
+    const anulado = { ...pallet('b', 'escama_10kg', '2026-09-14T11:00:00'), anulacion: { motivo: 'error' } }
+    const r = resumenDelDia([bueno, anulado], [], inicio)
+    expect(r.total).toBe(1)
+    expect(r.porProducto).toEqual({ picado_10kg: 1 })
+    expect(r.ultimo?.codigo).toBe('DT-a')
+  })
+})
+
+describe('palletsVigentes', () => {
+  it('saca los anulados y conserva la referencia si no hay ninguno', () => {
+    const a: { id: string; anulacion?: unknown } = { id: 'a' }
+    const b = { id: 'b', anulacion: { motivo: 'x' } }
+    expect(palletsVigentes([a, b])).toEqual([a])
+    const lista = [a]
+    expect(palletsVigentes(lista)).toBe(lista)
   })
 })
 

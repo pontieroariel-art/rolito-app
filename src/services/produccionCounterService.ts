@@ -7,8 +7,10 @@ import { PlantaId } from '../types'
 // config/ticketServicioCounter. Requiere red: la reserva de un lote entero
 // se hace acá, después el consumo número a número es local y offline (ver
 // produccionReservaService.ts).
-export const BATCH_SIZE        = 30
-export const RESERVE_THRESHOLD = 5   // cuando quedan <= 5 números libres, se dispara una recarga en background
+// Lotes chicos (2026-09-25, antes 30): si una tablet se resetea o se cambia,
+// el salto en la numeración es de a lo sumo 10. Las reglas topean la reserva en 30.
+export const BATCH_SIZE        = 10
+export const RESERVE_THRESHOLD = 3   // cuando quedan <= 3 números libres, se dispara una recarga en background
 
 const COUNTER_REF = (plantaId: PlantaId) => doc(db, 'config', `produccionCounter_${plantaId}`)
 
