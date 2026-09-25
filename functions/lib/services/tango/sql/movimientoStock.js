@@ -45,6 +45,8 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.esTransferenciaFija = exports.MOTIVOS_TRANSFERENCIA_FIJA = exports.HIPOTESIS_TRAZA = exports.TRAZA = void 0;
 exports.egresoDeVentaPromo = egresoDeVentaPromo;
+exports.referenciaPallet = referenciaPallet;
+exports.ingresoDeProduccion = ingresoDeProduccion;
 exports.transferenciaDeCargaDescarga = transferenciaDeCargaDescarga;
 exports.transferenciaADepositoFijo = transferenciaADepositoFijo;
 exports.sentenciaExisteMovimiento = sentenciaExisteMovimiento;
@@ -70,6 +72,9 @@ exports.HIPOTESIS_TRAZA = exports.TRAZA;
 function movimientoBase(cfgTipo, clave) {
     if (!cfgTipo.tComp || !cfgTipo.talonario)
         throw new Error(`config/tango.sql.stock.tipos.${clave} incompleto: falta tComp o talonario`);
+    // El tipo interno del ingreso sale de la traza del PDT (STA13): no se adivina.
+    if (cfgTipo.tipo === 'ingreso' && !cfgTipo.tcompInS)
+        throw new Error(`config/tango.sql.stock.tipos.${clave}.tcompInS falta: sale de STA13 (traza 20-trazar-pdt.sql)`);
     const tcompInS = cfgTipo.tcompInS ?? (cfgTipo.tipo === 'transferencia' ? 'TI' : exports.TRAZA.tcompInSEgreso);
     return {
         clave, tipo: cfgTipo.tipo, tComp: cfgTipo.tComp, tcompInS, talonario: cfgTipo.talonario,
@@ -109,6 +114,45 @@ function egresoDeVentaPromo(payload, origenColeccion, origenId, articulos, codDe
         ],
         codCliente: payload.clienteCodigoTango,
         usuario: (0, comun_1.usuarioCorto)(payload.cajaNombre ?? payload.choferNombre, ''),
+    };
+}
+/** Referencia idempotente de un pallet (LEYENDA1): un reintento nunca lo carga dos veces. */
+function referenciaPallet(palletId) {
+    return `ROLITO:PP:${palletId}`;
+}
+/**
+ * Ingreso de un pallet de producción al depósito de su planta (2026-09-25):
+ * PDT en Torcuato, PRO en Merlo, un comprobante por pallet para que el stock
+ * de la planta esté al minuto (pedido de Ariel). El artículo sale del mapa del
+ * propio tipo (`articulos`: producto de la tablet → código de Tango).
+ */
+function ingresoDeProduccion(payload, palletId, depositoPlanta, cfgTipo, clave) {
+    if (cfgTipo.tipo !== 'ingreso')
+        throw new Error(`config/tango.sql.stock.tipos.${clave}.tipo tiene que ser 'ingreso'`);
+    if (!depositoPlanta)
+        throw new Error(`el pallet ${palletId} no tiene depósito de planta`);
+    if (payload.anulacion)
+        throw new Error(`el pallet ${payload.codigo ?? palletId} está anulado: no se carga en Tango`);
+    const productoId = String(payload.productoId ?? '');
+    const codArticu = cfgTipo.articulos?.[productoId];
+    if (!codArticu)
+        throw new Error(`producto ${productoId || '?'} sin artículo de Tango en config/tango.sql.stock.tipos.${clave}.articulos`);
+    const cantidad = Number(payload.unidades);
+    if (!(cantidad > 0))
+        throw new Error(`el pallet ${payload.codigo ?? palletId} no tiene unidades`);
+    return {
+        ...movimientoBase(cfgTipo, clave),
+        depositoOrigen: depositoPlanta,
+        fecha: (0, comun_1.fechaDePayload)(payload.fechaFabricacion),
+        renglones: [{ codArticu, cantidad }],
+        referencia: referenciaPallet(palletId),
+        leyendas: [
+            `Pallet ${payload.codigo ?? ''} ${payload.productoNombre ?? ''}`.trim(),
+            `Operario ${payload.operador?.nombre ?? ''}`.trim(),
+            payload.plantaId ? `Produccion ${(0, comun_1.nombreDePlanta)(payload.plantaId)}` : '',
+        ],
+        observacion: `PRODUCCION ${payload.plantaId ? (0, comun_1.nombreDePlanta)(payload.plantaId).toUpperCase() : ''} APP`.trim(),
+        usuario: (0, comun_1.usuarioCorto)(payload.operador?.nombre, ''),
     };
 }
 /**
@@ -206,6 +250,7 @@ function sentenciaExisteMovimiento(m) {
 function sentenciasMovimiento(m, datos, cfg, ahora = new Date()) {
     const out = [];
     const transferencia = m.tipo === 'transferencia';
+    const ingreso = m.tipo === 'ingreso';
     if (transferencia && !m.depositoDestino)
         throw new Error('transferencia sin depósito destino');
     // 1. Número del talonario, optimista.
@@ -245,7 +290,7 @@ function sentenciasMovimiento(m, datos, cfg, ahora = new Date()) {
             out.push((0, comun_1.renglonSta20)({ ...comun, etiqueta: `INSERT STA20 ${ren.codArticu} S`, tipoMov: 'S', codDeposito: m.depositoOrigen, depositoDesde: m.depositoDestino, nRenglon: ++n }));
         }
         else {
-            out.push((0, comun_1.renglonSta20)({ ...comun, etiqueta: `INSERT STA20 ${ren.codArticu}`, tipoMov: 'S', codDeposito: m.depositoOrigen, nRenglon: ++n }));
+            out.push((0, comun_1.renglonSta20)({ ...comun, etiqueta: `INSERT STA20 ${ren.codArticu}`, tipoMov: ingreso ? 'E' : 'S', codDeposito: m.depositoOrigen, nRenglon: ++n }));
         }
     }
     // 4. Saldos (Tango actualiza primero el destino y después el origen).
@@ -260,10 +305,12 @@ function sentenciasMovimiento(m, datos, cfg, ahora = new Date()) {
                 : (0, comun_1.updateSta19)(`UPDATE STA19 destino ${ren.codArticu}`, ren.codArticu, m.depositoDestino, art.stockDestino, ren.cantidad));
         }
         // Origen sin fila: queda en negativo (igual que un camión sin inventario inicial
-        // del que ya salió mercadería); la conciliación diaria lo muestra.
+        // del que ya salió mercadería); la conciliación diaria lo muestra. En el
+        // ingreso el mismo depósito SUMA.
+        const delta = ingreso ? ren.cantidad : -ren.cantidad;
         out.push(art.stockOrigen === null
-            ? (0, comun_1.insertSta19)(`INSERT STA19 stock ${ren.codArticu}`, ren.codArticu, m.depositoOrigen, -ren.cantidad)
-            : (0, comun_1.updateSta19)(`UPDATE STA19 stock ${ren.codArticu}`, ren.codArticu, m.depositoOrigen, art.stockOrigen, -ren.cantidad));
+            ? (0, comun_1.insertSta19)(`INSERT STA19 stock ${ren.codArticu}`, ren.codArticu, m.depositoOrigen, delta)
+            : (0, comun_1.updateSta19)(`UPDATE STA19 stock ${ren.codArticu}`, ren.codArticu, m.depositoOrigen, art.stockOrigen, delta));
     }
     return out;
 }

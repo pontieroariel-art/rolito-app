@@ -46,7 +46,7 @@ const require = createRequire(import.meta.url)
 const sqlLib = (f) => require(path.join(__dirname, 'lib', f))
 const { escribirRemito, remitoDeVenta } = sqlLib('remito.js')
 const { escribirRecibo, reciboDeCobranza } = sqlLib('recibo.js')
-const { escribirMovimientoStock, egresoDeVentaPromo, transferenciaDeCargaDescarga, transferenciaADepositoFijo, esTransferenciaFija } = sqlLib('movimientoStock.js')
+const { escribirMovimientoStock, egresoDeVentaPromo, transferenciaDeCargaDescarga, transferenciaADepositoFijo, esTransferenciaFija, ingresoDeProduccion } = sqlLib('movimientoStock.js')
 const { anularRemitoEnTango } = sqlLib('anulacionRemito.js')
 const mssql = require('mssql')
 // Lector de facturas y remitos de Tango → app (2026-09-10): corre acá adentro cada
@@ -285,6 +285,30 @@ const HANDLERS = {
       return { transferenciaNumero: r.nComp, tComp: r.tComp, numero: r.numero, idSta14: r.idSta14, ncompInS: r.ncompInS, origen: mov.depositoOrigen, destino: mov.depositoDestino, yaExistia: r.yaExistia, via: 'sql' }
     },
   },
+  // Producción (2026-09-25): cada pallet de la tablet entra al depósito de su
+  // planta con un comprobante propio (PDT en Torcuato, PRO en Merlo), para que el
+  // stock esté al minuto. Tipo en config/tango.sql.stock.tipos.produccion_<planta>
+  // = { tipo:'ingreso', tComp, tcompInS (de STA13, traza 20-trazar-pdt.sql),
+  // talonario, articulos: { <producto de la tablet>: <artículo de Tango> }, habilitado }.
+  // Un pallet anulado en la app antes de salir no se manda (queda en error con el motivo).
+  produccionPallet: {
+    flag: 'produccionEnabled',
+    async enviar(data, tcfg, docId) {
+      const empresa = data.empresa ?? 'redonhielo'
+      const stockCfg = tcfg.sql?.stock
+      const payload = data.payload ?? {}
+      const clave = `produccion_${payload.plantaId ?? '?'}`
+      const cfgTipo = stockCfg?.tipos?.[clave]
+      if (!cfgTipo) throw new Error(`falta config/tango.sql.stock.tipos.${clave} {tipo:'ingreso', tComp, tcompInS, talonario, articulos}`)
+      const depositoPlanta = (tcfg.depositosPlanta ?? {})[payload.plantaId]
+      if (!depositoPlanta) throw new Error(`sin depósito de Tango para la planta ${payload.plantaId} (config/tango.depositosPlanta)`)
+      const mov = ingresoDeProduccion(payload, data.origenId ?? docId, depositoPlanta, cfgTipo, clave)
+      const r = await enTransaccion(baseDe(empresa), (db) => escribirMovimientoStock(db, mov, {
+        usuario: stockCfg.usuario ?? 'ROLITO', terminal: stockCfg.terminal ?? 'APP', sucursal: cfgTipo.sucursal,
+      }, (m) => log('    ' + m)))
+      return { produccionNumero: r.nComp, tComp: r.tComp, numero: r.numero, idSta14: r.idSta14, ncompInS: r.ncompInS, deposito: depositoPlanta, yaExistia: r.yaExistia, via: 'sql' }
+    },
+  },
   // Anular en Tango el remito que el chofer anuló en la app (2026-09-20). Antes
   // lo hacía la oficina a mano y tardaba días: en esa ventana Tango llegaba a
   // FACTURAR la mercadería (3 de 7 casos el 20/09) y ahí el remito ya no se
@@ -327,6 +351,7 @@ async function procesarItem(db, docId, data) {
     // config/tango.sql.stock.tipos.<clave>.habilitado; en false el item queda
     // pendiente sin contar intento, igual que con el flag general.
     const claveTipo = data.payload?.sentido ?? data.payload?.movimiento
+      ?? (data.entidad === 'produccionPallet' ? `produccion_${data.payload?.plantaId ?? '?'}` : undefined)
     if (claveTipo && tcfg.sql?.stock?.tipos?.[claveTipo]?.habilitado === false && !DRY_RUN && !SOLO) {
       log(`  ${docId}: config/tango.sql.stock.tipos.${claveTipo}.habilitado = false; se deja pendiente`)
       return

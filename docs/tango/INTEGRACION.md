@@ -1290,7 +1290,7 @@ Relevado en TestingRH (`docs/tango/sql/muestras-stock-2026-09-04.json`, consulta
 | FAC / BOL | FR / AJ | factura / boleta contado | | hoy lo cubre ARCA + Tango Connect |
 | CBS | VE | cambio por cliente | COD_PRO_CL=cliente, talonario 2 (ID_STA13 144), USUARIO=chofer, N_COMP `0001`+8 | UN renglón: artículo `CAMBIOxxx` × cant, COD_DEPOSI **99**, TIPO_MOV E. Sin GVA12 |
 | MER | TI | "DESCARGA Y MERMA" | talonario 4 (ID_STA13 132) | artículo REAL: E en 99 (DEPOSI_DDE 01) + S en 01 |
-| PDT / PRO | VE | producción Torcuato / Merlo | USUARIO SUPERVISOR, a mano | (candidato a writer desde `produccionPallets`) |
+| PDT / PRO | ? (STA13) | producción Torcuato / Merlo | USUARIO SUPERVISOR, a mano, uno por turno; talonario 9 (DT) / 1 (Merlo) | writer `ingresoDeProduccion` desde `produccionPallets`, uno por pallet (2026-09-25); falta el TCOMP_IN_S de la traza `20-trazar-pdt.sql` |
 
 Hallazgos: (1) `STA14.TALONARIO` de stock apunta a **STA13**, no a GVA43. (2) Los artículos
 `CAMBIO*` **sí mueven stock**: 99 acumula 88.503 CAMBIOHIELO3KG / 94.738 CAMBIOHIELO4KG y los

@@ -18,6 +18,11 @@
  *   node scripts/tango/configurar-stock-tango.mjs --tipo cambioVentanilla tipo=transferencia tComp=CAM tcompInS=TI talonario=6 depositoDestino=99 habilitado=false
  *   node scripts/tango/configurar-stock-tango.mjs --tipo ventaPromo incluyeCambios=false   (al PRENDER merma)
  *   node scripts/tango/configurar-stock-tango.mjs --transferencias on|off → transferenciasSqlEnabled (carga CAR / descarga DES, fase B)
+ *   Producción (2026-09-25): un ingreso por pallet al depósito de la planta. tcompInS sale de STA13
+ *   (traza 20-trazar-pdt.sql, consulta 12); articulo.<producto de la tablet>=<artículo de Tango>.
+ *   node scripts/tango/configurar-stock-tango.mjs --tipo produccion_torcuato tipo=ingreso tComp=PDT tcompInS=<traza> talonario=9 habilitado=false  *        articulo.bolsas_10kg_rolito=PTHIBOLROLI0010 articulo.bolsas_3kg_rolito=PTHIBOLROLI0003 articulo.bolsas_2kg_rolito=PTHIBOLROLI0002  *        articulo.picado_10kg=PTHIBOLPICA0010 articulo.escama_10kg=PTHIBOLESCA0010 articulo.barras_hielo=PTHIBARRA
+ *   node scripts/tango/configurar-stock-tango.mjs --tipo produccion_merlo tipo=ingreso tComp=PRO tcompInS=<traza> talonario=1 habilitado=false (mismos artículos)
+ *   node scripts/tango/configurar-stock-tango.mjs --produccion on|off   → produccionEnabled (el interruptor del bridge para pallets)
  *
  * Orden recomendado: --rolito-sin-stock on ANTES de deployar las functions nuevas (así la
  * primera promo que pase ya no descuenta en Rolito); --tipo cuando exista VPR en Tango;
@@ -53,6 +58,7 @@ const usuario = valorDe('--usuario'); if (usuario) update['sql.stock.usuario'] =
 const terminal = valorDe('--terminal'); if (terminal) update['sql.stock.terminal'] = terminal
 const stock = valorDe('--stock'); if (stock !== undefined) update['stockSqlEnabled'] = onOff(stock, '--stock')
 const transf = valorDe('--transferencias'); if (transf !== undefined) update['transferenciasSqlEnabled'] = onOff(transf, '--transferencias')
+const prod = valorDe('--produccion'); if (prod !== undefined) update['produccionEnabled'] = onOff(prod, '--produccion')
 
 const iTipo = args.indexOf('--tipo')
 if (iTipo >= 0) {
@@ -62,6 +68,8 @@ if (iTipo >= 0) {
     const k = args[i].indexOf('=')
     if (k < 0) throw new Error(`Esperaba clave=valor, recibí "${args[i]}"`)
     const campo = args[i].slice(0, k)
+    // articulo.<producto>=<código>: el mapa del ingreso por producción, siempre string.
+    if (campo.startsWith('articulo.')) { update[`sql.stock.tipos.${clave}.articulos.${campo.slice('articulo.'.length)}`] = args[i].slice(k + 1); continue }
     // depositoDestino es un CÓDIGO de depósito ('99', '98'): queda string aunque parezca número.
     update[`sql.stock.tipos.${clave}.${campo}`] = campo === 'depositoDestino' ? args[i].slice(k + 1) : num(args[i].slice(k + 1))
   }
@@ -78,6 +86,7 @@ console.log('\nconfig/tango hoy:')
 console.log('  facturador.rolito.descargaStock =', t.facturador?.rolito?.descargaStock, '(false = Rolito no descarga stock)')
 console.log('  stockSqlEnabled                 =', t.stockSqlEnabled ?? false)
 console.log('  transferenciasSqlEnabled        =', t.transferenciasSqlEnabled ?? false)
+console.log('  produccionEnabled               =', t.produccionEnabled ?? false)
 console.log('  depositosPlanta                 =', JSON.stringify(t.depositosPlanta ?? null))
 console.log('  sql.stock                       =', JSON.stringify(t.sql?.stock ?? null, null, 2))
 const faltan = []

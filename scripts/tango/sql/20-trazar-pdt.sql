@@ -49,3 +49,25 @@ SELECT COD_ARTICU, COD_DEPOSI, CANT_STOCK FROM STA19 WHERE COD_DEPOSI IN ('01', 
 
 -- 8) Tablas satélite que un PDT pudo haber tocado además de STA14/STA20/STA19 (imagen del talonario, partidas).
 SELECT TOP 5 * FROM STA14TY WHERE ID_STA14 IN (SELECT TOP 5 ID_STA14 FROM STA14 WHERE T_COMP = 'PDT' ORDER BY ID_STA14 DESC);
+
+-- ============================================================================
+-- Agregado 2026-09-25: cómo cargaba BLUESOFT la producción (antes del 20/08/2026).
+-- Ariel quiere el stock en tiempo real, así que importa si Bluesoft mandaba un PDT
+-- por pallet, por turno o por día, y con qué usuario y leyendas.
+-- ============================================================================
+
+-- 9) PDT y PRO por día y por usuario, de junio a agosto: ¿cuántos por día, quién los cargaba?
+SELECT CONVERT(char(10), FECHA_MOV, 120) AS dia, T_COMP, USUARIO, COUNT(*) AS comprobantes
+  FROM STA14 WHERE T_COMP IN ('PDT', 'PRO') AND FECHA_MOV >= '2026-06-01' AND FECHA_MOV < '2026-09-01'
+ GROUP BY CONVERT(char(10), FECHA_MOV, 120), T_COMP, USUARIO ORDER BY dia, T_COMP, USUARIO;
+
+-- 10) Los últimos 5 PDT de antes del 20/08 (época Bluesoft): cabecera completa.
+SELECT TOP 5 * FROM STA14 WHERE T_COMP = 'PDT' AND FECHA_MOV < '2026-08-20' ORDER BY ID_STA14 DESC;
+
+-- 11) Sus renglones.
+SELECT s20.* FROM STA20 s20
+  JOIN (SELECT TOP 5 ID_STA14 FROM STA14 WHERE T_COMP = 'PDT' AND FECHA_MOV < '2026-08-20' ORDER BY ID_STA14 DESC) u ON u.ID_STA14 = s20.ID_STA14
+ ORDER BY s20.ID_STA14 DESC, s20.N_RENGL_S;
+
+-- 12) El tipo PDT/PRO en STA13 con TODAS sus columnas (tipo interno TCOMP_IN_S incluido).
+SELECT * FROM STA13 WHERE T_COMP IN ('PDT', 'PRO');

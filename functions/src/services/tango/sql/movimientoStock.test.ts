@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
-  egresoDeVentaPromo, transferenciaDeCargaDescarga, transferenciaADepositoFijo, sentenciasMovimiento, sentenciaExisteMovimiento,
+  egresoDeVentaPromo, transferenciaDeCargaDescarga, transferenciaADepositoFijo, ingresoDeProduccion, sentenciasMovimiento, sentenciaExisteMovimiento,
   escribirMovimientoStock, type ConfigTipoMovimiento, type DatosMovimiento,
 } from './movimientoStock'
 import type { EjecutorSql, ParametroSql } from './tipos'
@@ -123,6 +123,47 @@ describe('transferenciaADepositoFijo', () => {
     expect(renglones).toHaveLength(2)
     const dep = (x: { params: ParametroSql[] }, n: string) => x.params.find((p) => p.nombre === n)?.valor
     expect(renglones.map((r) => [dep(r, 'TIPO_MOV'), dep(r, 'COD_DEPOSI'), dep(r, 'DEPOSI_DDE')])).toEqual([['E', '99', '21'], ['S', '21', '99']])
+  })
+})
+
+describe('ingresoDeProduccion (2026-09-25)', () => {
+  const cfgPdt: ConfigTipoMovimiento = {
+    tipo: 'ingreso', tComp: 'PDT', tcompInS: 'XX', talonario: 9,
+    articulos: { bolsas_10kg_rolito: 'PTHIBOLROLI0010', picado_10kg: 'PTHIBOLPICA0010' },
+  }
+  const pallet = {
+    codigo: 'DT-000001', numero: 1, plantaId: 'torcuato', productoId: 'bolsas_10kg_rolito',
+    productoNombre: 'Bolsas 10kg Rolito', unidades: 88, operador: { uid: 'op1', nombre: 'Piris Enzo' },
+    fechaFabricacion: { seconds: Math.floor(new Date(2026, 8, 28, 7, 30).getTime() / 1000) },
+  }
+
+  it('un pallet es un renglón de entrada al depósito de la planta', () => {
+    const m = ingresoDeProduccion(pallet, 'p1', '01', cfgPdt, 'produccionTorcuato')
+    expect(m.tipo).toBe('ingreso')
+    expect(m.tComp).toBe('PDT')
+    expect(m.talonario).toBe(9)
+    expect(m.depositoOrigen).toBe('01')
+    expect(m.renglones).toEqual([{ codArticu: 'PTHIBOLROLI0010', cantidad: 88 }])
+    expect(m.referencia).toBe('ROLITO:PP:p1')
+    expect(m.leyendas[0]).toBe('Pallet DT-000001 Bolsas 10kg Rolito')
+    expect(m.usuario).toBe('PENZO')
+  })
+  it('las sentencias suman al saldo con un renglón E', () => {
+    const m = ingresoDeProduccion(pallet, 'p1', '01', cfgPdt, 'produccionTorcuato')
+    const ss = sentenciasMovimiento(m, datos, usuario)
+    expect(ss.map((s) => s.etiqueta)).toEqual(['UPDATE STA17 proximo', 'INSERT STA14', 'INSERT STA20 PTHIBOLROLI0010', 'UPDATE STA19 stock PTHIBOLROLI0010'])
+    expect(param(ss[2].params, 'TIPO_MOV')).toBe('E')
+    expect(param(ss[2].params, 'COD_DEPOSI')).toBe('01')
+    expect(param(ss[3].params, 'CANT_ANTERIOR')).toBe(100)
+    expect(param(ss[3].params, 'CANT_NUEVA')).toBe(188)
+  })
+  it('no adivina el tipo interno: sin tcompInS en config, falla', () => {
+    expect(() => ingresoDeProduccion(pallet, 'p1', '01', { ...cfgPdt, tcompInS: undefined }, 'produccionTorcuato')).toThrow(/tcompInS/)
+  })
+  it('un producto sin artículo, un pallet anulado o sin unidades no se cargan', () => {
+    expect(() => ingresoDeProduccion({ ...pallet, productoId: 'escama_10kg' }, 'p1', '01', cfgPdt, 'x')).toThrow(/sin artículo/)
+    expect(() => ingresoDeProduccion({ ...pallet, anulacion: { motivo: 'error' } }, 'p1', '01', cfgPdt, 'x')).toThrow(/anulado/)
+    expect(() => ingresoDeProduccion({ ...pallet, unidades: 0 }, 'p1', '01', cfgPdt, 'x')).toThrow(/unidades/)
   })
 })
 
