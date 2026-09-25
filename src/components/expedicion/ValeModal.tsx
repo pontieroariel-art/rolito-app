@@ -56,7 +56,7 @@ export default function ValeModal({ porEmpresa, guardando, error, onCancelar, on
   return (
     <Modal open onClose={onCancelar} title="Vale de caja" variant="light" wide>
       <div className="space-y-4">
-        <p className="text-sm text-secundario">Plata que sale de tu caja contra un vale. Poné cuánto, de qué empresa, a quién y por qué, y pasale la tablet para que firme que la recibió. El vale va en el sobre y tesorería lo cierra después.</p>
+        <p className="text-sm text-secundario">Plata que sale de tu caja contra un vale. Poné cuánto, de qué empresa, a quién y por qué, y pasale la tablet para que firme que la recibió. Queda registrado en tu liquidación y el papel va en el sobre.</p>
 
         <div>
           <label htmlFor="vale-importe" className="block text-xs font-semibold uppercase tracking-wide text-secundario mb-1">Importe</label>

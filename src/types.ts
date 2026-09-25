@@ -2798,16 +2798,10 @@ export interface Sobre {
  * la app). Plata que sale de la caja contra un papel firmado por quien la
  * recibe. Descuenta del cajón de su empresa como el anticipo, pero NO va a
  * tesorería: viaja adentro del sobre como un papel más (`SobreSistema.vales`),
- * tesorería lo tilda al contar y lo deja "abierto" hasta que se cierra con el
- * comprobante del gasto, un descuento de sueldo o la devolución de la plata.
+ * tesorería lo tilda al contar. No tiene cierre posterior (Ariel, 25/09: "el
+ * vale no se debería cerrar; caja lo hace y queda registrado en su liquidación").
  * Colección `valesCaja/{cajaSesionId}_vale_{k}`, código VC-DT-000012.
  */
-export type FormaCierreVale = 'comprobante' | 'descuento_sueldo' | 'devolucion'
-export const FORMAS_CIERRE_VALE: Record<FormaCierreVale, string> = {
-  comprobante:      'Trajo el comprobante del gasto',
-  descuento_sueldo: 'Se descuenta del sueldo',
-  devolucion:       'Devolvió la plata',
-}
 export interface ReceptorVale { uid?: string; nombre: string; dni?: string }
 export interface ValeCaja {
   id:           string
@@ -2824,13 +2818,10 @@ export interface ValeCaja {
   firmaRecibe:    string               // dataURL PNG, firmada en la tablet del cajero
   firmanteRecibe: string
   emitidoEn:    Timestamp
-  estado:       'abierto' | 'cerrado'
   /** El sobre en el que viajó a tesorería (lo anota el cierre del turno). */
   sobreId?:     string
   /** Tesorería lo tildó al contar el sobre. */
   recibido?:    { por: ActorSobre; en: Timestamp; recibido: boolean; motivoNoRecibido?: string }
-  /** Cómo se cerró (tesorería). */
-  cierre?:      { forma: FormaCierreVale; nota: string; por: ActorSobre; en: Timestamp }
   createdAt:    Timestamp
 }
 /** La foto del vale que queda en el sobre. */

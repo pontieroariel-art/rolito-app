@@ -383,7 +383,7 @@ export default function RendicionesPage() {
               vacio="Ningún vale en este turno. Si sale plata de la caja contra un vale firmado, registralo acá: sale de tu caja y viaja en el sobre.">
               {vales.map((v) => (
                 <Renglon key={v.id} clave={v.codigo.replace(/^VC-DT-0+/, 'VC-DT-')} texto={`${v.receptor.nombre} · ${v.motivo}`} empresa={v.empresa}
-                  sub={`${horaCorta(v.emitidoEn)}${v.estado === 'cerrado' ? ' · ya cerrado por tesorería' : ''}`} importe={v.importe} />
+                  sub={horaCorta(v.emitidoEn)} importe={v.importe} />
               ))}
             </BloqueRenglones>
 

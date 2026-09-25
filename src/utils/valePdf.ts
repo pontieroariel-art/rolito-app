@@ -30,12 +30,11 @@ export async function generateVale(v: ValeCaja): Promise<{ blob: Blob; nombre: s
   linea('Recibió', `${v.receptor.nombre}${v.receptor.dni ? ` · DNI ${v.receptor.dni}` : ''}`)
   linea('Motivo', v.motivo)
   linea('Entregó (caja)', `${v.emitio.nombre} · turno ${v.cajaSesionId.split('_').pop() ?? ''} · ${PLANTAS[v.plantaId].label}`)
-  if (v.cierre) linea('Cerrado por tesorería', `${v.cierre.por.nombre} · ${fechaHora(v.cierre.en.toDate())} · ${v.cierre.forma === 'comprobante' ? 'trajo el comprobante' : v.cierre.forma === 'descuento_sueldo' ? 'se descuenta del sueldo' : 'devolvió la plata'}${v.cierre.nota ? ` · ${v.cierre.nota}` : ''}`)
   y += 4
   firmaA4(base, { x: 14, y, etiqueta: 'Recibí conforme', firma: v.firmaRecibe, aclaracion: `${v.firmanteRecibe} · ${fechaHora(v.emitidoEn.toDate())}`, ancho: 60 })
   firmaA4(base, { x: pageW - 74, y, etiqueta: 'Entregó (caja)', aclaracion: v.emitio.nombre, ancho: 60 })
   doc.setFontSize(8); doc.setTextColor(120)
-  doc.text('Este vale va adentro del sobre de la liquidación de caja y queda abierto hasta que tesorería lo cierre con el comprobante, un descuento de sueldo o la devolución de la plata.', 14, y + 40, { maxWidth: pageW - 28 })
+  doc.text('Este vale queda registrado en la liquidación de caja y va adentro del sobre.', 14, y + 40, { maxWidth: pageW - 28 })
   doc.setTextColor(0)
   pieA4(base)
   const nombre = `vale-${v.codigo}.pdf`

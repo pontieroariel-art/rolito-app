@@ -152,7 +152,7 @@ describe('vales de caja (2026-09-25)', () => {
   const vale = (id: string, empresa: 'redonhielo' | 'rolito', importe: number): ValeCaja => ({
     id, plantaId: 'torcuato', fecha: '2026-09-25', numero: 1, codigo: 'VC-DT-000001', cajaSesionId: '2026-09-25_caja1_1',
     emitio: { uid: 'caja1', nombre: 'Nico', rol: 'caja' }, empresa, importe, receptor: { nombre: 'Juan Pérez', dni: '30123456' }, motivo: 'combustible',
-    firmaRecibe: 'x', firmanteRecibe: 'Juan Pérez', emitidoEn: Timestamp.fromDate(new Date('2026-09-25T10:40:00')), estado: 'abierto', createdAt: Timestamp.fromDate(new Date('2026-09-25T10:40:00')),
+    firmaRecibe: 'x', firmanteRecibe: 'Juan Pérez', emitidoEn: Timestamp.fromDate(new Date('2026-09-25T10:40:00')), createdAt: Timestamp.fromDate(new Date('2026-09-25T10:40:00')),
   })
   const base = { fondoInicial: 0, ventas: [], cobranzas: [], liquidacionesRecibidas: [], sobresRecibidos: [] }
 

@@ -540,12 +540,12 @@ async function main() {
     createdAt: hora('12:10'),
   })
   await cfg('sobreAnticipoCounter_torcuato', { next: 2 })
-  // Un vale de caja (2026-09-25): $20.000 de Redonhielo a un chofer para combustible, firmado a las 10:40, abierto.
+  // Un vale de caja (2026-09-25): $20.000 de Redonhielo a un chofer para combustible, firmado a las 10:40.
   await db.collection('valesCaja').doc(`${sesionId}_vale_1`).set({
     plantaId: PLANTA, fecha: HOY, numero: 1, codigo: 'VC-DT-000001', cajaSesionId: sesionId,
     emitio: { uid: CAJA.uid, nombre: CAJA.nombre, rol: 'caja' }, empresa: 'redonhielo', importe: 20000,
     receptor: { nombre: 'Chofer Prueba Dos', dni: '20000002' }, motivo: 'combustible del camión AB222CC',
-    firmaRecibe: FIRMA, firmanteRecibe: 'Chofer Prueba Dos', emitidoEn: hora('10:40'), estado: 'abierto', createdAt: hora('10:40'),
+    firmaRecibe: FIRMA, firmanteRecibe: 'Chofer Prueba Dos', emitidoEn: hora('10:40'), createdAt: hora('10:40'),
   })
   await cfg('valeCajaCounter_torcuato', { next: 2 })
   console.log('✓ Ventanilla: turno abierto 07:30, 5 ventas (turnos 1-5; el 3 preparado, el 4 en espera en muelle, el 5 por transferencia), 3 cobranzas de mostrador (efectivo; cheque + efectivo Rolito; e-cheq + retención + transferencia Redonhielo) y un anticipo VA-DT-000001 de $50.000 Redonhielo a tesorería')

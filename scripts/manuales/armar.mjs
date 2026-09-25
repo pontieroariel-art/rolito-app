@@ -58,7 +58,7 @@ const manuales = {
     sub: 'Dónde está la plata hoy, cómo recibís las liquidaciones de caja en mano y cómo las contás y validás.',
     contenido: `<ol class="indice">
   <li>Cómo se mueve la plata <ul><li>Los cuatro lugares</li><li>Las tres firmas</li></ul></li>
-  <li>Tesorería <ul><li>La pantalla de entrada: ¿dónde está la plata hoy?</li><li>Los tres carriles de Recepción</li><li>Recibir en mano</li><li>Contar y validar</li><li>Anticipos</li><li>Vales de caja abiertos</li><li>Las otras pantallas</li></ul></li>
+  <li>Tesorería <ul><li>La pantalla de entrada: ¿dónde está la plata hoy?</li><li>Los tres carriles de Recepción</li><li>Recibir en mano</li><li>Contar y validar</li><li>Anticipos</li><li>Las otras pantallas</li></ul></li>
   <li>Avisos automáticos</li>
   <li>Preguntas frecuentes</li>
 </ol>`,

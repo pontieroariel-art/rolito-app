@@ -1,15 +1,15 @@
 import {
-  collection, doc, documentId, getDocs, onSnapshot, orderBy, query, runTransaction, Timestamp, where,
+  collection, doc, documentId, getDocs, onSnapshot, query, runTransaction, Timestamp, where,
 } from 'firebase/firestore'
 import { db } from './firebase'
 import { reportError } from './observability'
 import { codigoVale, contadorVale, topeVale, valeId } from '@/utils/sobres'
-import type { ActorSobre, CajaSesion, EmpresaTango, FormaCierreVale, ReceptorVale, SobrePorEmpresa, ValeCaja } from '@/types'
+import type { ActorSobre, CajaSesion, EmpresaTango, ReceptorVale, SobrePorEmpresa, ValeCaja } from '@/types'
 
 // Vales de caja (2026-09-25). Ver el tipo `ValeCaja` en types.ts. Caja lo emite
 // desde su turno abierto; el cierre del turno le anota el sobre en el que viajó
 // (sobreService.cerrarTurnoYRendir); tesorería lo tilda al contar el sobre
-// (sobreService.recibirSobre) y lo cierra desde Recepción (cerrarVale).
+// (sobreService.recibirSobre). No tiene cierre posterior: queda en la liquidación de caja.
 
 const VALES = 'valesCaja'
 const SESIONES = 'cajaSesiones'
@@ -64,22 +64,11 @@ export async function crearVale(datos: DatosVale, actor: ActorSobre): Promise<Va
       plantaId: sesion.plantaId, fecha: sesion.fecha, numero, codigo: codigoVale(numero, sesion.plantaId),
       cajaSesionId: sesion.id, emitio: actor, empresa: datos.empresa, importe, receptor, motivo,
       firmaRecibe: datos.firmaRecibe, firmanteRecibe: datos.firmanteRecibe.trim() || nombre,
-      emitidoEn: ahora, estado: 'abierto', createdAt: ahora,
+      emitidoEn: ahora, createdAt: ahora,
     }
     tx.set(counterRef, { next: numero + 1 })
     tx.set(doc(db, VALES, id), vale)
     return { id, ...vale }
-  })
-}
-
-/** Tesorería cierra el vale: con el comprobante del gasto, descuento de sueldo o devolución de la plata. */
-export async function cerrarVale(id: string, datos: { forma: FormaCierreVale; nota: string }, actor: ActorSobre): Promise<void> {
-  const ref = doc(db, VALES, id)
-  await runTransaction(db, async (tx) => {
-    const snap = await tx.get(ref)
-    if (!snap.exists()) throw new Error('El vale no existe.')
-    if (snap.data().estado === 'cerrado') throw new Error('Ese vale ya está cerrado.')
-    tx.update(ref, { estado: 'cerrado', cierre: { forma: datos.forma, nota: datos.nota.trim(), por: actor, en: Timestamp.now() } })
   })
 }
 
@@ -97,14 +86,6 @@ export const subscribeValesDelDia = (fecha: string, cb: (v: ValeCaja[]) => void)
     query(collection(db, VALES), where('fecha', '==', fecha)),
     (snap) => cb(snap.docs.map((d) => aVale(d.id, d.data()))),
     (err) => { reportError(err, { subscription: 'vales-dia', fecha }); cb([]) },
-  )
-
-/** Los vales abiertos de cualquier fecha: lo que tesorería tiene que cerrar. */
-export const subscribeValesAbiertos = (cb: (v: ValeCaja[]) => void): () => void =>
-  onSnapshot(
-    query(collection(db, VALES), where('estado', '==', 'abierto'), orderBy('emitidoEn', 'asc')),
-    (snap) => cb(snap.docs.map((d) => aVale(d.id, d.data()))),
-    (err) => { reportError(err, { subscription: 'vales-abiertos' }); cb([]) },
   )
 
 /** Vales por id (de a 10, tope de `in`). */

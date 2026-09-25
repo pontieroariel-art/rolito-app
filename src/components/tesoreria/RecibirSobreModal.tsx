@@ -142,7 +142,6 @@ export default function RecibirSobreModal({ sobre, anticipos = [], firmante, gua
                 {d && !d.recibido && <input value={d.motivo} onChange={(e) => decidir(k, { recibido: false, motivo: e.target.value })} placeholder="Motivo (obligatorio)" className="w-full bg-white border border-[#D3D1C7] rounded-lg px-3 py-1.5 text-sm" />}
               </div>
             ) })}
-            <p className="text-xs text-secundario">Un vale que vino queda abierto hasta que lo cierres desde Recepción (comprobante, descuento de sueldo o devolución).</p>
           </section>
         )}
 
