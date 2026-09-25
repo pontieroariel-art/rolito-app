@@ -3,6 +3,7 @@ import type { DocumentData, QueryDocumentSnapshot } from 'firebase/firestore'
 import { db } from './firebase'
 import { reportError } from './observability'
 import { sesionId } from '@/utils/sobres'
+import { toDateStr } from '@/utils/helpers'
 import type { CajaSesion, PlantaId } from '@/types'
 
 // Turno de caja (2026-09-14, rendición de fondos, Fase 1): cada cajero abre SU
@@ -47,7 +48,11 @@ const aSesion = (d: QueryDocumentSnapshot<DocumentData> | { id: string; data: ()
  * pantalla lo retoma en vez de abrir otro). Fondo inicial 0: hoy no hay fondo
  * fijo (decisión de Ariel, 14/09); si algún día lo hay, lo carga tesorería.
  */
-export async function abrirTurno(actor: { uid: string; nombre: string }, plantaId: PlantaId, fecha: string): Promise<CajaSesion> {
+export async function abrirTurno(actor: { uid: string; nombre: string }, plantaId: PlantaId, fechaPantalla: string): Promise<CajaSesion> {
+  // Nunca un turno con fecha pasada: una pantalla que quedó abierta de un día
+  // para el otro puede traer el día viejo (turno fantasma del 15/09, 2026-09-25).
+  const hoyReal = toDateStr(new Date())
+  const fecha = fechaPantalla < hoyReal ? hoyReal : fechaPantalla
   // Un turno de otro día sin cerrar (el cajero se fue sin cerrar) bloquea el
   // nuevo: por usuario, no por planta (otro cajero puede estar cobrando
   // liquidaciones al mismo tiempo). El de hoy abierto lo retoma la pantalla.

@@ -17,6 +17,20 @@ export function useDiaActual(): string {
     )
     return () => clearTimeout(id)
   }, [dia])
+  // Con la pantalla apagada el navegador congela el timer de arriba: la tablet de
+  // caja amaneció el 16/09 creyendo que era el 15 y abrió el turno con esa fecha
+  // (2026-09-25). Se revisa también al volver a la pantalla y cada minuto.
+  useEffect(() => {
+    const revisar = () => setDia(toDateStr(new Date()))
+    const id = setInterval(revisar, 60_000)
+    document.addEventListener('visibilitychange', revisar)
+    window.addEventListener('focus', revisar)
+    return () => {
+      clearInterval(id)
+      document.removeEventListener('visibilitychange', revisar)
+      window.removeEventListener('focus', revisar)
+    }
+  }, [])
   return dia
 }
 
