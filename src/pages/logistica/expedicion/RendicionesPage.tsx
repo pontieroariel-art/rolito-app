@@ -254,7 +254,7 @@ export default function RendicionesPage() {
       {turnoViejo && sesion && (
         <p className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-sm text-amber-800 flex items-start gap-2">
           <AlertTriangle size={16} className="shrink-0 mt-0.5" />
-          <span>Tenés el turno del <b>{diaCorto(sesion.fecha)}</b> abierto desde las {horaCorta(sesion.abiertaEn)}. Hasta que lo cierres y entregues el sobre no se puede abrir el de hoy.</span>
+          <span>Tenés el turno del <b>{diaCorto(sesion.fecha)}</b> abierto desde las {horaCorta(sesion.abiertaEn)}. Cerralo para poder abrir el de hoy; el sobre se lo entregás a tesorería cuando esté.</span>
         </p>
       )}
 
