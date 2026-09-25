@@ -94,6 +94,13 @@
             "key": "Content-Security-Policy",
             "value": "frame-ancestors 'self' https://rolito.com.ar https://www.rolito.com.ar"
           }
+        ]
+      },
+      {
+        "source": "/manuales/**",
+        "headers": [
+          { "key": "X-Frame-Options",         "value": "SAMEORIGIN" },
+          { "key": "Content-Security-Policy", "value": "frame-ancestors 'self'" }
         ]
       }
     ]
