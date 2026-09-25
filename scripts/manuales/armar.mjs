@@ -37,8 +37,8 @@ const faqTodo = entre('<h2 style="margin-top:22pt">4 · Preguntas frecuentes</h2
 const faqs = [...faqTodo.matchAll(/<p><b>[\s\S]*?<\/p>/g)].map((m) => m[0])
 const faqDe = (claves) => faqs.filter((f) => claves.some((k) => f.includes(k))).join('\n')
 
-const FAQ_CAJA = ['me equivoqué en un billete', 'no está para firmar', 'volvió tarde', 'no me lo entregó', 'el que recibe soy yo', 'Falta mercadería', 'plata que sigue en la calle']
-const FAQ_TESO = ['un solo total', 'no está para firmar', 'el que recibe soy yo', 'plata que sigue en la calle', 'me equivoqué en un billete']
+const FAQ_CAJA = ['me equivoqué en un billete', 'no está para firmar', 'volvió tarde', 'no me lo entregó', 'las dos puntas', 'Falta mercadería', 'plata que sigue en la calle']
+const FAQ_TESO = ['un solo total', 'no está para firmar', 'las dos puntas', 'plata que sigue en la calle', 'me equivoqué en un billete']
 
 const manuales = {
   caja: {
