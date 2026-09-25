@@ -85,7 +85,7 @@ export interface ResultadoMail {
  * "que se manden a donde deberían ir", no todo a su Gmail). Un tipo sin lista
  * propia cae en la lista general `emails`. Se editan en Ajustes generales.
  */
-export type TipoAviso = 'nuevoPedido' | 'nuevoCliente' | 'backoffice' | 'padronIIBB'
+export type TipoAviso = 'nuevoPedido' | 'nuevoCliente' | 'backoffice' | 'padronIIBB' | 'rendicionesPendientes'
 
 interface ConfigNotificaciones {
   modoTest?:      boolean

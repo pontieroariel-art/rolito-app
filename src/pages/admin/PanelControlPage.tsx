@@ -33,7 +33,6 @@ export default function PanelControlPage() {
 
   const c = estado.conteos
   const sinValidar = rendicionesSinValidar(estado.rendiciones)
-  const entregasSinConfirmar = estado.entregas.length
   const anulacionesPend = estado.anulaciones.length
   const anulacionMasVieja = estado.anulaciones.reduce<Date | null>((acc, a) => {
     const d = a.solicitadaEn?.toDate?.() ?? null
@@ -105,9 +104,9 @@ export default function PanelControlPage() {
           />
           <TileEstado
             titulo="Tesorería"
-            tono={tonoConteo(sinValidar + entregasSinConfirmar)}
-            valor={sinValidar + entregasSinConfirmar}
-            lineas={[[`Cierres sin validar (${7} d)`, sinValidar], ['Entregas sin confirmar', entregasSinConfirmar]]}
+            tono={tonoConteo(sinValidar)}
+            valor={sinValidar}
+            lineas={[[`Cierres sin validar (${7} d)`, sinValidar]]}
             to="/tesoreria/rendiciones" toLabel="Ver tesorería"
           />
           <TileEstado

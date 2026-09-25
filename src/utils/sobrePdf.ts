@@ -1,4 +1,6 @@
-import type { Sobre } from '@/types'
+import type { Cobranza, Liquidacion, Sobre, VentaVentanilla } from '@/types'
+import { cajonPorEmpresa, seccionesDelActa } from './actaComoPantalla'
+import { dibujarSecciones, tarjetaCajon } from './actaPantallaPdf'
 import { MOTIVOS_DIFERENCIA_LIQUIDACION, PLANTAS } from '@/types'
 import { formatoARS } from './money'
 import { ESTILO_CABECERA_TABLA, encabezadoA4, finTabla, firmaA4, nuevoA4, pieA4, salidaPdf } from './pdfBase'
@@ -14,7 +16,7 @@ import { compartirArchivo } from './compartir'
 // (firma de tesorería pendiente) y ya recibido. Mismo papel que los demás
 // documentos operativos (pdfBase).
 
-export const nombreArchivoSobre = (s: Pick<Sobre, 'fecha' | 'codigo'>) => `rendicion-${s.fecha}-${s.codigo}.pdf`
+export const nombreArchivoSobre = (s: Pick<Sobre, 'fecha' | 'codigo'>) => `liquidacion-caja-${s.fecha}-${s.codigo}.pdf`
 
 /**
  * Detalle que no vive en el sobre: qué le rindió cada chofer o cobrador al
@@ -23,11 +25,19 @@ export const nombreArchivoSobre = (s: Pick<Sobre, 'fecha' | 'codigo'>) => `rendi
  */
 export interface DetalleActaSobre {
   personas?:   PersonaDelActa[]
+  /** Los anticipos del mismo turno (2026-09-23): restan en la tabla, igual que en la pantalla. */
+  anticipos?:  Sobre[]
   sinDetalle?: boolean
+  /** Con estos tres (2026-09-24) el acta se dibuja IGUAL a la pantalla de Liquidación de caja. */
+  ventas?:        VentaVentanilla[]
+  cobranzas?:     Cobranza[]
+  liquidaciones?: Liquidacion[]
 }
+const fechaLarga = (d: Date) => d.toLocaleString('es-AR', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false })
 
 const fechaHora = (d: Date) => d.toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false })
 const signo = (n: number) => `${n > 0 ? '+' : ''}${formatoARS(n)}`
+const ddmmaa = (f: string | undefined) => (f && f.length >= 10 ? `${f.slice(8, 10)}/${f.slice(5, 7)}/${f.slice(2, 4)}` : '—')
 
 export async function generateActaSobre(s: Sobre, detalle: DetalleActaSobre = {}, opts: { descargar?: boolean } = {}): Promise<Blob> {
   const base = await nuevoA4()
@@ -36,47 +46,84 @@ export async function generateActaSobre(s: Sobre, detalle: DetalleActaSobre = {}
   const recibida = s.estado === 'recibida' && !!s.recepcion
   const rec = s.recepcion
 
-  encabezadoA4(base, 'Rendición de fondos a tesorería',
-    `${s.codigo}  ·  ${PLANTAS[s.plantaId].label}  ·  ${fechaHora(s.cerradaEn.toDate())}  ·  ${recibida ? 'Recibida por tesorería' : s.entrega ? 'Entregada en mano a tesorería, sin contar' : 'Pendiente de entregar a tesorería'}`,
-    { tamSubtitulo: 9 })
+  const anticipo = s.tipo === 'anticipo'
+  const anticipos = detalle.anticipos ?? []
+  const estadoTxt = recibida ? (anticipo ? 'Contado por tesorería' : 'Recibida por tesorería') : anticipo ? `Entregado a ${s.entrega?.recibio.nombre ?? 'tesorería'}, sin contar` : 'Cerrada, tesorería todavía no la contó'
+  encabezadoA4(base, anticipo ? 'Anticipo de caja a tesorería' : 'Liquidación de caja',
+    `${s.codigo}  ·  ${PLANTAS[s.plantaId].label}  ·  ${anticipo ? fechaHora(s.cerradaEn.toDate()) : `cierre ${fechaLarga(s.cerradaEn.toDate())}`}`,
+    { tamSubtitulo: 9, yLinea: 30 })
+  // Segunda línea del subtítulo (2026-09-24): en una sola línea pisaba el logo.
+  doc.setFontSize(9); doc.setFont('helvetica', 'normal'); doc.setTextColor(80)
+  doc.text(estadoTxt, pageW - 14, 25, { align: 'right' })
+  doc.setTextColor(0)
 
-  // ── Sistema vs declarado ─────────────────────────────────────────────────
+  // ── Igual a la pantalla (2026-09-24): la tarjeta del cajón y los bloques como tarjetas, sin barras verdes ──
+  const comoPantalla = !anticipo && !!detalle.ventas && !!detalle.cobranzas && !!detalle.liquidaciones
+  let yPantalla = 36
+  if (comoPantalla) {
+    yPantalla = tarjetaCajon(base, yPantalla, s, cajonPorEmpresa(s))
+    const secciones = seccionesDelActa({ sobre: s, ventas: detalle.ventas!, cobranzas: detalle.cobranzas!, liquidaciones: detalle.liquidaciones!, anticipos })
+    yPantalla = dibujarSecciones(base, yPantalla, secciones)
+  }
+  // ── Sistema vs declarado (formato anterior, para sobres sin el detalle de la pantalla) ──
   const d = s.sistema.detalle
   const personas = detalle.personas ?? []
   const nLiq = s.sistema.origenIds.liquidacionesIds.length
-  const filasSistema: (string | number)[][] = d
-    ? [
-        ['Fondo inicial', formatoARS(d.fondoInicial)],
-        ['Ventas en efectivo', formatoARS(d.ventasEfectivo)],
-        ['Cobranzas de mostrador en efectivo', formatoARS(d.cobranzasEfectivo)],
-        [`Recibido de choferes y cobradores (${nLiq} ${nLiq === 1 ? 'rendición' : 'rendiciones'}, detalle abajo)`, formatoARS(d.recibidoDeLiquidaciones)],
-        ...personas.map((p) => [`      ${p.nombre}${p.codigo ? ` · ${p.codigo}` : ''}`, formatoARS(p.efectivoRecibido)]),
-        ...(d.recibidoDeSobres ? [['Recibido de cobradores', formatoARS(d.recibidoDeSobres)]] : []),
-      ]
-    : []
-  // Por empresa (2026-09-16): cuánto de cada una hay en la caja y cómo van los fajos.
   const pe = s.sistema.porEmpresa
-  const filasEmpresa: (string | number)[][] = pe
+  const v = (n: number) => (n ? formatoARS(n) : '—')
+  // Guion ASCII y no el signo menos tipográfico (U+2212): la Helvetica de jsPDF no lo tiene y desarmaba el espaciado de la celda (2026-09-24).
+  const neg = (n: number) => (n ? `-${formatoARS(n)}` : '—')
+  const rolito = (a: Pick<Sobre, 'anticipo'>) => a.anticipo?.empresa === 'rolito'
+  const filasSistema: (string | number)[][] = anticipo
+    ? [[`Anticipo de ${rolito(s) ? 'Rolito' : 'Redonhielo'} entregado antes del cierre del turno`, rolito(s) ? '—' : formatoARS(s.sistema.efectivo), rolito(s) ? formatoARS(s.sistema.efectivo) : '—', formatoARS(s.sistema.efectivo)]]
+    : pe
+      ? [
+          ...(d?.fondoInicial ? [['Fondo inicial', formatoARS(d.fondoInicial), '—', formatoARS(d.fondoInicial)]] : []),
+          [`Ventas de ventanilla en efectivo (${s.sistema.origenIds.ventasIds.length})`, v(pe.redonhielo.ventasEfectivo), v(pe.rolito.ventasEfectivo), v(pe.redonhielo.ventasEfectivo + pe.rolito.ventasEfectivo)],
+          [`Cobranzas de mostrador en efectivo (${s.sistema.origenIds.cobranzasIds.length})`, v(pe.redonhielo.cobranzasEfectivo), v(pe.rolito.cobranzasEfectivo), v(pe.redonhielo.cobranzasEfectivo + pe.rolito.cobranzasEfectivo)],
+          [`Liquidaciones de choferes y cobradores (${nLiq}, detalle abajo)`, v(pe.redonhielo.recibidoDeLiquidaciones + pe.redonhielo.recibidoDeSobres), v(pe.rolito.recibidoDeLiquidaciones + pe.rolito.recibidoDeSobres), v(pe.redonhielo.recibidoDeLiquidaciones + pe.rolito.recibidoDeLiquidaciones + pe.redonhielo.recibidoDeSobres + pe.rolito.recibidoDeSobres)],
+          ...personas.map((p) => [`      ${p.nombre}${p.codigo ? ` · ${p.codigo}` : ''}`, '', '', formatoARS(p.efectivoRecibido)]),
+          ...(anticipos.length
+            ? anticipos.map((a) => [`Anticipo ${a.codigo} · recibió ${a.entrega?.recibio.nombre ?? '—'} ${fechaHora(a.cerradaEn.toDate())}${a.recepcion ? ' · contado' : ''}`, rolito(a) ? '—' : neg(a.sistema.efectivo), rolito(a) ? neg(a.sistema.efectivo) : '—', neg(a.sistema.efectivo)])
+            : (pe.redonhielo.anticipos || pe.rolito.anticipos) ? [['Anticipos a tesorería', neg(pe.redonhielo.anticipos ?? 0), neg(pe.rolito.anticipos ?? 0), neg((pe.redonhielo.anticipos ?? 0) + (pe.rolito.anticipos ?? 0))]] : []),
+        ]
+      : d
+        ? [
+            ['Fondo inicial', formatoARS(d.fondoInicial), '—', formatoARS(d.fondoInicial)],
+            ['Ventas en efectivo', formatoARS(d.ventasEfectivo), '—', formatoARS(d.ventasEfectivo)],
+            ['Cobranzas de mostrador en efectivo', formatoARS(d.cobranzasEfectivo), '—', formatoARS(d.cobranzasEfectivo)],
+            [`Recibido de choferes y cobradores (${nLiq})`, formatoARS(d.recibidoDeLiquidaciones), '—', formatoARS(d.recibidoDeLiquidaciones)],
+            ...personas.map((p) => [`      ${p.nombre}${p.codigo ? ` · ${p.codigo}` : ''}`, '', '', formatoARS(p.efectivoRecibido)]),
+          ]
+        : []
+  const filaTotal: (string | number)[] = pe
+    ? ['Efectivo en el sobre (sistema)', formatoARS(pe.redonhielo.efectivo), formatoARS(pe.rolito.efectivo), formatoARS(s.sistema.efectivo)]
+    : ['Efectivo en el sobre (sistema)', formatoARS(s.sistema.efectivo), '—', formatoARS(s.sistema.efectivo)]
+  const filasValores: (string | number)[][] = pe && !anticipo
     ? [
-        ['Redonhielo · sistema', formatoARS(pe.redonhielo.efectivo)],
-        ['Rolito · sistema', formatoARS(pe.rolito.efectivo)],
+        [`Cheques (${s.sistema.cheques.length}, detalle abajo)`, v(pe.redonhielo.cheques.total), v(pe.rolito.cheques.total), v(pe.redonhielo.cheques.total + pe.rolito.cheques.total)],
+        [`Retenciones (${s.sistema.retenciones.length})`, v(pe.redonhielo.retenciones.total), v(pe.rolito.retenciones.total), v(pe.redonhielo.retenciones.total + pe.rolito.retenciones.total)],
       ]
     : []
-  autoTable(doc, {
-    startY: 32,
-    head: [['Sistema (a rendir)', '']],
-    body: [...filasSistema, ['A rendir', formatoARS(s.sistema.efectivo)], ...filasEmpresa],
-    styles: { fontSize: 8.5, cellPadding: 2 }, headStyles: head,
-    columnStyles: { 0: { cellWidth: 58 }, 1: { halign: 'right' } },
-    didParseCell: (data) => { if (data.section === 'body' && data.row.index === filasSistema.length) data.cell.styles.fontStyle = 'bold' },
-    margin: { left: 14, right: 104 },
+
+  if (!comoPantalla) autoTable(doc, {
+    startY: 36,
+    head: [['De dónde sale, por empresa', 'Redonhielo', 'Rolito', 'Total']],
+    body: [...filasSistema, filaTotal, ...filasValores],
+    styles: { fontSize: 8, cellPadding: 1.8 }, headStyles: head,
+    columnStyles: { 0: { cellWidth: 92 }, 1: { halign: 'right' }, 2: { halign: 'right' }, 3: { halign: 'right' } },
+    didParseCell: (data) => {
+      if (data.section === 'body' && data.row.index === filasSistema.length) data.cell.styles.fontStyle = 'bold'
+      if (data.section === 'body' && String(data.cell.raw).startsWith('-')) data.cell.styles.textColor = [153, 27, 27]
+    },
+    margin: { left: 14, right: 14 },
   })
-  const yIzq = finTabla(doc, 32)
+  const yIzq = comoPantalla ? yPantalla + 2 : finTabla(doc, 36) + 4
 
   const motivo = s.motivoDiferencia ? `${MOTIVOS_DIFERENCIA_LIQUIDACION[s.motivoDiferencia.motivo]}${s.motivoDiferencia.nota ? ` · ${s.motivoDiferencia.nota}` : ''}` : ''
   autoTable(doc, {
-    startY: 32,
-    head: [['Declarado por caja', '']],
+    startY: yIzq,
+    head: [[anticipo ? 'Entregado' : 'Declarado por caja', '']],
     body: [
       ['A rendir', formatoARS(s.sistema.efectivo)],
       ['Declaré', formatoARS(s.declarado.efectivo)],
@@ -90,9 +137,9 @@ export async function generateActaSobre(s: Sobre, detalle: DetalleActaSobre = {}
     didParseCell: (data) => {
       if (data.section === 'body' && data.row.index === 2 && s.diferenciaDeclarada.efectivo !== 0) data.cell.styles.textColor = [153, 27, 27]
     },
-    margin: { left: 110, right: 14 },
+    margin: { left: 14, right: 104 },
   })
-  let y = Math.max(yIzq, finTabla(doc, 32)) + 6
+  let y = finTabla(doc, yIzq) + 6
 
   // ── Composición de billetes (2026-09-16, pedido de Ariel): lo que contó caja, billete por billete ──
   const cb = s.declarado.conteoBilletes
@@ -115,7 +162,8 @@ export async function generateActaSobre(s: Sobre, detalle: DetalleActaSobre = {}
   // ── Recibido de cada chofer / cobrador, recibo por recibo ────────────────
   // Lo que pidió Ariel el 14/09: cuando la caja no cuadra, que el acta diga
   // de quién era la plata y qué cobró cada uno.
-  if (nLiq && (personas.length || detalle.sinDetalle)) {
+  // Con el acta como la pantalla, las liquidaciones ya están arriba bloque por bloque.
+  if (!comoPantalla && nLiq && (personas.length || detalle.sinDetalle)) {
     if (detalle.sinDetalle || !personas.length) {
       doc.setFontSize(8.5); doc.setTextColor(153, 27, 27)
       doc.text('No se pudo leer el detalle de las rendiciones recibidas (choferes y cobradores). Reimprimí el acta con conexión.', 14, y + 3)
@@ -170,14 +218,14 @@ export async function generateActaSobre(s: Sobre, detalle: DetalleActaSobre = {}
     }
     autoTable(doc, {
       startY: y,
-      head: [['Valores en papel', 'Cliente', 'Recibo', 'Importe', 'Declaró caja', 'Contado por tesorería']],
+      head: [['Cheques y retenciones', 'Emisor · empresa', 'Banco · N°', 'Emisión', 'Pago', 'Lo cobró', 'Importe', 'Declaró caja', 'Contó tesorería']],
       body: [
-        ...s.sistema.cheques.map((ch) => [`Cheque ${ch.esEcheq ? 'electrónico ' : ''}${ch.numero} · ${ch.bancoNombre} · acredita ${ch.fechaAcreditacion || '—'}`, ch.clienteNombre, ch.numeroRecibo ?? '', formatoARS(ch.importe), declaro(claveDeCheque(ch)), conto(claveDeCheque(ch))]),
-        ...s.sistema.retenciones.map((re) => [`Retención ${re.tipo.toUpperCase()} cert. ${re.nroCertificado}`, re.clienteNombre, re.numeroRecibo ?? '', formatoARS(re.importe), declaro(claveDeRetencion(re)), conto(claveDeRetencion(re))]),
+        ...s.sistema.cheques.map((ch) => [`Cheque${ch.esEcheq ? ' electrónico' : ''}`, `${ch.clienteNombre} · ${ch.empresa === 'rolito' ? 'Rolito' : 'Redonhielo'}${ch.numeroRecibo ? ` · ${ch.numeroRecibo}` : ''}`, `${ch.bancoNombre} · ${ch.numero}`, ddmmaa(ch.fechaEmision), ddmmaa(ch.fechaAcreditacion), `${ch.cobradoPor ?? '—'}${ch.origenCodigo ? ` (${ch.origenCodigo})` : ''}`, formatoARS(ch.importe), declaro(claveDeCheque(ch)), conto(claveDeCheque(ch))]),
+        ...s.sistema.retenciones.map((re) => [`Retención ${re.tipo.toUpperCase()}`, `${re.clienteNombre} · ${re.empresa === 'rolito' ? 'Rolito' : 'Redonhielo'}${re.numeroRecibo ? ` · ${re.numeroRecibo}` : ''}`, `cert. ${re.nroCertificado}`, '', '', '—', formatoARS(re.importe), declaro(claveDeRetencion(re)), conto(claveDeRetencion(re))]),
       ],
-      styles: { fontSize: 8, cellPadding: 1.8 }, headStyles: head,
-      columnStyles: { 3: { halign: 'right' }, 4: { cellWidth: 22 }, 5: { cellWidth: 36 } },
-      didParseCell: (data) => { if (data.section === 'body' && (data.column.index === 4 || data.column.index === 5) && String(data.cell.raw).startsWith('NO')) data.cell.styles.textColor = [153, 27, 27] },
+      styles: { fontSize: 7.5, cellPadding: 1.6 }, headStyles: head,
+      columnStyles: { 0: { cellWidth: 20 }, 3: { cellWidth: 16 }, 4: { cellWidth: 16 }, 6: { halign: 'right', cellWidth: 22 }, 7: { cellWidth: 18 }, 8: { cellWidth: 30 } },
+      didParseCell: (data) => { if (data.section === 'body' && (data.column.index === 7 || data.column.index === 8) && String(data.cell.raw).startsWith('NO')) data.cell.styles.textColor = [153, 27, 27] },
       margin: { left: 14, right: 14 },
     })
     y = finTabla(doc, y) + 6
@@ -192,6 +240,7 @@ export async function generateActaSobre(s: Sobre, detalle: DetalleActaSobre = {}
       body: [
         ['Recibió', `${rec.recibio.nombre} · ${fechaHora(rec.en.toDate())}`],
         ['Contado por tesorería', formatoARS(rec.efectivoContado)],
+        ...(rec.fajos ? [['Contado por fajo', `Redonhielo ${formatoARS(rec.fajos.redonhielo)} · Rolito ${formatoARS(rec.fajos.rolito)}`]] : []),
         ['Diferencia de recepción', signo(rec.efectivoContado - s.sistema.efectivo)],
         ['Conformidad', rec.conformidad === 'conforme' ? 'Conforme' : 'Con diferencia'],
         ...(difR ? [['Motivo', `${MOTIVOS_DIFERENCIA_LIQUIDACION[difR.motivo]}${difR.nota ? ` · ${difR.nota}` : ''}`]] : []),
@@ -199,7 +248,7 @@ export async function generateActaSobre(s: Sobre, detalle: DetalleActaSobre = {}
       ],
       styles: { fontSize: 8.5, cellPadding: 2 }, headStyles: head,
       columnStyles: { 0: { cellWidth: 45, fontStyle: 'bold' } },
-      didParseCell: (data) => { if (data.section === 'body' && data.row.index === 3 && rec.conformidad !== 'conforme') data.cell.styles.textColor = [153, 27, 27] },
+      didParseCell: (data) => { if (data.section === 'body' && String(data.cell.raw) === 'Con diferencia') data.cell.styles.textColor = [153, 27, 27] },
       margin: { left: 14, right: 90 },
     })
     y = finTabla(doc, y) + 6
@@ -207,17 +256,20 @@ export async function generateActaSobre(s: Sobre, detalle: DetalleActaSobre = {}
 
   // ── Firmas: izquierda quien rinde (caja), derecha quien recibe (tesorería) ──
   if (y > pageH - 50) { doc.addPage(); y = 20 }
-  firmaA4(base, { x: 14, y, etiqueta: 'Rindió (caja)', firma: s.firmaRinde, aclaracion: `${s.firmanteRinde} · ${fechaHora(s.cerradaEn.toDate())}`, ancho: 45 })
-  // Entrega en mano (2026-09-16): quien recibió el sobre cerrado firma en la tablet del cajero.
-  firmaA4(base, {
-    x: 72, y, etiqueta: 'Recibió el sobre cerrado', ancho: 45,
-    firma: s.entrega?.firmaRecibe,
-    aclaracion: s.entrega ? `${s.entrega.firmanteRecibe} · ${fechaHora(s.entrega.en.toDate())}` : 'Sin entrega en mano registrada',
-  })
+  firmaA4(base, { x: 14, y, etiqueta: anticipo ? 'Entregó (caja)' : 'Rindió (caja)', firma: s.firmaRinde || undefined, aclaracion: `${s.firmanteRinde} · ${fechaHora(s.cerradaEn.toDate())}`, ancho: 45 })
+  // Entrega en mano: solo cuando existió (anticipos y sobres anteriores al 23/09). Desde el
+  // rediseño cerrar el turno es entregar, y la firma de tesorería es la de la recepción.
+  if (s.entrega) {
+    firmaA4(base, {
+      x: 72, y, etiqueta: anticipo ? 'Recibió el anticipo' : 'Recibió el sobre cerrado', ancho: 45,
+      firma: s.entrega.firmaRecibe,
+      aclaracion: `${s.entrega.firmanteRecibe} · ${fechaHora(s.entrega.en.toDate())}`,
+    })
+  }
   firmaA4(base, {
     x: pageW - 66, y, etiqueta: 'Contó (tesorería)', ancho: 45,
     firma: rec?.firmaRecibe,
-    aclaracion: rec ? `${rec.firmanteRecibe} · ${fechaHora(rec.en.toDate())}` : 'Pendiente de recepción',
+    aclaracion: rec ? `${rec.firmanteRecibe} · ${fechaHora(rec.en.toDate())}` : 'Todavía sin contar',
   })
   pieA4(base)
 
@@ -230,5 +282,5 @@ export async function generateActaSobre(s: Sobre, detalle: DetalleActaSobre = {}
  */
 export async function compartirActaSobre(sobre: Sobre, detalle: DetalleActaSobre = {}): Promise<'compartido' | 'descargado' | 'cancelado'> {
   const blob = await generateActaSobre(sobre, detalle)
-  return compartirArchivo(blob, nombreArchivoSobre(sobre), { titulo: `Rendición ${sobre.codigo}`, texto: `Rendición de fondos ${sobre.codigo} del ${sobre.fecha} de ${sobre.rindio.nombre}` })
+  return compartirArchivo(blob, nombreArchivoSobre(sobre), { titulo: `Liquidación de caja ${sobre.codigo}`, texto: `Liquidación de caja ${sobre.codigo} del ${sobre.fecha} de ${sobre.rindio.nombre}` })
 }

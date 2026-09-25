@@ -797,10 +797,10 @@ service cloud.firestore {
       // updates solo puede avanzar `next` (el doc nace en el primer uso con
       // next >= 2: número emitido + 1).
       allow create: if request.auth != null
-        && docId.matches('(rendicionCounter|entregaCounter|sobreVentanillaCounter)_(torcuato|merlo)') && isCajaDe(docId.split('_')[1])
+        && docId.matches('(rendicionCounter|entregaCounter|sobreVentanillaCounter|sobreAnticipoCounter)_(torcuato|merlo)') && isCajaDe(docId.split('_')[1])
         && request.resource.data.next is int && request.resource.data.next > 1;
       allow update: if request.auth != null
-        && docId.matches('(rendicionCounter|entregaCounter|sobreVentanillaCounter)_(torcuato|merlo)') && isCajaDe(docId.split('_')[1])
+        && docId.matches('(rendicionCounter|entregaCounter|sobreVentanillaCounter|sobreAnticipoCounter)_(torcuato|merlo)') && isCajaDe(docId.split('_')[1])
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['next'])
         && request.resource.data.next > resource.data.next;
       // Contador de DESCARGAS por planta (descargaCounter_torcuato /
@@ -2111,6 +2111,41 @@ service cloud.firestore {
           && e.firmaRecibe is string && e.firmaRecibe.size() > 0
           && e.firmanteRecibe is string && e.firmanteRecibe.size() > 0;
       }
+
+      // ANTICIPO a tesorería (2026-09-23): plata que caja entrega ANTES de
+      // cerrar el turno. Un sobre chico que nace 'entregada' con la firma de
+      // quien lo recibe (tesorería) y la custodia de esa persona; cuelga del
+      // turno ABIERTO del cajero (id `{cajaSesionId}_anticipo_{k}`); sin
+      // valores en papel; monto positivo, declarado igual al sistema; empresa
+      // de la que sale. Tesorería lo cuenta con la regla de recepción de abajo.
+      function turnoAbiertoDelAnticipo(d) {
+        let s = get(/databases/$(database)/documents/cajaSesiones/$(d.cajaSesionId)).data;
+        return s.estado == 'abierta' && s.cajero.uid == request.auth.uid
+          && s.plantaId == d.plantaId && s.fecha == d.fecha;
+      }
+      allow create: if request.auth != null && isCajaDe(request.resource.data.plantaId)
+        && request.resource.data.tipo == 'anticipo'
+        && request.resource.data.rindeA == 'tesoreria'
+        && !request.resource.data.keys().hasAny(['anulacionesPosteriores', 'validacion', 'recepcion'])
+        && request.resource.data.rindio.uid == request.auth.uid
+        && request.resource.data.rindio.rol == 'caja'
+        && request.resource.data.fecha is string
+        && request.resource.data.cajaSesionId is string
+        && rendicionId.matches(request.resource.data.cajaSesionId + '_anticipo_[0-9]+')
+        && turnoAbiertoDelAnticipo(request.resource.data)
+        && request.resource.data.numero is int && request.resource.data.numero > 0
+        && request.resource.data.codigo is string
+        && request.resource.data.anticipo.empresa in ['redonhielo', 'rolito']
+        && request.resource.data.sistema.efectivo is number && request.resource.data.sistema.efectivo > 0
+        && request.resource.data.sistema.cheques.size() == 0
+        && request.resource.data.sistema.retenciones.size() == 0
+        && request.resource.data.declarado.efectivo == request.resource.data.sistema.efectivo
+        && request.resource.data.diferenciaDeclarada.efectivo == 0
+        && request.resource.data.estado == 'entregada'
+        && entregaOk(request.resource.data.entrega)
+        && request.resource.data.custodia.uid == request.resource.data.entrega.recibio.uid
+        && request.resource.data.custodia.desde is timestamp
+        && request.resource.data.cerradaEn is timestamp;
       allow update: if request.auth != null && isCaja()
         && resource.data.get('tipo', '') == 'ventanilla'
         && resource.data.get('rindio', {}).get('uid', '') == request.auth.uid

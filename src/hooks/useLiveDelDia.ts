@@ -10,7 +10,7 @@ import { useSesionesDelDia } from '@/hooks/useCajaSesion'
 import { useSobresDelDia } from '@/hooks/useSobres'
 import { addDaysStr } from '@/utils/helpers'
 import { resumenLive, type ResumenLive } from '@/utils/tesoreriaLive'
-import type { Cobranza, DescargaCamion, Liquidacion, RemitoCarga, Rendicion, VentaCamion, VentaVentanilla } from '@/types'
+import type { CajaSesion, Cobranza, DescargaCamion, Liquidacion, RemitoCarga, Rendicion, Sobre, VentaCamion, VentaVentanilla } from '@/types'
 
 // Los docs de UN día para los dos tableros en vivo (Ventas y Tesorería,
 // 2026-09-16): un stream acotado por colección y planta, sin índices nuevos,
@@ -19,6 +19,10 @@ import type { Cobranza, DescargaCamion, Liquidacion, RemitoCarga, Rendicion, Ven
 export interface LiveDelDia {
   resumen: ResumenLive
   cobranzas: Cobranza[]
+  /** Los docs crudos que Plata del día (2026-09-23) reparte por caja: turnos, sobres y liquidaciones del día. */
+  sesiones: CajaSesion[]
+  sobres: Sobre[]
+  liquidaciones: Liquidacion[]
   /** Último doc recibido (para el "en vivo · hh:mm:ss" del encabezado). */
   ultimoCambio: Date | null
 }
@@ -67,5 +71,7 @@ export function useLiveDelDia(dia: string): LiveDelDia {
     }),
     [ventasCamion, vvT, vvM, cobranzas, remT, remM, descT, descM, liquidaciones, rendiciones, sesT.sesiones, sesM.sesiones, sobT.sobres, sobM.sobres],
   )
-  return { resumen, cobranzas, ultimoCambio }
+  const sesiones = useMemo(() => [...sesT.sesiones, ...sesM.sesiones], [sesT.sesiones, sesM.sesiones])
+  const sobres = useMemo(() => [...sobT.sobres, ...sobM.sobres], [sobT.sobres, sobM.sobres])
+  return { resumen, cobranzas, sesiones, sobres, liquidaciones, ultimoCambio }
 }

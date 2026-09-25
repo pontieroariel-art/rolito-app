@@ -4,15 +4,16 @@
 // .<tipo>; un tipo sin lista propia cae en la lista general `emails`. Espejo
 // de `TipoAviso` en functions/src/email.ts (destinatariosAviso).
 
-export type TipoAviso = 'nuevoPedido' | 'nuevoCliente' | 'backoffice' | 'padronIIBB'
+export type TipoAviso = 'nuevoPedido' | 'nuevoCliente' | 'backoffice' | 'padronIIBB' | 'rendicionesPendientes'
 
-export const TIPOS_AVISO: TipoAviso[] = ['nuevoPedido', 'nuevoCliente', 'backoffice', 'padronIIBB']
+export const TIPOS_AVISO: TipoAviso[] = ['nuevoPedido', 'nuevoCliente', 'backoffice', 'padronIIBB', 'rendicionesPendientes']
 
 export const AVISOS: Record<TipoAviso, { titulo: string; descripcion: string }> = {
   nuevoPedido:  { titulo: 'Nuevo pedido',   descripcion: 'Cuando un cliente carga un pedido en la app.' },
   nuevoCliente: { titulo: 'Nuevo cliente',  descripcion: 'Cuando alguien del staff crea un cliente nuevo.' },
   backoffice:   { titulo: 'Backoffice',     descripcion: 'Cambios de alto riesgo (roles, altas y bajas, "Ver como") al instante y el resumen diario de las 7.' },
   padronIIBB:   { titulo: 'Padrón de IIBB', descripcion: 'Cuando el padrón de percepciones está por vencer o venció.' },
+  rendicionesPendientes: { titulo: 'Rendiciones pendientes', descripcion: 'A las 6, a las 13 y a las 18: viajes sin liquidar, sobres sin contar y cajas de otro día sin cerrar (también sale por push a caja, tesorería y gerencia).' },
 }
 
 /** Campo de Firestore donde vive la lista: `emails` (general) o `avisos.<tipo>`. */

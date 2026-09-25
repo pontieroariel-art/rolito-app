@@ -74,6 +74,7 @@ export function custodiaTotal(porPlanta: Record<PlantaId, CustodiaPlanta>, plant
     enCamino:         partes.flatMap((c) => c.enCamino),
     porRecibirEnCaja: partes.flatMap((c) => c.porRecibirEnCaja),
     recibidosHoy:     partes.flatMap((c) => c.recibidosHoy),
+    anticipos:        partes.flatMap((c) => c.anticipos),
     totales: {
       enCamino:         suma((c) => c.totales.enCamino),
       porRecibirEnCaja: suma((c) => c.totales.porRecibirEnCaja),

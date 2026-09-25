@@ -16,6 +16,7 @@ exports.tplAdminAccionAltoRiesgo = tplAdminAccionAltoRiesgo;
 exports.tplAdminResumenDiario = tplAdminResumenDiario;
 exports.tplArcaFacturasConProblemas = tplArcaFacturasConProblemas;
 exports.tplComprobanteEnviado = tplComprobanteEnviado;
+exports.tplRendicionesPendientes = tplRendicionesPendientes;
 // Escapa datos controlados por el usuario (razón social, notas, nombres de
 // producto, motivo, dirección, teléfono) antes de interpolarlos en el HTML del
 // email. Sin esto, p. ej. una razón social con markup podría inyectar contenido
@@ -504,5 +505,22 @@ function tplComprobanteEnviado(clienteNombre, comprobante, mensaje, remitente) {
     <p style="margin:0;color:#6b7280;font-size:13px">Cualquier consulta, respondé este mail o comunicate con <strong>${esc(remitente)}</strong>.</p>
     <p style="margin:14px 0 0;color:#9ca3af;font-size:12px">Redonhielo S.A. &middot; Av. Panamericana Km 25,700, Don Torcuato &middot; (011) 4741-8000 &middot; ventas@redonhielo.com.ar</p>`;
     return layout(comprobante.titulo, { emoji: comprobante.emoji ?? '🧾', title: comprobante.titulo, subtitle: 'Enviado desde la app de Rolito' }, body);
+}
+/** Aviso de rendiciones pendientes a caja, tesorería y gerencia (2026-09-23), a las 6, 13 y 18. */
+function tplRendicionesPendientes(r, appUrl) {
+    const dm = (f) => `${f.slice(8, 10)}/${f.slice(5, 7)}`;
+    const seccion = (titulo, lineas) => (lineas.length ? `<p style="margin:16px 0 6px;font-weight:600">${esc(titulo)} (${lineas.length})</p>${infoBox(lineas)}` : '');
+    return layout('Rendiciones pendientes', {
+        emoji: '💵',
+        title: 'Rendiciones pendientes',
+        subtitle: `${r.total} pendiente${r.total !== 1 ? 's' : ''} al ${dm(r.hoy)}`,
+        accentColor: '#B45309',
+    }, `
+    <p style="margin:0 0 8px">Plata que todavía no llegó a donde tiene que estar. Esto no frena nada: es para que alguien lo mire.</p>
+    ${seccion('Viajes y cobradores sin liquidar', r.viajes.map((v) => ({ label: esc(v.nombre), value: `${esc(v.codigo ?? (v.tipo === 'cobranzas' ? 'cobranzas de calle' : 'viaje'))} · ${dm(v.fecha)} · hace ${v.dias} día${v.dias !== 1 ? 's' : ''}` })))}
+    ${seccion('Sobres y anticipos sin contar por tesorería', r.sobres.map((s) => ({ label: esc(s.codigo), value: `${esc(s.nombre)} · ${dm(s.fecha)} · hace ${s.horas} h${s.tipo === 'anticipo' ? ' · anticipo' : ''}` })))}
+    ${seccion('Cajas de otro día sin cerrar', r.cajas.map((c) => ({ label: esc(c.nombre), value: `turno del ${dm(c.fecha)} abierto` })))}
+    ${ctaButton('Ver liquidaciones abiertas →', `${appUrl}/tesoreria/liquidaciones/abiertas`)}
+  `);
 }
 //# sourceMappingURL=templates.js.map

@@ -11,7 +11,7 @@ import { chequesDe, retencionesDe, sumaImportes } from './medios'
 
 // `empresa` (2026-09-16, rendición por sobres): la del recibo, para que caja y
 // tesorería vean de qué fajo es cada valor. Las cobranzas viejas sin empresa son de Redonhielo.
-export interface ChequeEnPapel { cobranzaId: string; numeroRecibo?: string; clienteNombre: string; numero: string; bancoNombre: string; fechaAcreditacion: string; importe: number; esEcheq?: boolean; empresa?: EmpresaTango }
+export interface ChequeEnPapel { cobranzaId: string; numeroRecibo?: string; clienteNombre: string; numero: string; bancoNombre: string; fechaEmision?: string; fechaAcreditacion: string; importe: number; esEcheq?: boolean; empresa?: EmpresaTango; cobradoPor?: string }
 export interface RetencionEnPapel { cobranzaId: string; numeroRecibo?: string; clienteNombre: string; tipo: string; nroCertificado: string; importe: number; empresa?: EmpresaTango }
 export interface ValoresEnPapel { cheques: ChequeEnPapel[]; retenciones: RetencionEnPapel[] }
 
@@ -21,7 +21,7 @@ export function valoresEnPapel(cobranzas: Cobranza[]): ValoresEnPapel {
   const retenciones: RetencionEnPapel[] = []
   for (const c of cobranzasVigentes(cobranzas)) {   // un recibo anulado no tiene valores que rendir (2026-09-15)
     const empresa: EmpresaTango = c.empresa ?? 'redonhielo'
-    for (const ch of chequesDe(c)) cheques.push({ cobranzaId: c.id, numeroRecibo: c.numeroRecibo, clienteNombre: c.clienteNombre, numero: ch.numero, bancoNombre: ch.bancoNombre, fechaAcreditacion: ch.fechaAcreditacion, importe: ch.importe, ...(ch.esEcheq ? { esEcheq: true } : {}), empresa })
+    for (const ch of chequesDe(c)) cheques.push({ cobranzaId: c.id, numeroRecibo: c.numeroRecibo, clienteNombre: c.clienteNombre, numero: ch.numero, bancoNombre: ch.bancoNombre, fechaEmision: ch.fechaEmision, fechaAcreditacion: ch.fechaAcreditacion, importe: ch.importe, ...(ch.esEcheq ? { esEcheq: true } : {}), empresa, ...(c.registradoPor?.nombre ? { cobradoPor: c.registradoPor.nombre } : {}) })
     for (const r of retencionesDe(c)) retenciones.push({ cobranzaId: c.id, numeroRecibo: c.numeroRecibo, clienteNombre: c.clienteNombre, tipo: r.tipo, nroCertificado: r.nroCertificado, importe: r.importe, empresa })
   }
   return { cheques, retenciones }
@@ -54,9 +54,9 @@ export function aRendidos(valores: ValoresEnPapel, decisiones: Decisiones): { ch
   }
   return {
     cheques: valores.cheques.map((ch) => ({
-      numero: ch.numero, bancoCodigo: '', bancoNombre: ch.bancoNombre, fechaEmision: '', fechaAcreditacion: ch.fechaAcreditacion, dias: 0, importe: ch.importe,
+      numero: ch.numero, bancoCodigo: '', bancoNombre: ch.bancoNombre, fechaEmision: ch.fechaEmision ?? '', fechaAcreditacion: ch.fechaAcreditacion, dias: 0, importe: ch.importe,
       cobranzaId: ch.cobranzaId, clienteNombre: ch.clienteNombre,
-      ...(ch.numeroRecibo ? { numeroRecibo: ch.numeroRecibo } : {}), ...(ch.esEcheq ? { esEcheq: true } : {}),
+      ...(ch.numeroRecibo ? { numeroRecibo: ch.numeroRecibo } : {}), ...(ch.esEcheq ? { esEcheq: true } : {}), ...(ch.cobradoPor ? { cobradoPor: ch.cobradoPor } : {}),
       ...marca(claveCheque(ch)),
     })),
     retenciones: valores.retenciones.map((re) => ({

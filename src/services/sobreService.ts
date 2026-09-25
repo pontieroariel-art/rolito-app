@@ -2,12 +2,13 @@ import { collection, doc, getDocs, onSnapshot, query, runTransaction, where, Tim
 import type { DocumentData } from 'firebase/firestore'
 import { db } from './firebase'
 import { reportError } from './observability'
+import { addDaysStr } from '@/utils/helpers'
 import {
-  codigoSobre, conformidadDe, contadorDeSobre, diferenciaDeclarada, diferenciaRecepcion, fajosDe, hayDiferencia,
-  recibidosSinMotivo, sobreId, valoresSinDecidir,
+  anticipoId, codigoSobre, conformidadDe, contadorDeSobre, diferenciaDeclarada, diferenciaRecepcion, fajosDe, hayDiferencia,
+  recibidosSinMotivo, sobreId, topeAnticipo, valoresSinDecidir,
 } from '@/utils/sobres'
 import type {
-  ActorSobre, CajaSesion, MotivoDiferenciaLiquidacion, PlantaId, RindeA, Sobre, SobreDeclarado, SobreRecepcion,
+  ActorSobre, CajaSesion, EmpresaTango, MotivoDiferenciaLiquidacion, PlantaId, RindeA, Sobre, SobreDeclarado, SobrePorEmpresa, SobreRecepcion,
   SobreSistema, ValorDeclarado, ValorRecibido,
 } from '@/types'
 
@@ -24,7 +25,7 @@ import type {
 
 const RENDICIONES = 'rendiciones'
 const SESIONES    = 'cajaSesiones'
-const TIPOS_SOBRE = new Set(['ventanilla', 'cobrador', 'chofer'])
+const TIPOS_SOBRE = new Set(['ventanilla', 'cobrador', 'chofer', 'anticipo'])
 
 export class SobreYaExisteError extends Error {
   constructor() { super('Este turno ya está cerrado: el sobre ya existe. Actualizá la pantalla.') }
@@ -104,6 +105,83 @@ export async function cerrarTurnoYRendir(datos: DatosCierreTurno, actor: ActorSo
   return { id, ...data }
 }
 
+// ── Anticipo a tesorería (2026-09-23) ────────────────────────────────────────
+
+export interface DatosAnticipo {
+  sesion:  CajaSesion
+  monto:   number
+  empresa: EmpresaTango
+  /** El cajón por empresa AHORA (neto de anticipos anteriores): el tope del anticipo. */
+  porEmpresa: SobrePorEmpresa | undefined
+  recibio:        ActorSobre
+  firmaRecibe:    string
+  firmanteRecibe: string
+}
+
+/** Más de esto en un turno no es un cajero anticipando, es un bug. */
+const MAX_ANTICIPOS_POR_TURNO = 20
+
+/**
+ * Caja le entrega plata a tesorería ANTES de cerrar el turno (un vale). Es un
+ * sobre chico que nace `entregada`, con la firma de quien lo recibe en la
+ * tablet del cajero y la custodia ya de esa persona; tesorería lo cuenta y
+ * confirma como a cualquier sobre. Descuenta del cajón de su empresa
+ * (`sistemaVentanilla` lo resta) y no puede superar lo que hay de esa empresa.
+ */
+export async function crearAnticipo(datos: DatosAnticipo, actor: ActorSobre): Promise<Sobre> {
+  const monto = Math.round(datos.monto * 100) / 100
+  if (!(monto > 0)) throw new Error('El anticipo tiene que ser mayor a cero.')
+  const tope = topeAnticipo(datos.porEmpresa, datos.empresa)
+  if (monto > tope + 0.005) throw new Error(`En el cajón hay ${tope.toLocaleString('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 })} de ${datos.empresa === 'rolito' ? 'Rolito' : 'Redonhielo'}: el anticipo no puede pasar de eso.`)
+  if (!datos.firmaRecibe) throw new Error('Falta la firma de quien recibe el anticipo.')
+  if (datos.recibio.uid === actor.uid) throw new Error('El anticipo lo tiene que recibir alguien de tesorería, no vos.')
+  const { sesion } = datos
+  const sesionRef  = doc(db, SESIONES, sesion.id)
+  const counterRef = doc(db, 'config', contadorDeSobre('anticipo', { plantaId: sesion.plantaId }))
+
+  return runTransaction(db, async (tx) => {
+    const sesionSnap = await tx.get(sesionRef)
+    if (!sesionSnap.exists() || sesionSnap.data().estado !== 'abierta') throw new Error('El turno ya está cerrado: no se puede anticipar.')
+    // El k-ésimo anticipo del turno: ids determinísticos, se recorren en la transacción.
+    let k = 1
+    for (; k <= MAX_ANTICIPOS_POR_TURNO; k++) {
+      const s = await tx.get(doc(db, RENDICIONES, anticipoId(sesion.id, k)))
+      if (!s.exists()) break
+    }
+    if (k > MAX_ANTICIPOS_POR_TURNO) throw new Error('Demasiados anticipos en este turno. Cerrá el turno.')
+    const counterSnap = await tx.get(counterRef)
+    const numero = counterSnap.exists() ? (counterSnap.data().next as number) : 1
+    const ahora  = Timestamp.now()
+    const id = anticipoId(sesion.id, k)
+    const vacio = { ventasIds: [], cobranzasIds: [], liquidacionesIds: [], sobresRecibidosIds: [] }
+    const sobre: Omit<Sobre, 'id'> = {
+      tipo:      'anticipo',
+      rindeA:    'tesoreria',
+      plantaId:  sesion.plantaId,
+      fecha:     sesion.fecha,
+      numero,
+      codigo:    codigoSobre('anticipo', numero, { plantaId: sesion.plantaId }),
+      rindio:    actor,
+      cajaSesionId: sesion.id,
+      anticipo:  { empresa: datos.empresa },
+      sistema:   { efectivo: monto, cheques: [], retenciones: [], transferencias: { cantidad: 0, total: 0 }, origenIds: vacio },
+      declarado: { efectivo: monto, cheques: [], retenciones: [] },
+      diferenciaDeclarada: { efectivo: 0, valoresFaltantes: { cantidad: 0, total: 0 } },
+      firmaRinde:    '',
+      firmanteRinde: actor.nombre,
+      fajos:     datos.empresa === 'rolito' ? { redonhielo: 0, rolito: monto } : { redonhielo: monto, rolito: 0 },
+      cerradaEn: ahora,
+      estado:    'entregada',
+      custodia:  { ...datos.recibio, desde: ahora },
+      entrega:   { recibio: datos.recibio, en: ahora, firmaRecibe: datos.firmaRecibe, firmanteRecibe: datos.firmanteRecibe.trim() || datos.recibio.nombre },
+      createdAt: ahora,
+    }
+    tx.set(counterRef, { next: numero + 1 })
+    tx.set(doc(db, RENDICIONES, id), sobre)
+    return { id, ...sobre }
+  })
+}
+
 // ── Entrega en mano (el cajero se lo da a tesorería) ─────────────────────────
 
 export interface DatosEntregaSobre {
@@ -142,6 +220,8 @@ export async function entregarSobre(sobreId: string, datos: DatosEntregaSobre): 
 
 export interface DatosRecepcion {
   efectivoContado: number
+  /** Contado por fajo (2026-09-23): Redonhielo y Rolito; su suma es `efectivoContado`. */
+  fajos?:      Record<EmpresaTango, number>
   cheques:     ValorRecibido[]
   retenciones: ValorRecibido[]
   /** Obligatorios si hay diferencia (se valida acá también). */
@@ -180,6 +260,7 @@ export async function recibirSobre(sobreId: string, datos: DatosRecepcion, actor
       recibio:         actor,
       en:              ahora,
       efectivoContado: datos.efectivoContado,
+      ...(datos.fajos ? { fajos: datos.fajos } : {}),
       cheques:         datos.cheques.map(limpiarRecibido),
       retenciones:     datos.retenciones.map(limpiarRecibido),
       conformidad,
@@ -244,6 +325,25 @@ export const subscribeSobresDe = (
     (err) => { reportError(err, { subscription: 'sobres-de', uid, desde, hasta }); cb([]); alFallar?.(err) },
   )
 
+/**
+ * Los sobres que tesorería CONTÓ en un día (por la hora de la recepción, no por la
+ * fecha del sobre, 2026-09-23): el de ayer recibido hoy tiene que aparecer en
+ * "Recibidos hoy" y no desaparecer al contarlo. Rango sobre un solo campo anidado.
+ */
+export const subscribeSobresRecibidosEn = (
+  fecha: string,
+  cb: (s: Sobre[]) => void,
+  alFallar?: (err: Error) => void,
+): () => void => {
+  const desde = Timestamp.fromDate(new Date(`${fecha}T00:00:00`))
+  const hasta = Timestamp.fromDate(new Date(`${addDaysStr(fecha, 1)}T00:00:00`))
+  return onSnapshot(
+    query(collection(db, RENDICIONES), where('recepcion.en', '>=', desde), where('recepcion.en', '<', hasta)),
+    (snap) => cb(snap.docs.filter((d) => esSobre(d.data())).map((d) => aSobre(d.id, d.data())).sort(porCerradaEn)),
+    (err) => { reportError(err, { subscription: 'sobres-recibidos-en', fecha }); cb([]); alFallar?.(err) },
+  )
+}
+
 /** Un sobre en vivo (quien rindió mira si ya lo recibieron). Un doc viejo de `rendiciones` cuenta como inexistente. */
 export const subscribeSobre = (
   id: string,
@@ -289,7 +389,7 @@ const limpiarDeclarado = (d: SobreDeclarado): SobreDeclarado => {
     ...(observacion ? { observacion } : {}),
   }
 }
-const limpiarValorDeclarado = (v: ValorDeclarado): ValorDeclarado => ({ clave: v.clave, presente: v.presente })
+const limpiarValorDeclarado = (v: ValorDeclarado): ValorDeclarado => ({ clave: v.clave, presente: v.presente, ...(!v.presente && v.motivo?.trim() ? { motivo: v.motivo.trim() } : {}) })
 const limpiarRecibido = (v: ValorRecibido): ValorRecibido => {
   const motivo = v.motivoNoRecibido?.trim()
   return { clave: v.clave, recibido: v.recibido, ...(motivo ? { motivoNoRecibido: motivo } : {}) }

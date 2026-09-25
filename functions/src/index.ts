@@ -50,6 +50,7 @@ export { onProduccionPalletCreado, onVentaCamionCreada, onVentaCamionFacturada, 
 // Barridos del circuito de expedición (2026-09-18): borradores de carga vencidos
 // y descargas que quedaron sin número.
 export { barridoBorradoresVencidos, barridoDescargasSinNumerar } from './triggers/barridosExpedicion'
+export { avisarRendicionesPendientes } from './triggers/avisosRendiciones'
 export { onOutboxPendiente, barridoOutboxTango }  from './triggers/tangoWorker'
 export { syncPreciosTango, sincronizarPreciosTangoAhora } from './triggers/tangoPrecios'
 export { syncClientesTangoConnect, syncSaldosTangoConnect, sincronizarClientesTangoAhora, sincronizarSaldosTangoAhora, onConsultaSaldoPendiente } from './triggers/tangoConnectSync'

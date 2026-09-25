@@ -190,7 +190,7 @@ async function main() {
     cfg('sobreVentanillaCounter_torcuato', { next: 2 }),
     cfg('liquidacionCounter_21', { next: 16 }),
     cfg('liquidacionCounter_22', { next: 9 }),
-    cfg('liquidacionCounter_31', { next: 3 }),
+    cfg('liquidacionCounter_31', { next: 4 }),
     cfg('rendicionCounter_torcuato', { next: 9 }),
     cfg('cargaCounter_torcuato', { next: 4 }),
     cfg('reciboSupervisorCounter', { next: 120 }),
@@ -454,6 +454,29 @@ async function main() {
   })
   console.log('✓ Supervisor (dep. 31): 3 recibos — $150.000 efectivo Redonhielo, cheque $80.000 + retención $5.000 Redonhielo, $60.000 efectivo Rolito')
 
+  // La liquidación del supervisor YA RECIBIDA por caja (2026-09-24, para ver
+  // en Mi turno el bloque de liquidaciones con efectivo de las dos empresas,
+  // un cheque y una retención). El Chofer Uno queda para liquidarlo a mano.
+  const TESO = { uid: tesoUid, nombre: (await perfil(tesoUid)).nombre }
+  await db.collection('liquidaciones').doc(`${HOY}_${supUid}`).set({
+    numero: 3, codigo: 'LQ-31-000003', fecha: HOY, plantaId: PLANTA,
+    choferId: supUid, choferNombre: SUP.nombre, depositoTango: '31', depositoTangoNombre: 'SUPERVISOR 31',
+    efectivoARendir: 210000, efectivoRecibido: 210000, diferenciaEfectivo: 0,
+    porEmpresa: { redonhielo: { efectivo: 150000, cheques: 80000, retenciones: 5000 }, rolito: { efectivo: 60000, cheques: 0, retenciones: 0 } },
+    conteoBilletes: {
+      redonhielo: { cantidades: { 20000: 7, 10000: 1 }, cambioChico: 0, sinEfectivo: false, total: 150000 },
+      rolito:     { cantidades: { 20000: 3 }, cambioChico: 0, sinEfectivo: false, total: 60000 },
+    },
+    diferenciaPorEmpresa: { redonhielo: 0, rolito: 0 },
+    cheques: [{ ...chequeSup, cobranzaId: 'seed-cob-sup2', numeroRecibo: 'RS-000102', clienteNombre: CLI.nombre, recibido: true, empresa: 'redonhielo', cobradoPor: SUP.nombre }],
+    retenciones: [{ tipo: 'iibb_pba', nroCertificado: 'RET-2026-0471', importe: 5000, fecha: HOY, cobranzaId: 'seed-cob-sup2', numeroRecibo: 'RS-000102', clienteNombre: CLI.nombre, recibido: true, empresa: 'redonhielo' }],
+    valoresFaltantes: { cantidad: 0, total: 0 },
+    productos: [], envases: [], cambios: [],
+    firmaRepartidor: FIRMA, firmanteRepartidor: SUP.nombre, firmaRecibe: FIRMA, firmanteRecibe: CAJA.nombre,
+    cerradaPor: CAJA, createdAt: hora('11:50'), entregaId: null,
+  })
+  console.log('✓ Liquidación del supervisor LQ-31-000003 ya recibida por caja a las 11:50 ($150.000 + $60.000, cheque y retención)')
+
   // ── VENTANILLA: turno abierto con ventas y una cobranza de mostrador ──────
   const sesionId = `${HOY}_${CAJA.uid}_1`
   await db.collection('cajaSesiones').doc(sesionId).set({
@@ -477,7 +500,47 @@ async function main() {
     medios: { efectivo: 15000, transferencia: 0, cheques: [], retenciones: [] },
     tango: { estado: 'confirmado', reciboNumero: 'X0110600000104' },
   })
-  console.log('✓ Ventanilla: turno abierto 07:30, 4 ventas (turnos 1-4; el 3 preparado y el 4 en espera en muelle) y 1 cobranza de mostrador')
+  // Todas las variantes del cajón a la vista (2026-09-24, para revisar el diseño
+  // de Mi turno): una venta por transferencia (no suma al cajón), una cobranza
+  // de Rolito con cheque + efectivo, y una de Redonhielo con cheque, retención
+  // y transferencia.
+  items = [item('bolsa_10kg', 12)]
+  await ventaV('seed-vv-5', { canal: 'contado', clienteId: FACT.id, clienteNombre: FACT.nombre, clienteCodigoTango: FACT.codigoTango, clienteIdGva14Tango: FACT.idGva14, items, total: totalDe(items), formaPago: 'contado_transferencia', estado: 'entregado', turno: 5, turnoEstado: 'llamado', darsena: 3, llamadoAt: hora('11:20'), entregadoPor: { ...MUELLE, hora: hora('11:25') }, fecha: hora('11:15'), factura: facturaArca(items, 'A') })
+  const chequeCaja1 = CHEQUE('00120044', BANCOS.macro, 45000, 20)
+  await db.collection('cobranzas').doc('seed-cob-caja2').set({
+    origen: 'caja', plantaId: PLANTA, cajaSesionId: sesionId, registradoPor: CAJA,
+    clienteId: CLI.id, clienteNombre: CLI.nombre, empresa: 'rolito', codigoTango: CLI.codigoTango,
+    numeroRecibo: 'RS-000105', importe: 50000, formaPago: 'mixto', fecha: hora('10:10'),
+    imputaciones: [{ comprobanteTipo: 'FAC', comprobanteNumero: 'X-0001-00000046', saldoAlMomento: 50000, importeImputado: 50000 }],
+    medios: { efectivo: 5000, transferencia: 0, cheques: [chequeCaja1], retenciones: [] },
+    tango: { estado: 'confirmado', reciboNumero: 'X0110600000105' },
+  })
+  const chequeCaja2 = CHEQUE('00778123', BANCOS.galicia, 70000, 45, { esEcheq: true })
+  await db.collection('cobranzas').doc('seed-cob-caja3').set({
+    origen: 'caja', plantaId: PLANTA, cajaSesionId: sesionId, registradoPor: CAJA,
+    clienteId: FACT.id, clienteNombre: FACT.nombre, empresa: 'redonhielo', codigoTango: FACT.codigoTango,
+    numeroRecibo: 'RS-000106', importe: 93500, formaPago: 'mixto', fecha: hora('11:40'),
+    imputaciones: [{ comprobanteTipo: 'FAC', comprobanteNumero: 'A-0001-00000310', saldoAlMomento: 93500, importeImputado: 93500 }],
+    medios: { efectivo: 0, transferencia: 20000, cheques: [chequeCaja2], retenciones: [{ tipo: 'iibb_pba', nroCertificado: 'RET-2026-0512', importe: 3500, fecha: HOY }] },
+    tango: { estado: 'confirmado', reciboNumero: 'X0110600000106' },
+  })
+  // Un anticipo a tesorería ya entregado (2026-09-24): $50.000 de Redonhielo,
+  // firmado por tesorería a las 12:10 y todavía sin contar.
+  await db.collection('rendiciones').doc(`${sesionId}_anticipo_1`).set({
+    tipo: 'anticipo', rindeA: 'tesoreria', plantaId: PLANTA, fecha: HOY, numero: 1, codigo: 'VA-DT-000001',
+    rindio: { uid: CAJA.uid, nombre: CAJA.nombre, rol: 'caja' }, cajaSesionId: sesionId,
+    anticipo: { empresa: 'redonhielo' },
+    sistema: { efectivo: 50000, cheques: [], retenciones: [], transferencias: { cantidad: 0, total: 0 }, origenIds: { ventasIds: [], cobranzasIds: [], liquidacionesIds: [], sobresRecibidosIds: [] } },
+    declarado: { efectivo: 50000, cheques: [], retenciones: [] },
+    diferenciaDeclarada: { efectivo: 0, valoresFaltantes: { cantidad: 0, total: 0 } },
+    firmaRinde: '', firmanteRinde: CAJA.nombre, fajos: { redonhielo: 50000, rolito: 0 },
+    cerradaEn: hora('12:10'), estado: 'entregada',
+    custodia: { uid: TESO.uid, nombre: TESO.nombre, rol: 'tesoreria', desde: hora('12:10') },
+    entrega: { recibio: { uid: TESO.uid, nombre: TESO.nombre, rol: 'tesoreria' }, en: hora('12:10'), firmaRecibe: FIRMA, firmanteRecibe: TESO.nombre },
+    createdAt: hora('12:10'),
+  })
+  await cfg('sobreAnticipoCounter_torcuato', { next: 2 })
+  console.log('✓ Ventanilla: turno abierto 07:30, 5 ventas (turnos 1-5; el 3 preparado, el 4 en espera en muelle, el 5 por transferencia), 3 cobranzas de mostrador (efectivo; cheque + efectivo Rolito; e-cheq + retención + transferencia Redonhielo) y un anticipo VA-DT-000001 de $50.000 Redonhielo a tesorería')
 
   // ── AYER: sobre de ventanilla que tesorería todavía no recibió ────────────
   const sesionAyer = `${AYER}_${CAJA.uid}_1`
@@ -510,7 +573,7 @@ Pestaña 1 · CAJA  (/empresa → DNI 20000003 / test1234)
      \`npm run emular:arca\` corriendo llega en ~3 s).
   2. Liquidaciones: elegí "21 · ${CH1.nombre}" → contá los billetes de
      Redonhielo y de Rolito, tildá el cheque, dos firmas → LQ-21-000016.
-  3. Liquidaciones: "31 · ${SUP.nombre}" (solo cobranzas) → LQ-31-000003.
+  3. La del supervisor (LQ-31-000003) ya está recibida: se ve en Mi turno.
   4. Mi turno: contá a ciegas, tildá valores, revelá, firmá → sobre RV-DT-000002.
 Pestaña 2 · TESORERÍA  (/empresa → DNI 20000011 / test1234)
   5. Tesorería en vivo: calle (Chofer Dos), ventanillas, supervisores.

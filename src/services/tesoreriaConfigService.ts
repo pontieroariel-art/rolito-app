@@ -22,3 +22,23 @@ export const subscribeConfigTesoreria = (cb: (c: ConfigTesoreria) => void): (() 
     (snap) => cb(normalizarConfigTesoreria(snap.data() as Partial<ConfigTesoreria> | undefined)),
     (err) => { reportError(err, { subscription: 'config/tesoreria' }); cb(normalizarConfigTesoreria(null)) },
   )
+
+// ── Aviso de rendiciones pendientes (2026-09-23) ─────────────────────────────
+// Lo escribe el servidor a las 6, 13 y 18 (`avisarRendicionesPendientes`); la
+// app lo muestra en una franja en Mi turno, Sobres y Plata del día.
+
+export interface AvisoRendiciones {
+  generadoEn: { toDate(): Date } | null
+  hoy: string
+  viajes: { clave: string; nombre: string; fecha: string; codigo?: string; dias: number; tipo: 'viaje' | 'cobranzas' }[]
+  sobres: { id: string; codigo: string; nombre: string; fecha: string; horas: number; tipo: 'sobre' | 'anticipo' }[]
+  cajas:  { id: string; nombre: string; fecha: string }[]
+  total: number
+}
+
+export const subscribeAvisoRendiciones = (cb: (a: AvisoRendiciones | null) => void): (() => void) =>
+  onSnapshot(
+    doc(db, 'config', 'avisoRendiciones'),
+    (snap) => cb(snap.exists() ? (snap.data() as AvisoRendiciones) : null),
+    (err) => { reportError(err, { subscription: 'config/avisoRendiciones' }); cb(null) },
+  )

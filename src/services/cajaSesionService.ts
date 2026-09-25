@@ -22,6 +22,21 @@ export const cajaSesionId = (fecha: string, uid: string, n: number): string => s
 export class SesionYaAbiertaError extends Error {
   constructor(public readonly sesion: CajaSesion) { super('Ya tenés un turno abierto. Cerralo antes de abrir otro.') }
 }
+/** Un turno de OTRO día sin cerrar (2026-09-23, Ariel): no se abre uno nuevo hasta cerrarlo. */
+export class TurnoAnteriorAbiertoError extends Error {
+  constructor(public readonly sesion: CajaSesion) {
+    super(`Tenés el turno del ${sesion.fecha.slice(8, 10)}/${sesion.fecha.slice(5, 7)} sin cerrar. Cerralo antes de abrir uno nuevo.`)
+  }
+}
+
+/**
+ * Turnos ABIERTOS de un cajero, de cualquier día (dos igualdades, sin índice).
+ * Normalmente ninguno o uno; más de uno es un dato roto que Mi turno muestra.
+ */
+export async function getSesionesAbiertasDe(uid: string): Promise<CajaSesion[]> {
+  const snap = await getDocs(query(collection(db, SESIONES), where('cajero.uid', '==', uid), where('estado', '==', 'abierta')))
+  return snap.docs.map(aSesion).sort((a, b) => a.abiertaEn.toMillis() - b.abiertaEn.toMillis())
+}
 
 const aSesion = (d: QueryDocumentSnapshot<DocumentData> | { id: string; data: () => DocumentData | undefined }): CajaSesion =>
   ({ id: d.id, ...(d.data() as object) }) as CajaSesion
@@ -33,6 +48,12 @@ const aSesion = (d: QueryDocumentSnapshot<DocumentData> | { id: string; data: ()
  * fijo (decisión de Ariel, 14/09); si algún día lo hay, lo carga tesorería.
  */
 export async function abrirTurno(actor: { uid: string; nombre: string }, plantaId: PlantaId, fecha: string): Promise<CajaSesion> {
+  // Un turno de otro día sin cerrar (el cajero se fue sin cerrar) bloquea el
+  // nuevo: por usuario, no por planta (otro cajero puede estar cobrando
+  // liquidaciones al mismo tiempo). El de hoy abierto lo retoma la pantalla.
+  const abiertas = await getSesionesAbiertasDe(actor.uid)
+  const deOtroDia = abiertas.find((s) => s.fecha !== fecha)
+  if (deOtroDia) throw new TurnoAnteriorAbiertoError(deOtroDia)
   return runTransaction(db, async (tx) => {
     let n = 1
     for (; n <= MAX_TURNOS_POR_DIA; n++) {
@@ -59,24 +80,26 @@ export async function abrirTurno(actor: { uid: string; nombre: string }, plantaI
 }
 
 /**
- * La sesión ABIERTA de hoy del cajero, o null. Dos igualdades (sin índice
- * compuesto) y el estado se filtra en cliente: como mucho son un par de docs.
- * Un error de lectura se reporta y se entrega null: la pantalla ofrecería
- * "Abrir turno", pero `abrirTurno` es transaccional y rebota si ya hay uno.
+ * La sesión ABIERTA del cajero, o null: la de hoy, o la de un día anterior
+ * que quedó sin cerrar (2026-09-23: Mi turno la muestra para cerrarla, y hasta
+ * entonces no se abre otra). Dos igualdades (sin índice compuesto); la más
+ * vieja primero, porque es la que hay que cerrar. Un error de lectura se
+ * reporta y se entrega null: la pantalla ofrecería "Abrir turno", pero
+ * `abrirTurno` es transaccional y rebota si ya hay uno.
  */
 export const subscribeSesionAbierta = (
   uid: string,
-  fecha: string,
+  _fecha: string,
   cb: (s: CajaSesion | null) => void,
   alFallar?: (err: Error) => void,
 ): () => void =>
   onSnapshot(
-    query(collection(db, SESIONES), where('cajero.uid', '==', uid), where('fecha', '==', fecha)),
+    query(collection(db, SESIONES), where('cajero.uid', '==', uid), where('estado', '==', 'abierta')),
     (snap) => {
-      const abiertas = snap.docs.map(aSesion).filter((s) => s.estado === 'abierta').sort((a, b) => b.numero - a.numero)
+      const abiertas = snap.docs.map(aSesion).sort((a, b) => a.abiertaEn.toMillis() - b.abiertaEn.toMillis())
       cb(abiertas[0] ?? null)
     },
-    (err) => { reportError(err, { subscription: 'cajaSesiones-abierta', uid, fecha }); cb(null); alFallar?.(err) },
+    (err) => { reportError(err, { subscription: 'cajaSesiones-abierta', uid }); cb(null); alFallar?.(err) },
   )
 
 /** Todas las sesiones del día de una planta (tesorería: qué cajas están abiertas). */

@@ -116,10 +116,37 @@ function Resumen({ l, ocupado, compartible, onVer, onEnviar, btn }: { l: Liquida
         Recibido por <b>{recibioNombre}</b>{l.firmaRecibe ? ' · firmado' : ''} · {l.createdAt.toDate().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}
       </p>
       {valores.length > 0 && (
-        <p className="text-xs text-gray-600">
-          Cheques y retenciones entregados: <b className={entregados === valores.length ? 'text-[#0F6B4E]' : 'text-red-600'}>{entregados}/{valores.length}</b>
-          {l.valoresFaltantes?.cantidad ? <span className="text-red-600"> · {l.valoresFaltantes.cantidad} pendiente(s) de entregar ({formatoARS(l.valoresFaltantes.total)})</span> : null}
-        </p>
+        <div className="text-xs text-gray-600 space-y-1">
+          <p>
+            Cheques y retenciones entregados: <b className={entregados === valores.length ? 'text-[#0F6B4E]' : 'text-red-600'}>{entregados}/{valores.length}</b>
+            {l.valoresFaltantes?.cantidad ? <span className="text-red-600"> · {l.valoresFaltantes.cantidad} pendiente(s) de entregar ({formatoARS(l.valoresFaltantes.total)})</span> : null}
+          </p>
+          {/* Cada cheque con su estado (2026-09-23, pedido de Ariel): el chofer ve que caja se lo recibió. */}
+          <ul className="space-y-0.5">
+            {(l.cheques ?? []).map((ch) => (
+              <li key={`${ch.cobranzaId}-${ch.numero}`} className="flex items-center justify-between gap-2">
+                <span className="min-w-0 truncate" title={`Cheque ${ch.numero} · ${ch.bancoNombre} · ${ch.clienteNombre}`}>Cheque {ch.numero} · {ch.clienteNombre}{ch.fechaAcreditacion ? ` · paga ${ch.fechaAcreditacion.slice(8, 10)}/${ch.fechaAcreditacion.slice(5, 7)}` : ''}</span>
+                <span className="flex items-center gap-1.5 shrink-0 tabular-nums">
+                  {formatoARS(ch.importe)}
+                  {esRecibido(ch)
+                    ? <span className="inline-flex items-center gap-0.5 text-[#0F6B4E] font-semibold"><CheckCircle2 size={12} /> recibido por caja</span>
+                    : <span className="text-red-600 font-semibold" title={ch.motivoNoEntregado}>no entregado</span>}
+                </span>
+              </li>
+            ))}
+            {(l.retenciones ?? []).map((re) => (
+              <li key={`${re.cobranzaId}-${re.nroCertificado}`} className="flex items-center justify-between gap-2">
+                <span className="min-w-0 truncate">Retención {re.tipo.toUpperCase()} {re.nroCertificado} · {re.clienteNombre}</span>
+                <span className="flex items-center gap-1.5 shrink-0 tabular-nums">
+                  {formatoARS(re.importe)}
+                  {esRecibido(re)
+                    ? <span className="inline-flex items-center gap-0.5 text-[#0F6B4E] font-semibold"><CheckCircle2 size={12} /> recibida por caja</span>
+                    : <span className="text-red-600 font-semibold" title={re.motivoNoEntregado}>no entregada</span>}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
       <div className="flex gap-2">
         <button type="button" onClick={onVer} disabled={ocupado} className={btn}><Eye size={12} /> Ver</button>

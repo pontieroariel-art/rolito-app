@@ -71,7 +71,9 @@ export const subscribeRendicionesEnRango = (
 ): () => void =>
   onSnapshot(
     query(collection(db, RENDICIONES), where('fecha', '>=', desde), where('fecha', '<', hasta)),
-    (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Rendicion)),
+    // En `rendiciones` conviven los cierres de caja viejos (RD-…, con sujetoId) y los
+    // sobres del rediseño (RV-…/VA-…, con cajeroId): acá van solo los cierres.
+    (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Rendicion).filter((r) => typeof r.sujetoId === 'string')),
     (err) => { reportError(err, { subscription: 'rendiciones-rango', desde, hasta }); callback([]) },
   )
 

@@ -1,4 +1,16 @@
 import { describe, expect, it } from 'vitest'
+import { textoCheque } from './medios'
+
+describe('textoCheque', () => {
+  it('lleva número, banco, emisión y fecha de pago; distingue el e-cheq', () => {
+    expect(textoCheque({ numero: '00778123', bancoNombre: 'Banco Galicia', fechaEmision: '2026-09-24', fechaAcreditacion: '2026-11-08', dias: 45, esEcheq: true }))
+      .toBe('e-cheq Nº 00778123 · Banco Galicia · emitido 24/09 · paga 08/11 (45 días)')
+    expect(textoCheque({ numero: '00045712', bancoNombre: 'Banco Nación', fechaEmision: '2026-09-24', fechaAcreditacion: '2026-10-09', dias: 15 }))
+      .toBe('cheque Nº 00045712 · Banco Nación · emitido 24/09 · paga 09/10 (15 días)')
+    expect(textoCheque({ numero: '1', bancoNombre: 'Banco', fechaEmision: '', fechaAcreditacion: '', dias: 0 }))
+      .toBe('cheque Nº 1 · Banco · emitido — · paga —')
+  })
+})
 import type { Cobranza } from '@/types'
 import { chequesDe, efectivoDe, retencionesDe, sumaImportes, transferenciaDe } from './medios'
 

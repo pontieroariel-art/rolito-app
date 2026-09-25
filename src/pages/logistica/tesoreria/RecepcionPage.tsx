@@ -1,37 +1,48 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Clock, FileText, Inbox, Landmark, ShieldCheck } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { CheckCircle2, Clock, FileText, HandCoins, Inbox, Landmark, ShieldCheck } from 'lucide-react'
 import Badge from '@/components/common/Badge'
 import HistorialTable, { type ColumnaHistorial } from '@/components/common/HistorialTable'
 import PageHeader from '@/components/common/PageHeader'
 import { CAMPO_FILTRO } from '@/components/common/tabla'
 import RecibirSobreModal from '@/components/tesoreria/RecibirSobreModal'
-import TiraSobres from '@/components/tesoreria/TiraSobres'
+import FranjaRendicionesPendientes from '@/components/tesoreria/FranjaRendicionesPendientes'
+import { EfectivoCheques, NOMBRE_EMPRESA, TextoRH } from '@/components/tesoreria/plata'
 import Button from '@/components/ui/Button'
 import { Plegable } from '@/components/ui/Plegable'
 import { useAuth } from '@/context/AuthContext'
 import { useDiaActual } from '@/hooks/useDiaActual'
 import { custodiaTotal, useCustodiaTesoreria } from '@/hooks/useCustodiaTesoreria'
+import { useSobresRecibidosEn } from '@/hooks/useSobres'
 import { reportError } from '@/services/observability'
 import { getSobresEnRango, recibirSobre, SobreYaRecibidoError, type DatosRecepcion } from '@/services/sobreService'
 import { addDaysStr } from '@/utils/helpers'
 import { formatoARS } from '@/utils/money'
 import { tieneAlgunRol } from '@/utils/roles'
-import { antiguedadHoras } from '@/utils/sobres'
+import { anticiposDelTurno, antiguedadHoras, empresaDeAnticipo, esAnticipo, memoriaDiferencias, textoMemoria } from '@/utils/sobres'
+import { dondeEstaLaPlata, efectivoDeSobre } from '@/utils/plataDelDia'
+import DondeEstaLaPlata from '@/components/tesoreria/DondeEstaLaPlata'
+import { useLiveDelDia } from '@/hooks/useLiveDelDia'
+import { sumaImportes } from '@/utils/medios'
 import { actaSobreBlob } from '@/services/actaSobreService'
 import { useVisorComprobante } from '@/components/ui/VisorComprobante'
 import { MOTIVOS_DIFERENCIA_LIQUIDACION, PLANTAS, type PlantaId, type Sobre } from '@/types'
 
-// Recepción de sobres en tesorería (rendición de fondos, 2026-09-14). Responde
-// "¿cuánto me tiene que llegar, dónde está y de quién?" (tira de custodia) y
-// recibe cada sobre de ventanilla con arqueo ciego y doble conformidad. Nada de
-// "validar" ni "confirmar": tesorería CUENTA y RECIBE. Un sobre de ayer sin
-// recibir sigue en la bandeja hasta que alguien lo reciba.
+// Home de tesorería (2026-09-24: reemplazó a "Plata del día", que Ariel no
+// entendía). Arriba, la tira "¿Dónde está la plata hoy?" en cuatro lugares;
+// abajo, las liquidaciones de caja una por una.
+// Sobres de tesorería. Rediseño del 2026-09-23 (maqueta aprobada por Ariel):
+// UNA pantalla en tres columnas —por recibir, recibidos hoy, con diferencia—
+// donde los anticipos entran en la misma lista. Cada tarjeta dice "Efectivo $…"
+// y abajo "Cheques $…". Abrir un sobre muestra los mismos renglones que vio el
+// cajero, abierto en Redonhielo y Rolito, y se cuenta fajo por fajo. Se fueron
+// "Entregas de caja" y "Validación de cierres": esto es todo lo que tesorería recibe.
 
 type FiltroPlanta = PlantaId | 'todas'
 const PLANTA_IDS = Object.keys(PLANTAS) as PlantaId[]
 const nombrePlanta = (p: PlantaId) => PLANTAS[p].label.replace('Planta ', '')
 const hora = (d: Date) => d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false })
 const fechaHora = (d: Date) => d.toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false })
+const diaLargo = (fecha: string) => new Date(`${fecha}T12:00:00`).toLocaleDateString('es-AR', { weekday: 'long', day: '2-digit', month: '2-digit' })
 
 export default function RecepcionPage() {
   const { user } = useAuth()
@@ -45,21 +56,45 @@ export default function RecepcionPage() {
   const [ultimoRecibido, setUltimoRecibido] = useState<Sobre | null>(null)
   const [aviso, setAviso] = useState('')
   const { abrir } = useVisorComprobante()
+  const sobresMes = useSobresDelMes(hoy)
+  // Contados en el día por la hora de la recepción: el sobre de ayer recibido hoy se queda a la vista.
+  const recibidosEnElDia = useSobresRecibidosEn(dia)
 
   // gerente_general mira; tesorería (y el operador) reciben.
   const puedeRecibir = tieneAlgunRol(user, ['tesoreria', 'super_admin', 'logistica'])
 
   const custodia = useMemo(() => custodiaTotal(c.porPlanta, planta), [c.porPlanta, planta])
-  const pendientes = useMemo(() => c.pendientes.filter((s) => planta === 'todas' || s.plantaId === planta), [c.pendientes, planta])
-  const recibidos = useMemo(() => custodia.recibidosHoy.slice().sort((a, b) => (b.recepcion?.en.toMillis() ?? 0) - (a.recepcion?.en.toMillis() ?? 0)), [custodia.recibidosHoy])
+  const todosDelDia = useMemo(() => {
+    const ids = new Set<string>()
+    const out: Sobre[] = []
+    for (const p of PLANTA_IDS) for (const x of [...c.porPlanta[p].enCamino.map((e) => e.sobre), ...c.porPlanta[p].recibidosHoy, ...c.porPlanta[p].anticipos]) if (!ids.has(x.id)) { ids.add(x.id); out.push(x) }
+    for (const x of [...c.pendientes, ...recibidosEnElDia.sobres]) if (!ids.has(x.id)) { ids.add(x.id); out.push(x) }
+    return out.filter((s) => s.rindeA === 'tesoreria' && (planta === 'todas' || s.plantaId === planta))
+  }, [c.porPlanta, c.pendientes, recibidosEnElDia.sobres, planta])
+  // Los anticipos nacen 'entregada', así que ya vienen en la bandeja de pendientes junto con los sobres.
+  // Tres columnas (2026-09-24, pedido de Ariel): lo que caja todavía no entregó
+  // en mano (Por recibir), lo que ya está en tesorería con la firma de entrega
+  // (A contar y validar) y lo contado. Sin la firma de entrega no se cuenta.
+  const pendientes = useMemo(() => todosDelDia.filter((s) => !s.recepcion).sort((a, b) => a.cerradaEn.toMillis() - b.cerradaEn.toMillis()), [todosDelDia])
+  const porRecibir = useMemo(() => pendientes.filter((s) => s.estado !== 'entregada' && !esAnticipo(s)), [pendientes])
+  const aContar = useMemo(() => pendientes.filter((s) => s.estado === 'entregada' || esAnticipo(s)), [pendientes])
+  const recibidos = useMemo(() => todosDelDia.filter((s) => s.recepcion).sort((a, b) => (b.recepcion?.en.toMillis() ?? 0) - (a.recepcion?.en.toMillis() ?? 0)), [todosDelDia])
   const horasAviso = c.config.horasAvisoSobre
 
-  // Visor (2026-09-15): el acta se ve en pantalla; imprimir o descargar es un clic adentro.
+  // La tira de arriba: la calle y los turnos abiertos salen del resumen en vivo del día.
+  const live = useLiveDelDia(dia)
+  const donde = useMemo(() => dondeEstaLaPlata({
+    sesiones: live.sesiones, sobres: live.sobres, liquidaciones: live.liquidaciones,
+    calle: live.resumen.calle, supervisores: live.resumen.supervisores,
+    ventanilla: [...live.resumen.ventanilla.torcuato, ...live.resumen.ventanilla.merlo],
+    porRecibir, aContar, contados: recibidos,
+  }), [live.sesiones, live.sobres, live.liquidaciones, live.resumen, porRecibir, aContar, recibidos])
+
   const acta = useCallback(async (s: Sobre) => {
     setAviso('')
     try {
       const { blob, nombre } = await actaSobreBlob(s)
-      abrir({ blob, nombre, titulo: `Rendición ${s.codigo}`, subtitulo: `${s.fecha} · ${s.rindio.nombre}` })
+      abrir({ blob, nombre, titulo: `${esAnticipo(s) ? 'Anticipo' : 'Liquidación de caja'} ${s.codigo}`, subtitulo: `${s.fecha} · ${s.rindio.nombre}` })
     } catch (err) {
       reportError(err, { origen: 'RecepcionPage', accion: 'error al generar el acta' })
       setAviso('No se pudo generar el acta del sobre.')
@@ -82,13 +117,19 @@ export default function RecepcionPage() {
   }
 
   const btn = 'inline-flex items-center gap-1 rounded-lg border border-[#D3D1C7] bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:border-accent hover:text-accent'
+  const suma = (xs: Sobre[]) => ({ efectivo: xs.reduce((a, s) => a + (s.recepcion?.efectivoContado ?? s.sistema.efectivo), 0), cheques: xs.reduce((a, s) => a + sumaImportes(s.sistema.cheques), 0) })
+  const cajasAbiertas = custodia.cajasAbiertas
 
   return (
-    <main className="max-w-5xl mx-auto p-4 space-y-4 pb-10">
+    <main className="max-w-[1600px] mx-auto p-4 space-y-4 pb-10">
       <PageHeader
-        titulo="Recepción de sobres"
+        titulo="Recepción de liquidaciones"
         icono={<Landmark size={22} />}
-        contexto={<>Lo que las ventanillas rinden a tesorería. Se cuenta a ciegas, se tilda cada valor y se firma: el sobre queda con las dos firmas.</>}
+        contexto={`Tesorería · ${diaLargo(dia)} · ${planta === 'todas' ? 'todas las plantas' : nombrePlanta(planta)}`}
+        chips={<>
+          {pendientes.length > 0 && <Badge tono="aviso" icono={<Clock />}>{pendientes.length} por recibir</Badge>}
+          {cajasAbiertas.length > 0 && <Badge tono="enCamino">{cajasAbiertas.length} {cajasAbiertas.length === 1 ? 'caja abierta' : 'cajas abiertas'}: {cajasAbiertas.map((x) => x.sesion.cajero.nombre).join(', ')}</Badge>}
+        </>}
         acciones={<>
           <select value={planta} onChange={(e) => setPlanta(e.target.value as FiltroPlanta)} aria-label="Planta" className={CAMPO_FILTRO}>
             <option value="todas">Todas las plantas</option>
@@ -98,14 +139,13 @@ export default function RecepcionPage() {
         </>}
       />
 
-      {/* El camino del sobre (2026-09-16): cajas abiertas › por recibir › recibidos › diferencias. Sin importes hasta contar. */}
-      <TiraSobres custodia={custodia} horasAviso={horasAviso} error={c.error}
-        titulo={`Plata de las ventanillas · ${planta === 'todas' ? 'todas las plantas' : nombrePlanta(planta)} · ${dia === hoy ? 'hoy' : dia}`} />
-
+      <DondeEstaLaPlata datos={donde} cargando={c.loading} />
+      <FranjaRendicionesPendientes />
+      {c.error && <p className="text-xs text-red-700">No pudimos leer los sobres o las cajas. Revisá la conexión.</p>}
       {aviso && <p className="text-xs text-amber-700">{aviso}</p>}
       {ultimoRecibido && (
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#AFD9C6] bg-[#F1F9F5] px-4 py-3">
-          <p className="text-sm text-gray-900"><ShieldCheck size={16} className="inline text-[#14865C] mr-1.5" />Sobre <b>{ultimoRecibido.codigo}</b> recibido: {ultimoRecibido.recepcion?.conformidad === 'conforme' ? 'conforme' : 'con diferencia'}.</p>
+          <p className="text-sm text-gray-900"><ShieldCheck size={16} className="inline text-[#14865C] mr-1.5" />{esAnticipo(ultimoRecibido) ? 'Anticipo' : 'Liquidación de caja'} <b>{ultimoRecibido.codigo}</b> contada: {ultimoRecibido.recepcion?.conformidad === 'conforme' ? 'conforme' : 'con diferencia'}.</p>
           <span className="flex gap-2">
             <button type="button" onClick={() => acta(ultimoRecibido)} className={btn}><FileText size={12} /> Ver acta</button>
             <button type="button" onClick={() => setUltimoRecibido(null)} className={btn}>Cerrar</button>
@@ -113,33 +153,24 @@ export default function RecepcionPage() {
         </div>
       )}
 
-      <section className="space-y-3">
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-secundario">Por recibir ({pendientes.length})</h2>
-        {c.loading && pendientes.length === 0 && <p className="text-sm text-secundario">Cargando…</p>}
-        {!c.loading && pendientes.length === 0 && (
-          <div className="bg-white rounded-2xl border border-[#D3D1C7] shadow-sm px-4 py-6 text-center">
-            <Inbox size={22} className="mx-auto text-inerte mb-2" />
-            <p className="text-sm text-secundario">No hay sobres por recibir.</p>
-          </div>
-        )}
-        <div className="grid gap-3 md:grid-cols-2">
-          {pendientes.map((s) => (
-            <SobrePendienteCard key={s.id} sobre={s} hoy={hoy} ahora={c.ahora} horasAviso={horasAviso} puedeRecibir={puedeRecibir} onRecibir={() => { setError(''); setRecibiendo(s) }} />
+      <div className="grid gap-4 lg:grid-cols-3">
+        <Columna paso="recibir" numero={1} titulo="Por recibir" cantidad={porRecibir.length} totales={suma(porRecibir)} vacio={c.loading ? 'Cargando…' : 'Nada por recibir: caja no tiene liquidaciones cerradas sin entregar.'}>
+          {porRecibir.map((s) => (
+            <TarjetaSobre key={s.id} sobre={s} hoy={hoy} ahora={c.ahora} horasAviso={horasAviso} memoria={textoMemoriaDe(sobresMes, s, hoy)}
+              accion={<p className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-sm text-amber-800">Todavía en la ventanilla. Caja te lo entrega desde su pantalla y ahí firmás que lo recibiste.</p>} />
           ))}
-        </div>
-      </section>
-
-      <section className="space-y-3">
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-secundario">{dia === hoy ? 'Recibidos hoy' : `Recibidos el ${dia}`} ({recibidos.length})</h2>
-        {!c.loading && recibidos.length === 0 && (
-          <p className="text-sm text-secundario bg-white rounded-2xl border border-[#D3D1C7] shadow-sm px-4 py-3">
-            {custodia.cajasAbiertas.length > 0 || custodia.enCamino.length > 0 ? 'Todavía no se recibió ningún sobre.' : 'Todavía no cerró ninguna caja.'}
-          </p>
-        )}
-        <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-          {recibidos.map((s) => <SobreRecibidoCard key={s.id} sobre={s} onActa={() => acta(s)} />)}
-        </div>
-      </section>
+        </Columna>
+        <Columna paso="contar" numero={2} titulo="A contar y validar" cantidad={aContar.length} totales={suma(aContar)} vacio={c.loading ? 'Cargando…' : 'Nada en tus manos sin contar.'}>
+          {aContar.map((s) => (
+            <TarjetaSobre key={s.id} sobre={s} hoy={hoy} ahora={c.ahora} horasAviso={horasAviso} memoria={textoMemoriaDe(sobresMes, s, hoy)}
+              accion={puedeRecibir ? <Button onClick={() => { setError(''); setRecibiendo(s) }} className="w-full"><ShieldCheck size={16} /> Contar y validar</Button> : undefined} />
+          ))}
+        </Columna>
+        <Columna paso="listo" numero={3} titulo={dia === hoy ? 'Contadas hoy' : `Contadas el ${dia}`} cantidad={recibidos.length} totales={suma(recibidos)}
+          vacio={cajasAbiertas.length || pendientes.length ? 'Todavía no contaste ninguna.' : 'Todavía no cerró ninguna caja.'}>
+          {recibidos.map((s) => <TarjetaSobre key={s.id} sobre={s} hoy={hoy} ahora={c.ahora} horasAviso={horasAviso} memoria={s.recepcion?.conformidad === 'con_diferencia' ? textoMemoriaDe(sobresMes, s, hoy) : undefined} onActa={() => acta(s)} />)}
+        </Columna>
+      </div>
 
       <Plegable titulo="Historial (30 días)">
         <HistorialSobres hoy={hoy} planta={planta} onActa={acta} />
@@ -148,82 +179,115 @@ export default function RecepcionPage() {
       {recibiendo && user && (
         <RecibirSobreModal
           sobre={recibiendo}
+          anticipos={recibiendo.cajaSesionId ? anticiposDelTurno(todosDelDia, recibiendo.cajaSesionId) : []}
           firmante={user.nombre}
           guardando={guardando}
           error={error}
           onCancelar={() => setRecibiendo(null)}
           onRecibir={recibir}
+          onActa={() => { void acta(recibiendo) }}
         />
       )}
     </main>
   )
 }
 
-// ── Cards ────────────────────────────────────────────────────────────────────
+/**
+ * Los sobres del mes de todos los cajeros, una consulta puntual, para decir en
+ * cada tarjeta "este mes: N turnos, M con diferencia" (diferencias con memoria,
+ * 2026-09-23). Se pide una vez por día.
+ */
+function useSobresDelMes(hoy: string): Sobre[] {
+  const [sobres, setSobres] = useState<Sobre[]>([])
+  useEffect(() => {
+    let vivo = true
+    getSobresEnRango(`${hoy.slice(0, 7)}-01`, addDaysStr(hoy, 1))
+      .then((xs) => { if (vivo) setSobres(xs) })
+      .catch((err) => reportError(err, { origen: 'RecepcionPage', accion: 'sobres del mes' }))
+    return () => { vivo = false }
+  }, [hoy])
+  return sobres
+}
 
-/** Sin importes a propósito (arqueo ciego): tesorería cuenta primero. */
-function SobrePendienteCard({ sobre: s, hoy, ahora, horasAviso, puedeRecibir, onRecibir }: {
-  sobre: Sobre; hoy: string; ahora: number; horasAviso: number; puedeRecibir: boolean; onRecibir: () => void
+function textoMemoriaDe(sobresMes: Sobre[], s: Sobre, hoy: string): string | undefined {
+  if (esAnticipo(s) || !sobresMes.length) return undefined
+  const m = memoriaDiferencias(sobresMes, s.rindio.uid, `${hoy.slice(0, 7)}-01`)
+  return m.turnos ? `Este mes: ${textoMemoria(m)}` : undefined
+}
+
+// ── Columna y tarjeta ────────────────────────────────────────────────────────
+
+// Tres pasos bien separados (2026-09-24, pedido de Ariel: "títulos vistosos y
+// que no haya confusión"): cada columna es un carril con su color, su número
+// de paso y su título grande; abajo, los totales de lo que hay en ese paso.
+type PasoColumna = 'recibir' | 'contar' | 'listo'
+const ESTILO_PASO: Record<PasoColumna, { banda: string; borde: string; fondo: string; icono: ReactNode; subtitulo: string }> = {
+  recibir: { banda: 'bg-[#B45309]', borde: 'border-[#EFDCB4]', fondo: 'bg-[#FBF6EA]', icono: <HandCoins size={20} />, subtitulo: 'Caja las cerró y todavía las tiene. Cuando te las entregue, firmás en su pantalla.' },
+  contar:  { banda: 'bg-[#14538C]', borde: 'border-[#BFD8EE]', fondo: 'bg-[#EEF4FA]', icono: <ShieldCheck size={20} />, subtitulo: 'Ya están en tus manos con tu firma de entrega. Contá y validá cada una.' },
+  listo:   { banda: 'bg-[#0F6B4E]', borde: 'border-[#AFD9C6]', fondo: 'bg-[#EEF7F2]', icono: <CheckCircle2 size={20} />, subtitulo: 'Contadas y validadas. Conformes o con diferencia, con su acta.' },
+}
+
+function Columna({ paso, numero, titulo, cantidad, totales, vacio, children }: {
+  paso: PasoColumna; numero: number; titulo: string; cantidad: number; totales: { efectivo: number; cheques: number }; vacio: string; children: ReactNode
 }) {
-  const horas = antiguedadHoras(s, ahora)
-  const viejo = horas >= horasAviso
-  const deOtroDia = s.fecha < hoy
-  const nC = s.sistema.cheques.length, nR = s.sistema.retenciones.length
+  const e = ESTILO_PASO[paso]
   return (
-    <div className={`bg-white rounded-2xl border shadow-sm p-4 space-y-2 ${viejo || deOtroDia ? 'border-[#E9CE92]' : 'border-[#D3D1C7]'}`}>
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-base font-bold text-gray-900">{s.codigo}</p>
-        <span className="flex items-center gap-1.5">
-          {deOtroDia && <Badge tono="aviso">De {s.fecha === addDaysStr(hoy, -1) ? 'ayer' : s.fecha}</Badge>}
-          <Badge tono={viejo ? 'aviso' : 'enCamino'} icono={<Clock />}>{antiguedadTexto(horas)}</Badge>
-        </span>
-      </div>
-      <p className="text-sm text-gray-800">{nombrePlanta(s.plantaId)} · rindió <b>{s.firmanteRinde}</b> a las {hora(s.cerradaEn.toDate())}</p>
-      {s.entrega
-        ? <p className="text-sm text-[#0F6E56]">Entregado en mano a <b>{s.entrega.recibio.nombre}</b> a las {hora(s.entrega.en.toDate())} (firmó). Falta contarlo.</p>
-        : <p className="text-sm text-[#8A5203]">Todavía en la ventanilla: el cajero no registró la entrega en mano.</p>}
-      <p className="text-sm text-secundario tabular-nums">
-        {nC + nR === 0 ? 'Sin cheques ni retenciones' : `${nC} cheque${nC === 1 ? '' : 's'} · ${nR} retenci${nR === 1 ? 'ón' : 'ones'}`}
-        {s.diferenciaDeclarada.efectivo !== 0 || s.diferenciaDeclarada.valoresFaltantes.cantidad > 0 ? <span className="text-red-700"> · caja declaró diferencia</span> : null}
-      </p>
-      {puedeRecibir && (
-        <div className="flex justify-end pt-1">
-          <Button onClick={onRecibir}><ShieldCheck size={16} /> Recibir</Button>
+    <section className={`rounded-2xl border ${e.borde} ${e.fondo} overflow-hidden flex flex-col`}>
+      <div className={`${e.banda} text-white px-4 py-3`}>
+        <div className="flex items-center gap-2.5">
+          <span className="shrink-0 w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-base font-black tabular-nums">{numero}</span>
+          <span className="shrink-0">{e.icono}</span>
+          <h2 className="text-lg font-bold tracking-wide uppercase flex-1 min-w-0 truncate">{titulo}</h2>
+          <span className="shrink-0 min-w-[2rem] h-8 px-2.5 rounded-full bg-white text-gray-900 text-base font-black tabular-nums flex items-center justify-center">{cantidad}</span>
         </div>
-      )}
-    </div>
+        <p className="text-xs text-white/85 mt-1.5">{e.subtitulo}</p>
+        <p className="text-sm font-semibold tabular-nums mt-1.5">Efectivo {formatoARS(totales.efectivo)} <span className="font-normal text-white/70">·</span> Cheques {formatoARS(totales.cheques)}</p>
+      </div>
+      <div className="space-y-2 p-2.5">
+        {cantidad === 0 && <div className="border-[1.5px] border-dashed border-[#D3D1C7] rounded-xl px-3 py-5 text-center text-xs text-secundario bg-white/60"><Inbox size={18} className="mx-auto mb-1 text-inerte" />{vacio}</div>}
+        {children}
+      </div>
+    </section>
   )
 }
 
-function SobreRecibidoCard({ sobre: s, onActa }: { sobre: Sobre; onActa: () => void }) {
+function TarjetaSobre({ sobre: s, hoy, ahora, horasAviso, memoria, accion, onActa }: {
+  sobre: Sobre; hoy: string; ahora: number; horasAviso: number; memoria?: string; accion?: ReactNode; onActa?: () => void
+}) {
+  const anticipo = esAnticipo(s)
   const r = s.recepcion
-  if (!r) return null
-  const conforme = r.conformidad === 'conforme'
-  const difEf = r.diferencia?.efectivo ?? 0
-  const faltan = r.diferencia?.valoresFaltantes.cantidad ?? 0
+  const horas = antiguedadHoras(s, ahora)
+  const viejo = !r && horas >= horasAviso
+  const deOtroDia = s.fecha < hoy
+  const pe = efectivoDeSobre(s, !!r)
+  const cheques = sumaImportes(s.sistema.cheques)
+  const conforme = r?.conformidad === 'conforme'
+  const tono = r ? (conforme ? 'bien' : 'mal') : 'normal'
+  const chequesRecibidos = r ? r.cheques.filter((v) => v.recibido).length : s.sistema.cheques.length
   return (
-    <div className="bg-white rounded-2xl border border-[#D3D1C7] shadow-sm p-3 space-y-1.5">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm font-bold text-gray-900">{s.codigo} <span className="font-normal text-secundario">· {nombrePlanta(s.plantaId)}</span></p>
-        <Badge tono={conforme ? 'entregado' : 'cancelado'} icono={conforme ? <ShieldCheck /> : undefined}>{conforme ? 'Conforme' : 'Con diferencia'}</Badge>
+    <article className={`bg-white rounded-xl border p-3 space-y-2 ${viejo || deOtroDia ? 'border-[#E9CE92]' : r && !conforme ? 'border-red-200' : 'border-[#D3D1C7]'}`}>
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-xs font-semibold text-secundario tabular-nums">{anticipo && <span className="text-[#075985]">ANTICIPO · </span>}{s.codigo} · {hora(s.cerradaEn.toDate())}{deOtroDia && <span className="ml-1 text-[#8A5203]">· de {s.fecha === addDaysStr(hoy, -1) ? 'ayer' : s.fecha}</span>}</p>
+        {!r && <Badge tono={viejo ? 'aviso' : 'pendiente'} icono={<Clock />}>{horas < 1 ? `${Math.round(horas * 60)} min` : `${Math.floor(horas)} h`}</Badge>}
       </div>
-      <p className="text-sm text-gray-800">Rindió <b>{s.firmanteRinde}</b></p>
-      <p className="text-sm text-gray-900 tabular-nums">Contado por tesorería: <b>{formatoARS(r.efectivoContado)}</b>
-        {!conforme && <span className={`ml-1 ${difEf < 0 ? 'text-red-700' : 'text-amber-700'}`}>({formatoARS(difEf)}{faltan ? ` · ${faltan} valor(es) sin recibir` : ''})</span>}
+      <EfectivoCheques compacto tono={tono}
+        efectivo={r ? r.efectivoContado : s.sistema.efectivo}
+        cheques={cheques}
+        subEfectivo={<TextoRH redonhielo={pe.redonhielo} rolito={pe.rolito} />}
+        subCheques={s.sistema.cheques.length ? `${r ? `${chequesRecibidos} de ` : ''}${s.sistema.cheques.length} cheque${s.sistema.cheques.length === 1 ? '' : 's'}` : undefined} />
+      <p className="text-sm text-gray-900"><b>{s.firmanteRinde}</b> <span className="text-secundario">· {nombrePlanta(s.plantaId)}{anticipo ? ` · ${NOMBRE_EMPRESA[empresaDeAnticipo(s)]}` : ''}</span></p>
+      <p className={`text-xs ${r ? (conforme ? 'text-[#0F6B4E]' : 'text-red-700') : 'text-secundario'}`}>
+        {r
+          ? <>{conforme ? 'Recibido, conforme' : <>Con diferencia <b className="tabular-nums">{formatoARS(r.diferencia?.efectivo ?? 0)}</b>{r.diferencia?.valoresFaltantes.cantidad ? ` · ${r.diferencia.valoresFaltantes.cantidad} valor(es) no vinieron` : ''}</>} · {r.firmanteRecibe} {hora(r.en.toDate())}{r.diferencia ? <span className="block">{MOTIVOS_DIFERENCIA_LIQUIDACION[r.diferencia.motivo]}: {r.diferencia.nota}</span> : null}</>
+          : anticipo
+            ? <>Entregado en mano a <b>{s.entrega?.recibio.nombre ?? s.custodia.nombre}</b> (firmó). Falta contarlo.</>
+            : <>Sobre cerrado, sin contar{s.diferenciaDeclarada.efectivo !== 0 || s.diferenciaDeclarada.valoresFaltantes.cantidad > 0 ? <span className="text-red-700"> · caja declaró diferencia</span> : null}</>}
       </p>
-      {r.diferencia && <p className="text-xs text-red-700">{MOTIVOS_DIFERENCIA_LIQUIDACION[r.diferencia.motivo]}: {r.diferencia.nota}</p>}
-      <div className="flex items-center justify-between gap-2 text-xs text-secundario">
-        <span>{hora(r.en.toDate())} · recibió {r.firmanteRecibe}</span>
-        <button type="button" onClick={onActa} className="inline-flex items-center gap-1 rounded-lg border border-[#D3D1C7] bg-white px-2.5 py-1.5 font-medium text-gray-700 hover:border-accent hover:text-accent"><FileText size={12} /> Acta</button>
-      </div>
-    </div>
+      {memoria && <p className="text-xs text-secundario">{memoria}</p>}
+      {accion}
+      {onActa && <button type="button" onClick={onActa} className="inline-flex items-center gap-1 rounded-lg border border-[#D3D1C7] bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:border-accent hover:text-accent"><FileText size={12} /> Acta</button>}
+    </article>
   )
-}
-
-const antiguedadTexto = (h: number): string => {
-  if (h < 1) return `${Math.round(h * 60)} min`
-  if (h < 48) return `${Math.floor(h)} h`
-  return `${Math.floor(h / 24)} días`
 }
 
 // ── Historial (30 días) ──────────────────────────────────────────────────────
@@ -250,7 +314,7 @@ function HistorialSobres({ hoy, planta, onActa }: { hoy: string; planta: FiltroP
   const dif = (n: number) => <span className={`font-semibold ${n === 0 ? 'text-secundario' : n < 0 ? 'text-red-600' : 'text-amber-700'}`}>{formatoARS(n)}</span>
 
   const columnas: ColumnaHistorial<Sobre>[] = [
-    { titulo: 'Código', celda: (s) => <span className="font-medium">{s.codigo}</span>, csv: (s) => s.codigo },
+    { titulo: 'Código', celda: (s) => <span className="font-medium">{esAnticipo(s) ? 'Anticipo ' : ''}{s.codigo}</span>, csv: (s) => s.codigo },
     { titulo: 'Fecha', celda: (s) => s.fecha },
     { titulo: 'Planta', celda: (s) => nombrePlanta(s.plantaId) },
     { titulo: 'Cajero', celda: (s) => s.firmanteRinde, truncar: true, anchoMax: 160 },
@@ -262,7 +326,7 @@ function HistorialSobres({ hoy, planta, onActa }: { hoy: string; planta: FiltroP
     { titulo: 'Valores', alinear: 'der', celda: (s) => { const n = s.sistema.cheques.length + s.sistema.retenciones.length; return n ? `${n} · ${formatoARS(totalValores([...s.sistema.cheques, ...s.sistema.retenciones]))}` : '—' }, csv: (s) => s.sistema.cheques.length + s.sistema.retenciones.length },
     { titulo: 'Conformidad', celda: (s) => (s.recepcion
       ? <Badge tono={s.recepcion.conformidad === 'conforme' ? 'entregado' : 'cancelado'}>{s.recepcion.conformidad === 'conforme' ? 'Conforme' : 'Con diferencia'}</Badge>
-      : <Badge tono="enCamino">Por recibir</Badge>), csv: (s) => (s.recepcion ? (s.recepcion.conformidad === 'conforme' ? 'Conforme' : 'Con diferencia') : 'Por recibir') },
+      : <Badge tono="enCamino">Por contar</Badge>), csv: (s) => (s.recepcion ? (s.recepcion.conformidad === 'conforme' ? 'Conforme' : 'Con diferencia') : 'Por contar') },
     { titulo: 'Recibió', celda: (s) => (s.recepcion ? <span className="text-xs">{s.recepcion.firmanteRecibe}<span className="block text-secundario">{fechaHora(s.recepcion.en.toDate())}</span></span> : '—'), csv: (s) => (s.recepcion ? `${s.recepcion.firmanteRecibe} ${fechaHora(s.recepcion.en.toDate())}` : '') },
     { titulo: 'Acta', sinCsv: true, celda: (s) => <button type="button" onClick={() => onActa(s)} title="Ver acta" className="inline-flex items-center rounded-lg border border-[#D3D1C7] bg-white p-1.5 text-gray-700 hover:border-accent hover:text-accent"><FileText size={12} /></button> },
   ]

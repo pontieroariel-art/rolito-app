@@ -36,9 +36,8 @@ const RUTA_EN_APP: Record<string, string> = {
 // extra; las que no están acá salen con el nombre del dominio.
 const BAJADA_OFICINA: Record<string, string> = {
   '/tesoreria/liquidaciones':        'Liquidaciones de todos los repartidores, en modo lectura',
-  '/tesoreria':                      'Calle, ventanillas y supervisores del día, en vivo',
+  '/tesoreria':                      'Dónde está la plata hoy y las liquidaciones de caja por recibir, contar y validar',
   '/tesoreria/recepcion':            'Sobres de caja que llegan a tesorería',
-  '/tesoreria/entregas':             'Entregas de caja a tesorería, para confirmar',
   '/tesoreria/anulaciones':          'Anulaciones y faltantes esperando autorización',
   '/tesoreria/rendiciones/historial': 'Cierres de caja y rendiciones anteriores',
 }

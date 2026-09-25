@@ -602,3 +602,27 @@ export function tplComprobanteEnviado(
     <p style="margin:14px 0 0;color:#9ca3af;font-size:12px">Redonhielo S.A. &middot; Av. Panamericana Km 25,700, Don Torcuato &middot; (011) 4741-8000 &middot; ventas@redonhielo.com.ar</p>`
   return layout(comprobante.titulo, { emoji: comprobante.emoji ?? '🧾', title: comprobante.titulo, subtitle: 'Enviado desde la app de Rolito' }, body)
 }
+
+/** Aviso de rendiciones pendientes a caja, tesorería y gerencia (2026-09-23), a las 6, 13 y 18. */
+export function tplRendicionesPendientes(r: {
+  hoy: string
+  viajes: { nombre: string; fecha: string; codigo?: string; dias: number; tipo: 'viaje' | 'cobranzas' }[]
+  sobres: { codigo: string; nombre: string; fecha: string; horas: number; tipo: 'sobre' | 'anticipo' }[]
+  cajas: { nombre: string; fecha: string }[]
+  total: number
+}, appUrl: string): string {
+  const dm = (f: string) => `${f.slice(8, 10)}/${f.slice(5, 7)}`
+  const seccion = (titulo: string, lineas: { label: string; value: string }[]) => (lineas.length ? `<p style="margin:16px 0 6px;font-weight:600">${esc(titulo)} (${lineas.length})</p>${infoBox(lineas)}` : '')
+  return layout('Rendiciones pendientes', {
+    emoji:       '💵',
+    title:       'Rendiciones pendientes',
+    subtitle:    `${r.total} pendiente${r.total !== 1 ? 's' : ''} al ${dm(r.hoy)}`,
+    accentColor: '#B45309',
+  }, `
+    <p style="margin:0 0 8px">Plata que todavía no llegó a donde tiene que estar. Esto no frena nada: es para que alguien lo mire.</p>
+    ${seccion('Viajes y cobradores sin liquidar', r.viajes.map((v) => ({ label: esc(v.nombre), value: `${esc(v.codigo ?? (v.tipo === 'cobranzas' ? 'cobranzas de calle' : 'viaje'))} · ${dm(v.fecha)} · hace ${v.dias} día${v.dias !== 1 ? 's' : ''}` })))}
+    ${seccion('Sobres y anticipos sin contar por tesorería', r.sobres.map((s) => ({ label: esc(s.codigo), value: `${esc(s.nombre)} · ${dm(s.fecha)} · hace ${s.horas} h${s.tipo === 'anticipo' ? ' · anticipo' : ''}` })))}
+    ${seccion('Cajas de otro día sin cerrar', r.cajas.map((c) => ({ label: esc(c.nombre), value: `turno del ${dm(c.fecha)} abierto` })))}
+    ${ctaButton('Ver liquidaciones abiertas →', `${appUrl}/tesoreria/liquidaciones/abiertas`)}
+  `)
+}

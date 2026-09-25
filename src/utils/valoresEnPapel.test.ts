@@ -14,7 +14,7 @@ const kCh = claveCheque(papel.cheques[0]), kRe = claveRetencion(papel.retencione
 
 describe('valores en papel', () => {
   it('lista cheques y retenciones con su recibo y cliente', () => {
-    expect(papel.cheques).toEqual([{ cobranzaId: 'c1', numeroRecibo: 'RS-9', clienteNombre: 'Kiosco', numero: '77', bancoNombre: 'Galicia', fechaAcreditacion: '2026-10-01', importe: 900, empresa: 'redonhielo' }])
+    expect(papel.cheques).toEqual([{ cobranzaId: 'c1', numeroRecibo: 'RS-9', clienteNombre: 'Kiosco', numero: '77', bancoNombre: 'Galicia', fechaEmision: '2026-09-01', fechaAcreditacion: '2026-10-01', importe: 900, empresa: 'redonhielo', cobradoPor: 'N' }])
     expect(papel.retenciones).toEqual([{ cobranzaId: 'c1', numeroRecibo: 'RS-9', clienteNombre: 'Kiosco', tipo: 'iibb_pba', nroCertificado: '5', importe: 100, empresa: 'redonhielo' }])
   })
   it('decisiones: sin tildar bloquea; "no entregado" sin motivo bloquea; completo deja pasar', () => {

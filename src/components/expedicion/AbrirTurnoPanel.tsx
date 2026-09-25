@@ -4,7 +4,7 @@ import { Clock, LockOpen } from 'lucide-react'
 import Button from '@/components/ui/Button'
 import Badge from '@/components/common/Badge'
 import { useAuth } from '@/context/AuthContext'
-import { abrirTurno, SesionYaAbiertaError } from '@/services/cajaSesionService'
+import { abrirTurno, SesionYaAbiertaError, TurnoAnteriorAbiertoError } from '@/services/cajaSesionService'
 import { reportError } from '@/services/observability'
 import { formatoARS } from '@/utils/money'
 import { horaCorta } from '@/utils/turnoCaja'
@@ -33,6 +33,8 @@ export default function AbrirTurnoPanel({ fecha, titulo = 'Abrir mi turno', onAb
       onAbierta?.(s)
     } catch (err) {
       if (err instanceof SesionYaAbiertaError) { onAbierta?.(err.sesion); return }
+      // Un turno de otro día sin cerrar (2026-09-23): se cierra en Mi turno antes de abrir otro.
+      if (err instanceof TurnoAnteriorAbiertoError) { setError(err.message); return }
       reportError(err, { origen: 'AbrirTurnoPanel', accion: 'error al abrir el turno' })
       setError('No se pudo abrir el turno. Revisá la conexión e intentá de nuevo.')
     } finally {
@@ -50,7 +52,7 @@ export default function AbrirTurnoPanel({ fecha, titulo = 'Abrir mi turno', onAb
       <Button size="lg" onClick={abrir} loading={abriendo} className="w-full sm:w-auto">
         Abrir mi turno · fondo inicial {formatoARS(0)}
       </Button>
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-red-600">{error}{/sin cerrar/.test(error) && <> <Link to="/caja/rendiciones" className="underline">Ir a Mi turno</Link></>}</p>}
     </section>
   )
 }

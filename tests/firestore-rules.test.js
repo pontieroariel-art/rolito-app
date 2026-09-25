@@ -3563,6 +3563,40 @@ describe('rendiciones: sobre de ventanilla y recepción de tesorería (2026-09-1
     await assertFails(getDoc(doc(db('caja1'), 'users/fac1')))
   })
 
+  test('anticipo a tesorería (2026-09-23): lo crea el cajero con turno ABIERTO, nace entregado con la firma de tesorería y su custodia, monto positivo sin valores; con turno cerrado, id fuera de molde, receptor que no es de tesorería, monto cero o recepción adentro no; después tesorería lo cuenta', async () => {
+    await seedTodos()
+    await seed(async (d) => { await setDoc(doc(d, SESION), sesion()) })
+    const anticipo = (extra = {}) => ({
+      tipo: 'anticipo', rindeA: 'tesoreria', plantaId: 'torcuato', fecha: FECHA, numero: 1, codigo: 'VA-DT-000001',
+      rindio: { uid: 'caja1', nombre: 'Nico', rol: 'caja' }, cajaSesionId: `${FECHA}_caja1_1`, anticipo: { empresa: 'redonhielo' },
+      sistema: { efectivo: 500000, cheques: [], retenciones: [], transferencias: { cantidad: 0, total: 0 }, origenIds: { ventasIds: [], cobranzasIds: [], liquidacionesIds: [], sobresRecibidosIds: [] } },
+      declarado: { efectivo: 500000, cheques: [], retenciones: [] },
+      diferenciaDeclarada: { efectivo: 0, valoresFaltantes: { cantidad: 0, total: 0 } },
+      firmaRinde: '', firmanteRinde: 'Nico', fajos: { redonhielo: 500000, rolito: 0 }, cerradaEn: new Date(),
+      estado: 'entregada', custodia: { uid: 'tes1', nombre: 'Yanina', rol: 'tesoreria', desde: new Date() },
+      entrega: { recibio: { uid: 'tes1', nombre: 'Yanina', rol: 'tesoreria' }, en: new Date(), firmaRecibe: 'data:image/png;base64,CCCC', firmanteRecibe: 'Yanina' },
+      createdAt: new Date(), ...extra,
+    })
+    const ID = `rendiciones/${FECHA}_caja1_1_anticipo_1`
+    await assertFails(setDoc(doc(db('caja2'), ID), anticipo()))                                                     // otro cajero
+    await assertFails(setDoc(doc(db('caja1'), `rendiciones/${FECHA}_caja1_1`), anticipo()))                          // id fuera del molde
+    await assertFails(setDoc(doc(db('caja1'), ID), anticipo({ sistema: { ...anticipo().sistema, efectivo: 0 }, declarado: { efectivo: 0, cheques: [], retenciones: [] } })))
+    await assertFails(setDoc(doc(db('caja1'), ID), anticipo({ declarado: { efectivo: 1, cheques: [], retenciones: [] } })))   // declarado ≠ sistema
+    await assertFails(setDoc(doc(db('caja1'), ID), anticipo({ estado: 'pendiente_recepcion' })))
+    await assertFails(setDoc(doc(db('caja1'), ID), anticipo({ anticipo: { empresa: 'otra' } })))
+    await assertFails(setDoc(doc(db('caja1'), ID), anticipo({ entrega: { ...anticipo().entrega, recibio: { uid: 'fac1', nombre: 'F', rol: 'tesoreria' } }, custodia: { uid: 'fac1', nombre: 'F', rol: 'tesoreria', desde: new Date() } })))
+    await assertFails(setDoc(doc(db('caja1'), ID), anticipo({ custodia: { uid: 'caja1', nombre: 'Nico', rol: 'caja', desde: new Date() } })))
+    await assertFails(setDoc(doc(db('caja1'), ID), anticipo({ recepcion: { recibio: { uid: 'tes1' } } })))
+    await assertSucceeds(setDoc(doc(db('caja1'), ID), anticipo()))
+    await assertSucceeds(setDoc(doc(db('caja1'), `rendiciones/${FECHA}_caja1_1_anticipo_2`), anticipo({ numero: 2, codigo: 'VA-DT-000002', anticipo: { empresa: 'rolito' }, fajos: { redonhielo: 0, rolito: 500000 } })))
+    // Tesorería lo cuenta como a cualquier sobre; el cajero no lo toca más.
+    await assertFails(updateDoc(doc(db('caja1'), ID), { 'sistema.efectivo': 1 }))
+    await assertSucceeds(updateDoc(doc(db('tes1'), ID), recepcion({ efectivoContado: 500000, cheques: [], retenciones: [] })))
+    // Con el turno cerrado no se anticipa.
+    await seed(async (d) => { await setDoc(doc(d, SESION), sesionCerrada()) })
+    await assertFails(setDoc(doc(db('caja1'), `rendiciones/${FECHA}_caja1_1_anticipo_3`), anticipo({ numero: 3, codigo: 'VA-DT-000003' })))
+  })
+
   test('el operador (logística / super_admin) también recibe, conforme; tipo cobrador (fase 2) no se recibe todavía por acá', async () => {
     await seedTodos()
     await seed(async (d) => {

@@ -88,7 +88,9 @@ const TESORERIA: UserRole[] = ['tesoreria', 'super_admin', 'gerente_general']
 // gerencia comercial mira qué carga y descarga cada chofer sin poder cerrar nada.
 const LIQUIDACIONES_LECTURA: UserRole[] = [...TESORERIA, 'gerente_comercial']
 // Ventas en vivo (2026-09-16): la mercadería del día también le sirve a logística y a comercial.
-const VENTAS_LIVE: UserRole[] = ['tesoreria', 'super_admin', 'gerente_general', 'logistica', 'gerente_comercial', 'comercial']
+// Ventas en vivo es MERCADERÍA: logística y comercial. Tesorería la tuvo hasta el
+// 2026-09-24 (Ariel: "venta en vivo sacala"); vive en Logística › Despacho.
+const VENTAS_LIVE: UserRole[] = ['super_admin', 'gerente_general', 'logistica', 'gerente_comercial', 'comercial']
 const SUPERVISOR: UserRole[] = ['supervisor', 'super_admin']
 
 export const CATALOGO: RutaConfig[] = [
@@ -139,9 +141,10 @@ export const CATALOGO: RutaConfig[] = [
   R('/caja/ventanilla',              'Ventanilla',           'tesoreria', CAJA, { icon: 'ShoppingCart', menuGroup: 'caja', externa: true }),
   R('/caja/cobranzas',               'Cobranzas',            'tesoreria', CAJA, { icon: 'HandCoins', menuGroup: 'caja' }),
   R('/caja/liquidaciones',           'Liquidaciones',        'tesoreria', CAJA, { icon: 'Scale', menuGroup: 'caja', externa: true }),
-  R('/caja/rendiciones',             'Mi turno',             'tesoreria', CAJA, { icon: 'Wallet', menuGroup: 'caja' }),
-  R('/caja/buzon',                   'Buzón de sobres',      'tesoreria', CAJA, { icon: 'Inbox', menuGroup: 'caja' }),
-  R('/caja/entregas',                'Entrega a tesorería',  'tesoreria', CAJA, { icon: 'Landmark', menuGroup: 'caja' }),
+  R('/caja/rendiciones',             'Liquidación de caja',             'tesoreria', CAJA, { icon: 'Wallet', menuGroup: 'caja' }),
+  // Rediseño caja → tesorería (2026-09-23): cerrar el turno ES entregar el sobre.
+  // Buzón y Entrega a tesorería (acta) salen del menú (sin uso desde el 14/09);
+  // las rutas siguen por si hay un link viejo.
   R('/caja/liquidaciones/historial', 'Historial',            'tesoreria', CAJA_HISTORIAL, { icon: 'History', menuGroup: 'caja' }),
   // Camiones y cobradores sin liquidar de cualquier fecha (2026-09-16, pedido de la oficina).
   R('/caja/liquidaciones/abiertas',  'Liquidaciones abiertas', 'tesoreria', CAJA_HISTORIAL, { icon: 'ClipboardList', menuGroup: 'caja' }),
@@ -168,13 +171,15 @@ export const CATALOGO: RutaConfig[] = [
   R('/produccion/ficha/:palletId',  'Ficha de pallet',    'produccion', PALLET, { deepLink: true, externa: true }),
 
   // ── Logística: tesorería ──────────────────────────────────────────────────
-  R('/tesoreria/ventas',                  'Ventas en vivo',     'tesoreria', VENTAS_LIVE, { icon: 'ShoppingCart', menuGroup: 'tesoreria' }),
-  R('/tesoreria',                         'Tesorería en vivo',  'tesoreria', TESORERIA, { icon: 'Activity', menuGroup: 'tesoreria' }),
+  R('/tesoreria/ventas',                  'Ventas en vivo',     'logistica', VENTAS_LIVE, { icon: 'ShoppingCart', menuGroup: 'despacho' }),
+  // Recepción ES el home de tesorería (2026-09-24: 'Plata del día' se borró; su
+  // tira "¿Dónde está la plata?" vive arriba de Recepción). /tesoreria/recepcion
+  // queda como alias por los links y pushes viejos.
+  R('/tesoreria',                         'Recepción de liquidaciones', 'tesoreria', TESORERIA, { icon: 'ShieldCheck', menuGroup: 'tesoreria' }),
   R('/tesoreria/liquidaciones',           'Liquidaciones',      'tesoreria', LIQUIDACIONES_LECTURA, { icon: 'Scale', menuGroup: 'tesoreria' }),
-  R('/tesoreria/recepcion',               'Recepción',          'tesoreria', TESORERIA, { icon: 'ShieldCheck', menuGroup: 'tesoreria' }),
+  R('/tesoreria/recepcion',               'Recepción (alias)',  'tesoreria', TESORERIA, { deepLink: true }),
   // Alias viejo (validación de cierres, circuito anterior): redirige a Recepción.
   R('/tesoreria/rendiciones',             'Rendiciones',        'tesoreria', TESORERIA, { deepLink: true }),
-  R('/tesoreria/entregas',                'Entregas de caja',   'tesoreria', TESORERIA, { icon: 'Landmark', menuGroup: 'tesoreria' }),
   R('/tesoreria/anulaciones',             'Anulaciones y faltantes', 'tesoreria', TESORERIA, { icon: 'Ban', menuGroup: 'tesoreria' }),
   R('/tesoreria/rendiciones/historial',   'Historial',          'tesoreria', TESORERIA, { icon: 'History', menuGroup: 'tesoreria' }),
   R('/tesoreria/liquidaciones/historial', 'Historial de liquidaciones', 'tesoreria', LIQUIDACIONES_LECTURA, { deepLink: true }),
@@ -278,8 +283,11 @@ export const SIDEBARS: Record<Sistema, GrupoSidebar[]> = {
   ],
   // Tesorería & Cajas: la plata y los valores, de la ventanilla al arqueo.
   tesoreria: [
-    { id: 'caja',      label: 'Caja & Ventanilla', entradas: ['/caja/ventanilla', '/caja/cobranzas', '/caja/liquidaciones', '/caja/liquidaciones/abiertas', '/caja/buzon', '/caja/rendiciones', '/caja/entregas', '/caja/liquidaciones/historial'] },
-    { id: 'tesoreria', label: 'Tesorería',         entradas: ['/tesoreria/ventas', '/tesoreria', '/tesoreria/recepcion', '/tesoreria/liquidaciones', '/tesoreria/liquidaciones/abiertas', '/tesoreria/entregas', '/tesoreria/anulaciones', '/tesoreria/rendiciones/historial'] },
+    // Rediseño caja → tesorería (2026-09-23): cerrar el turno ES entregar el sobre.
+    // Buzón, Entrega a tesorería (acta) y Entregas de caja se borraron el 2026-09-24 (0 usos
+    // desde el 14/09): cerrar la liquidación es entregar, y tesorería la cuenta en Recepción.
+    { id: 'caja',      label: 'Caja & Ventanilla', entradas: ['/caja/ventanilla', '/caja/cobranzas', '/caja/liquidaciones', '/caja/liquidaciones/abiertas', '/caja/rendiciones', '/caja/liquidaciones/historial'] },
+    { id: 'tesoreria', label: 'Tesorería',         entradas: ['/tesoreria', '/tesoreria/liquidaciones', '/tesoreria/liquidaciones/abiertas', '/tesoreria/anulaciones', '/tesoreria/rendiciones/historial'] },
   ],
   comercial: [
     // El listado de producción es consulta de stock para gerencia, comercial y
@@ -352,7 +360,7 @@ export const PANEL: Array<{ id: string; titulo: string; entradas: EntradaMenu[] 
   { id: 'facturacion', titulo: 'Facturación',            entradas: ['/movimientos', '/admin/comprobantes', '/admin/recupero-facturas', '/admin/mails', '/anulaciones'] },
   { id: 'logistica',   titulo: 'Logística',              entradas: ['/logistica', '/admin/historial-despacho', '/admin/monitoreo', '/admin/visitas', '/admin/incidencias', '/admin/clima', '/admin/flota', '/admin/precios'] },
   { id: 'comercial',   titulo: 'Comercial',              entradas: ['/comercial', '/comercial/mapa', '/comercial/reporte-precios', '/comercial/ventas'] },
-  { id: 'expedicion',  titulo: 'Expedición y tesorería', entradas: ['/caja/remitos', '/caja/ventanilla', '/caja/liquidaciones', '/muelle', '/muelle/tv', '/logistica/tiempos-muelle', '/seguridad', '/tesoreria', '/tesoreria/recepcion', '/tesoreria/entregas', { path: '/supervisor', label: 'Supervisor (calle)', icon: 'UserCheck' }] },
+  { id: 'expedicion',  titulo: 'Expedición y tesorería', entradas: ['/caja/remitos', '/caja/ventanilla', '/caja/liquidaciones', '/muelle', '/muelle/tv', '/logistica/tiempos-muelle', '/seguridad', '/tesoreria', { path: '/supervisor', label: 'Supervisor (calle)', icon: 'UserCheck' }] },
   { id: 'heladeras',   titulo: 'Heladeras',              entradas: ['/heladeras', '/heladeras/taller', '/heladeras/asignacion', '/heladeras/ranking', '/heladeras/consulta-service', '/heladeras/toma-service', '/heladeras/informes', '/heladeras/mapa', '/heladeras/modelos', '/heladeras/catalogos', '/heladeras/tecnicos', '/heladeras/equipos', '/heladeras/panol'] },
   { id: 'produccion',  titulo: 'Producción',             entradas: ['/produccion/resumen', '/produccion/listado', '/produccion/operarios', '/produccion/plantas'] },
 ]

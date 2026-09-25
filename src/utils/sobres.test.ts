@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import type { CajaSesion, Cobranza, Liquidacion, Sobre, SobreSistema, VentaVentanilla } from '@/types'
 import {
-  antiguedadHoras, codigoSobre, conformidadDe, contadorDeSobre, custodiaDePlanta, custodioDe, diferenciaDeclarada,
-  diferenciaPorEmpresaSobre, diferenciaRecepcion, fajosDe, hayDiferencia, recibidosSinMotivo, sistemaVentanilla, sobreId, valoresSinDecidir,
+  anticipoId, anticiposDelTurno, antiguedadHoras, codigoSobre, conformidadDe, contadorDeSobre, custodiaDePlanta, custodioDe, diferenciaDeclarada,
+  diferenciaPorEmpresaSobre, diferenciaRecepcion, fajosDe, hayDiferencia, recibidosSinMotivo, sistemaVentanilla, sobreId, topeAnticipo, valoresSinDecidir,
 } from './sobres'
 
 const ts = (ms: number) => ({ toMillis: () => ms, toDate: () => new Date(ms) }) as unknown as import('firebase/firestore').Timestamp
@@ -38,9 +38,9 @@ describe('sistemaVentanilla', () => {
   it('suma fondo + efectivo de ventas (contado y promo) + cobranzas + lo recibido de choferes; nada de transferencias ni cta. cte.', () => {
     const s = sistemaVentanilla({ fondoInicial: 0, ventas, cobranzas, liquidacionesRecibidas: liqs, sobresRecibidos: [] })
     expect(s.efectivo).toBe(1000 + 300 + 200 + 700)
-    expect(s.detalle).toEqual({ fondoInicial: 0, ventasEfectivo: 1300, cobranzasEfectivo: 200, recibidoDeLiquidaciones: 700, recibidoDeSobres: 0 })
+    expect(s.detalle).toEqual({ fondoInicial: 0, ventasEfectivo: 1300, cobranzasEfectivo: 200, recibidoDeLiquidaciones: 700, recibidoDeSobres: 0, anticipos: 0 })
     expect(s.transferencias.total).toBe(500)
-    expect(s.origenIds).toEqual({ ventasIds: ['v1', 'v2', 'v3', 'v4'], cobranzasIds: ['c1'], liquidacionesIds: ['l1'], sobresRecibidosIds: [] })
+    expect(s.origenIds).toEqual({ ventasIds: ['v1', 'v2', 'v3', 'v4'], cobranzasIds: ['c1'], liquidacionesIds: ['l1'], sobresRecibidosIds: [], anticiposIds: [] })
   })
   it('los cheques son los propios más los que el chofer SÍ entregó; el que no entregó no viaja', () => {
     const s = sistemaVentanilla({ fondoInicial: 0, ventas, cobranzas, liquidacionesRecibidas: liqs, sobresRecibidos: [] })
@@ -67,6 +67,25 @@ describe('sistemaVentanilla', () => {
   it('el fondo inicial entra al efectivo', () => {
     const s = sistemaVentanilla({ fondoInicial: 50000, ventas: [], cobranzas: [], liquidacionesRecibidas: [], sobresRecibidos: [] })
     expect(s.efectivo).toBe(50000)
+  })
+  it('un anticipo a tesorería (2026-09-23) resta del cajón y de SU empresa; el tope es lo que hay de esa empresa', () => {
+    const anticipo = (id: string, monto: number, empresa: 'redonhielo' | 'rolito') => ({
+      id, tipo: 'anticipo', cajaSesionId: 's1', anticipo: { empresa }, cerradaEn: ts(1),
+      sistema: { efectivo: monto, cheques: [], retenciones: [], transferencias: { cantidad: 0, total: 0 }, origenIds: { ventasIds: [], cobranzasIds: [], liquidacionesIds: [], sobresRecibidosIds: [] } },
+    }) as unknown as Sobre
+    const sin = sistemaVentanilla({ fondoInicial: 0, ventas, cobranzas, liquidacionesRecibidas: liqs, sobresRecibidos: [] })
+    expect(topeAnticipo(sin.porEmpresa, 'redonhielo')).toBe(1900)
+    expect(topeAnticipo(sin.porEmpresa, 'rolito')).toBe(300)
+    const con = sistemaVentanilla({ fondoInicial: 0, ventas, cobranzas, liquidacionesRecibidas: liqs, sobresRecibidos: [], anticipos: [anticipo('a1', 500, 'redonhielo'), anticipo('a2', 100, 'rolito')] })
+    expect(con.efectivo).toBe(2200 - 600)
+    expect(con.detalle?.anticipos).toBe(600)
+    expect(con.origenIds.anticiposIds).toEqual(['a1', 'a2'])
+    expect(con.porEmpresa!.redonhielo).toMatchObject({ anticipos: 500, efectivo: 1400 })
+    expect(con.porEmpresa!.rolito).toMatchObject({ anticipos: 100, efectivo: 200 })
+    expect(anticiposDelTurno([anticipo('a1', 500, 'redonhielo'), { ...anticipo('x', 1, 'rolito'), cajaSesionId: 'otra' } as Sobre], 's1').map((a) => a.id)).toEqual(['a1'])
+    expect(codigoSobre('anticipo', 7, { plantaId: 'torcuato' })).toBe('VA-DT-000007')
+    expect(contadorDeSobre('anticipo', { plantaId: 'torcuato' })).toBe('sobreAnticipoCounter_torcuato')
+    expect(anticipoId('2026-09-23_u1_1', 2)).toBe('2026-09-23_u1_1_anticipo_2')
   })
 })
 

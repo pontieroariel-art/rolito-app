@@ -1,5 +1,5 @@
 import { doc, getDoc } from 'firebase/firestore'
-import type { Cobranza, Liquidacion, Sobre } from '@/types'
+import type { Cobranza, Liquidacion, Sobre, VentaVentanilla } from '@/types'
 import { db } from './firebase'
 import { personasDelActa } from '@/utils/actaSobre'
 import { compartirActaSobre, generateActaSobre, nombreArchivoSobre, type DetalleActaSobre } from '@/utils/sobrePdf'
@@ -16,11 +16,19 @@ const leer = async <T>(coleccion: string, ids: string[]): Promise<T[]> => {
 }
 
 export async function detalleDelActa(sobre: Sobre): Promise<DetalleActaSobre> {
-  const ids = sobre.sistema.origenIds.liquidacionesIds
-  if (!ids.length) return { personas: [] }
-  const liquidaciones = await leer<Liquidacion>('liquidaciones', ids)
+  const o = sobre.sistema.origenIds
+  const ids = o.liquidacionesIds
+  // Los anticipos del turno (2026-09-23) restan en el acta igual que en la pantalla.
+  const anticipos = sobre.tipo === 'ventanilla' && o.anticiposIds?.length ? await leer<Sobre>('rendiciones', o.anticiposIds) : []
+  // El acta igual a la pantalla (2026-09-24): ventas y cobranzas del turno una por una.
+  const [ventas, cobranzasMostrador, liquidaciones] = await Promise.all([
+    sobre.tipo === 'ventanilla' ? leer<VentaVentanilla>('ventasVentanilla', o.ventasIds) : Promise.resolve([] as VentaVentanilla[]),
+    sobre.tipo === 'ventanilla' ? leer<Cobranza>('cobranzas', o.cobranzasIds) : Promise.resolve([] as Cobranza[]),
+    ids.length ? leer<Liquidacion>('liquidaciones', ids) : Promise.resolve([] as Liquidacion[]),
+  ])
+  if (!ids.length) return { personas: [], anticipos, ventas, cobranzas: cobranzasMostrador, liquidaciones }
   const cobranzas = await leer<Cobranza>('cobranzas', [...new Set(liquidaciones.flatMap((l) => l.cobranzasIds ?? []))])
-  return { personas: personasDelActa(liquidaciones, cobranzas) }
+  return { personas: personasDelActa(liquidaciones, cobranzas), anticipos, ventas, cobranzas: cobranzasMostrador, liquidaciones }
 }
 
 /** Comparte el acta con el detalle por persona. Si el detalle no se puede leer, sale igual con la cifra total. */

@@ -27,10 +27,14 @@ export function sobreId(tipo: TipoSobre, fecha: string, sujetoId: string, n = 1)
   return tipo === 'ventanilla' ? `${fecha}_${sujetoId}_${n}` : `${fecha}_${sujetoId}`
 }
 
-/** RV = ventanilla → tesorería (por planta) · RC = cobrador → caja (global) · RQ = chofer → caja (por depósito). */
+/** Un anticipo cuelga del turno: `{cajaSesionId}_anticipo_{k}` (las reglas exigen ese molde). */
+export const anticipoId = (cajaSesionId: string, k: number): string => `${cajaSesionId}_anticipo_${k}`
+
+/** RV = ventanilla → tesorería (por planta) · VA = anticipo de caja a tesorería (por planta) · RC = cobrador → caja (global) · RQ = chofer → caja (por depósito). */
 export function codigoSobre(tipo: TipoSobre, numero: number, serie: { plantaId?: PlantaId; deposito?: string }): string {
   const n = String(numero).padStart(6, '0')
   if (tipo === 'ventanilla') return `RV-${PLANTA_INFO[serie.plantaId ?? 'torcuato'].prefijoCodigo}-${n}`
+  if (tipo === 'anticipo') return `VA-${PLANTA_INFO[serie.plantaId ?? 'torcuato'].prefijoCodigo}-${n}`
   if (tipo === 'chofer') return `RQ-${serie.deposito ?? 'SD'}-${n}`
   return `RC-${n}`
 }
@@ -38,9 +42,27 @@ export function codigoSobre(tipo: TipoSobre, numero: number, serie: { plantaId?:
 /** Nombre del contador en `config/`. */
 export function contadorDeSobre(tipo: TipoSobre, serie: { plantaId?: PlantaId; deposito?: string }): string {
   if (tipo === 'ventanilla') return `sobreVentanillaCounter_${serie.plantaId ?? 'torcuato'}`
+  if (tipo === 'anticipo') return `sobreAnticipoCounter_${serie.plantaId ?? 'torcuato'}`
   if (tipo === 'chofer') return `sobreChoferCounter_${serie.deposito ?? 'SD'}`
   return 'sobreCobradorCounter'
 }
+
+// ── Anticipos (2026-09-23) ───────────────────────────────────────────────────
+
+export const esAnticipo = (s: Pick<Sobre, 'tipo'>): boolean => s.tipo === 'anticipo'
+export const empresaDeAnticipo = (s: Pick<Sobre, 'anticipo'>): EmpresaTango => s.anticipo?.empresa ?? 'redonhielo'
+
+/** Los anticipos que salieron de un turno (cuelgan por `cajaSesionId`). */
+export const anticiposDelTurno = (sobres: Sobre[], cajaSesionId: string): Sobre[] =>
+  sobres.filter((s) => esAnticipo(s) && s.cajaSesionId === cajaSesionId).sort((a, b) => a.cerradaEn.toMillis() - b.cerradaEn.toMillis())
+
+/**
+ * Cuánto se puede anticipar de una empresa: el efectivo que hay en el cajón de
+ * ESA empresa (ya neto de los anticipos anteriores). Ariel, 23/09: el anticipo
+ * no puede pasar de eso.
+ */
+export const topeAnticipo = (porEmpresa: SobrePorEmpresa | undefined, empresa: EmpresaTango): number =>
+  Math.max(0, porEmpresa?.[empresa].efectivo ?? 0)
 
 // ── Sistema (teórico) ────────────────────────────────────────────────────────
 
@@ -55,6 +77,8 @@ export interface FuentesVentanilla {
   liquidacionesRecibidas: Liquidacion[]
   /** Sobres de cobradores que este turno recibió (Fase 2). */
   sobresRecibidos: Sobre[]
+  /** Anticipos que este turno ya le entregó a tesorería (2026-09-23): se restan del cajón. */
+  anticipos?: Sobre[]
 }
 
 /**
@@ -68,14 +92,16 @@ export function sistemaVentanilla(f: FuentesVentanilla): SobreSistema {
   const m = calcularMostrador(f.ventas, f.cobranzas, f.liquidacionesRecibidas)
   const recibidoDeSobres = f.sobresRecibidos.reduce((s, x) => s + (x.recepcion?.efectivoContado ?? 0), 0)
   const propios      = valoresRendidosDe(f.cobranzas)
-  const chequesDeLiq = f.liquidacionesRecibidas.flatMap((l) => (l.cheques ?? []).filter(esRecibido))
+  // Los cheques que llegaron por una liquidación dicen quién los cobró y por qué documento (2026-09-23).
+  const chequesDeLiq = f.liquidacionesRecibidas.flatMap((l) => (l.cheques ?? []).filter(esRecibido).map((ch) => ({ ...ch, cobradoPor: ch.cobradoPor ?? l.choferNombre, origenCodigo: l.codigo ?? l.id })))
   const retDeLiq     = f.liquidacionesRecibidas.flatMap((l) => (l.retenciones ?? []).filter(esRecibido))
   const chequesDeSob = f.sobresRecibidos.flatMap((s) => valoresRecibidosDe(s).cheques)
   const retDeSob     = f.sobresRecibidos.flatMap((s) => valoresRecibidosDe(s).retenciones)
   const cheques = [...propios.cheques, ...chequesDeLiq, ...chequesDeSob]
   const retenciones = [...propios.retenciones, ...retDeLiq, ...retDeSob]
+  const anticipos = (f.anticipos ?? []).reduce((s, a) => s + a.sistema.efectivo, 0)
   return {
-    efectivo: f.fondoInicial + m.ventas.contadoEfectivo + m.ventas.promoEfectivo + m.cobranzas.efectivo + m.recibido.efectivo + recibidoDeSobres,
+    efectivo: redondear2(f.fondoInicial + m.ventas.contadoEfectivo + m.ventas.promoEfectivo + m.cobranzas.efectivo + m.recibido.efectivo + recibidoDeSobres - anticipos),
     cheques,
     retenciones,
     transferencias: { cantidad: 0, total: m.ventas.contadoTransferencia + m.ventas.promoTransferencia + m.cobranzas.transferencia },
@@ -86,17 +112,19 @@ export function sistemaVentanilla(f: FuentesVentanilla): SobreSistema {
       cobranzasEfectivo:       m.cobranzas.efectivo,
       recibidoDeLiquidaciones: m.recibido.efectivo,
       recibidoDeSobres,
+      anticipos,
     },
     origenIds: {
       ventasIds:          f.ventas.map((v) => v.id),
       cobranzasIds:       f.cobranzas.map((c) => c.id),
       liquidacionesIds:   f.liquidacionesRecibidas.map((l) => l.id),
       sobresRecibidosIds: f.sobresRecibidos.map((s) => s.id),
+      anticiposIds:       (f.anticipos ?? []).map((a) => a.id),
     },
   }
 }
 
-const plataEmpresaVacia = (): SobrePlataEmpresa => ({ ventasEfectivo: 0, cobranzasEfectivo: 0, recibidoDeLiquidaciones: 0, recibidoDeSobres: 0, efectivo: 0, transferencias: 0, cheques: { cantidad: 0, total: 0 }, retenciones: { cantidad: 0, total: 0 } })
+const plataEmpresaVacia = (): SobrePlataEmpresa => ({ ventasEfectivo: 0, cobranzasEfectivo: 0, recibidoDeLiquidaciones: 0, recibidoDeSobres: 0, anticipos: 0, efectivo: 0, transferencias: 0, cheques: { cantidad: 0, total: 0 }, retenciones: { cantidad: 0, total: 0 } })
 export const EMPRESAS_SOBRE: EmpresaTango[] = ['redonhielo', 'rolito']
 
 /**
@@ -123,9 +151,11 @@ export function plataPorEmpresaSobre(f: FuentesVentanilla, cheques: ChequeRendid
   }
   for (const s of f.sobresRecibidos) out.redonhielo.recibidoDeSobres += s.recepcion?.efectivoContado ?? 0
   out.redonhielo.recibidoDeSobres += f.fondoInicial
+  // Anticipos (2026-09-23): salieron del cajón de su empresa antes del cierre.
+  for (const a of f.anticipos ?? []) out[empresaDeAnticipo(a)].anticipos! += a.sistema.efectivo
   for (const ch of cheques) { const e = out[ch.empresa ?? 'redonhielo']; e.cheques.cantidad++; e.cheques.total += ch.importe }
   for (const re of retenciones) { const e = out[re.empresa ?? 'redonhielo']; e.retenciones.cantidad++; e.retenciones.total += re.importe }
-  for (const e of EMPRESAS_SOBRE) out[e].efectivo = redondear2(out[e].ventasEfectivo + out[e].cobranzasEfectivo + out[e].recibidoDeLiquidaciones + out[e].recibidoDeSobres)
+  for (const e of EMPRESAS_SOBRE) out[e].efectivo = redondear2(out[e].ventasEfectivo + out[e].cobranzasEfectivo + out[e].recibidoDeLiquidaciones + out[e].recibidoDeSobres - (out[e].anticipos ?? 0))
   return out
 }
 
@@ -151,7 +181,7 @@ const redondear2 = (n: number): number => Math.round(n * 100) / 100
 export function valoresRendidosDe(cobranzas: Cobranza[]): { cheques: ChequeRendido[]; retenciones: RetencionRendida[] } {
   cobranzas = cobranzasVigentes(cobranzas)   // recibos anulados (2026-09-15): sus valores no van al sobre
   // `empresa` (2026-09-16): de qué fajo es el valor, para la plata por empresa del sobre.
-  const ref = (c: Cobranza) => ({ cobranzaId: c.id, numeroRecibo: c.numeroRecibo, clienteNombre: c.clienteNombre, empresa: empresaDeCobranza(c) })
+  const ref = (c: Cobranza) => ({ cobranzaId: c.id, numeroRecibo: c.numeroRecibo, clienteNombre: c.clienteNombre, empresa: empresaDeCobranza(c), ...(c.registradoPor?.nombre ? { cobradoPor: c.registradoPor.nombre } : {}) })
   return {
     cheques:     cobranzas.flatMap((c) => chequesDe(c).map((ch) => ({ ...ch, ...ref(c) }))),
     retenciones: cobranzas.flatMap((c) => retencionesDe(c).map((r) => ({ ...r, ...ref(c) }))),
@@ -227,6 +257,8 @@ export interface CustodiaPlanta {
   porRecibirEnCaja: { sobre: Sobre; horas: number }[]
   /** Recibidos por tesorería en el día. */
   recibidosHoy:   Sobre[]
+  /** Anticipos del día (2026-09-23), contados o no: entran en la misma lista que los sobres. */
+  anticipos:      Sobre[]
   totales: { enCamino: number; porRecibirEnCaja: number; recibidoHoy: number; tieneQueLlegar: number; falta: number }
 }
 
@@ -240,12 +272,13 @@ export function custodiaDePlanta(plantaId: PlantaId, fecha: string, sesiones: Ca
   const enCamino = dePlanta.filter((s) => s.tipo === 'ventanilla' && sobrePendiente(s)).map((sobre) => ({ sobre, horas: antiguedadHoras(sobre, ahora) }))
   const porRecibirEnCaja = dePlanta.filter((s) => s.rindeA === 'caja' && sobrePendiente(s)).map((sobre) => ({ sobre, horas: antiguedadHoras(sobre, ahora) }))
   const recibidosHoy = dePlanta.filter((s) => s.tipo === 'ventanilla' && s.estado === 'recibida' && s.fecha === fecha)
+  const anticipos = dePlanta.filter((s) => s.tipo === 'anticipo' && s.fecha === fecha)
   const cajasAbiertas = sesiones.filter((x) => x.plantaId === plantaId && x.estado === 'abierta').map((sesion) => ({ sesion }))
   const ventanillaHoy = dePlanta.filter((s) => s.tipo === 'ventanilla' && s.fecha === fecha)
   const tieneQueLlegar = ventanillaHoy.reduce((s, x) => s + x.sistema.efectivo, 0)
   const recibidoHoy = recibidosHoy.reduce((s, x) => s + (x.recepcion?.efectivoContado ?? 0), 0)
   return {
-    cajasAbiertas, enCamino, porRecibirEnCaja, recibidosHoy,
+    cajasAbiertas, enCamino, porRecibirEnCaja, recibidosHoy, anticipos,
     totales: {
       enCamino:         enCamino.reduce((s, x) => s + x.sobre.sistema.efectivo, 0),
       porRecibirEnCaja: porRecibirEnCaja.reduce((s, x) => s + x.sobre.sistema.efectivo, 0),
@@ -265,3 +298,48 @@ export function custodioDe(s: Pick<Sobre, 'estado' | 'rindio' | 'recepcion' | 'e
 }
 
 const redondear = (n: number): number => Math.round(n * 100) / 100
+
+// ── Diferencias con memoria (2026-09-23, pedido de Ariel) ────────────────────
+
+export interface MemoriaDiferencias {
+  /** Sobres de ventanilla del período (los anticipos no cuentan: no se cuentan a ciegas). */
+  turnos:        number
+  conDiferencia: number
+  /** Suma de las diferencias de caja (declarado − sistema), negativo = faltó. */
+  acumulado:     number
+  /** Suma de las diferencias de recepción (contado por tesorería − sistema) de los ya recibidos. */
+  acumuladoRecepcion: number
+  /** Las últimas con diferencia, la más nueva primero (para nombrarlas). */
+  ultimas:       { codigo: string; fecha: string; diferencia: number }[]
+}
+
+/**
+ * Cuántas veces la caja de una persona no cuadró en el período y cuánto suma:
+ * una diferencia aislada es un error, tres seguidas son otra cosa, y hasta hoy
+ * cada sobre se miraba solo. Puro: se le pasan los sobres ya leídos.
+ */
+export function memoriaDiferencias(sobres: Sobre[], uid: string, desde: string): MemoriaDiferencias {
+  const propios = sobres.filter((s) => s.tipo === 'ventanilla' && s.rindio.uid === uid && s.fecha >= desde)
+  const dif = (s: Sobre): number => redondear2(s.diferenciaDeclarada.efectivo + (s.recepcion?.diferencia?.efectivo ?? 0))
+  const conDif = propios.filter((s) => hayDiferencia(s.diferenciaDeclarada) || s.recepcion?.conformidad === 'con_diferencia')
+  return {
+    turnos:        propios.length,
+    conDiferencia: conDif.length,
+    acumulado:     redondear2(propios.reduce((acc, s) => acc + s.diferenciaDeclarada.efectivo, 0)),
+    acumuladoRecepcion: redondear2(propios.reduce((acc, s) => acc + (s.recepcion?.diferencia?.efectivo ?? 0), 0)),
+    ultimas: conDif
+      .slice()
+      .sort((a, b) => b.cerradaEn.toMillis() - a.cerradaEn.toMillis())
+      .slice(0, 5)
+      .map((s) => ({ codigo: s.codigo, fecha: s.fecha, diferencia: dif(s) })),
+  }
+}
+
+/** "12 turnos, 2 con diferencia (−$40)" / "12 turnos, siempre cuadró". */
+export function textoMemoria(m: MemoriaDiferencias): string {
+  if (!m.turnos) return 'sin turnos cerrados en el período'
+  const t = `${m.turnos} ${m.turnos === 1 ? 'turno' : 'turnos'}`
+  if (!m.conDiferencia) return `${t}, siempre cuadró`
+  const total = redondear2(m.acumulado + m.acumuladoRecepcion)
+  return `${t}, ${m.conDiferencia} con diferencia (${total > 0 ? '+' : ''}${total.toLocaleString('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 })})`
+}

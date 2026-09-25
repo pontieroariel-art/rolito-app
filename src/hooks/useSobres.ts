@@ -1,5 +1,5 @@
 import type { PlantaId, RindeA, Sobre } from '@/types'
-import { subscribeSobre, subscribeSobresDelDia, subscribeSobresPendientes } from '@/services/sobreService'
+import { subscribeSobre, subscribeSobresDelDia, subscribeSobresPendientes, subscribeSobresRecibidosEn } from '@/services/sobreService'
 import { useFirestoreSubscription } from './useFirestoreSubscription'
 
 // Sobres de rendición (2026-09-14). Streams acotados por estado, planta o id.
@@ -19,6 +19,16 @@ export function useSobresDelDia(plantaId: PlantaId, fecha: string): { sobres: So
   const { data: sobres, loading, error } = useFirestoreSubscription<Sobre[]>(
     (cb, onError) => subscribeSobresDelDia(plantaId, fecha, cb, onError),
     [plantaId, fecha],
+    [],
+  )
+  return { sobres, loading, error }
+}
+
+/** Los sobres contados por tesorería en un día, por la hora de la recepción (2026-09-23). */
+export function useSobresRecibidosEn(fecha: string): { sobres: Sobre[]; loading: boolean; error: boolean } {
+  const { data: sobres, loading, error } = useFirestoreSubscription<Sobre[]>(
+    (cb, onError) => subscribeSobresRecibidosEn(fecha, cb, onError),
+    [fecha],
     [],
   )
   return { sobres, loading, error }

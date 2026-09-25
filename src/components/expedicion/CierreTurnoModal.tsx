@@ -1,10 +1,11 @@
 import { useMemo, useRef, useState } from 'react'
-import { AlertTriangle, Check, CheckCircle2, X } from 'lucide-react'
+import { AlertTriangle, CheckCircle2 } from 'lucide-react'
 import Button from '@/components/ui/Button'
 import Modal from '@/components/ui/Modal'
 import SignaturePad, { type SignaturePadHandle } from '@/components/common/SignaturePad'
-import TablaConteoBilletes, { ChipEmpresa } from '@/components/common/TablaConteoBilletes'
-import { textoCheque, textoRetencion } from '@/components/expedicion/SobresCaja'
+import TablaConteoBilletes from '@/components/common/TablaConteoBilletes'
+import { textoCheque } from '@/components/expedicion/SobresCaja'
+import { TablaCheques } from '@/components/tesoreria/plata'
 import { formatoARS } from '@/utils/money'
 import { desgloseContado, desgloseVacio } from '@/utils/billetes'
 import { claveDeCheque, claveDeRetencion, diferenciaDeclarada, hayDiferencia, valoresSinDecidir } from '@/utils/sobres'
@@ -32,16 +33,21 @@ export default function CierreTurnoModal({ cajero, sistema, resumen, guardando, 
   onCancelar: () => void
   onConfirmar: (datos: DatosCierreTurnoModal) => void
 }) {
+  // Solo los cheques se tildan (2026-09-24, pedido de Ariel): las retenciones
+  // son certificados que ya quedaron registrados con el recibo, no se
+  // confirman en el cierre. Van al sobre como presentes.
   const valores = useMemo(() => [
     ...sistema.cheques.map((ch) => ({ clave: claveDeCheque(ch), texto: textoCheque(ch), detalle: `acredita ${ch.fechaAcreditacion || '—'} · ${ch.clienteNombre}${ch.numeroRecibo ? ` · ${ch.numeroRecibo}` : ''}`, importe: ch.importe, empresa: ch.empresa, tipo: 'cheque' as const })),
-    ...sistema.retenciones.map((re) => ({ clave: claveDeRetencion(re), texto: textoRetencion(re), detalle: `${re.clienteNombre}${re.numeroRecibo ? ` · ${re.numeroRecibo}` : ''}`, importe: re.importe, empresa: re.empresa, tipo: 'retencion' as const })),
   ], [sistema])
+  const retencionesDeclaradas = useMemo(() => sistema.retenciones.map((re) => ({ clave: claveDeRetencion(re), presente: true })), [sistema])
   const hayValores = valores.length > 0
   const pasos = hayValores ? [1, 2, 3, 4] : [1, 3, 4]
 
   const [paso, setPaso] = useState<1 | 2 | 3 | 4>(1)
   const [conteo, setConteo] = useState<DesgloseBilletes>(desgloseVacio)
   const [presentes, setPresentes] = useState<Record<string, boolean>>({})
+  // El motivo de cada cheque que NO se tiene (2026-09-24: el campo se tipeaba y no escribía porque no se guardaba).
+  const [motivos, setMotivos] = useState<Record<string, string>>({})
   const [motivo, setMotivo] = useState<MotivoDiferenciaLiquidacion | ''>('')
   const [nota, setNota] = useState('')
   const [firmante, setFirmante] = useState(cajero)
@@ -51,9 +57,9 @@ export default function CierreTurnoModal({ cajero, sistema, resumen, guardando, 
   const declarado: SobreDeclarado = useMemo(() => ({
     efectivo:       conteo.total,
     conteoBilletes: conteo,
-    cheques:        sistema.cheques.map((ch) => ({ clave: claveDeCheque(ch), presente: presentes[claveDeCheque(ch)] === true })),
-    retenciones:    sistema.retenciones.map((re) => ({ clave: claveDeRetencion(re), presente: presentes[claveDeRetencion(re)] === true })),
-  }), [conteo, presentes, sistema])
+    cheques:        sistema.cheques.map((ch) => { const k = claveDeCheque(ch); const presente = presentes[k] === true; return { clave: k, presente, ...(!presente && motivos[k]?.trim() ? { motivo: motivos[k].trim() } : {}) } }),
+    retenciones:    retencionesDeclaradas,
+  }), [conteo, presentes, motivos, sistema, retencionesDeclaradas])
   const diferencia = useMemo(() => diferenciaDeclarada(sistema, declarado), [sistema, declarado])
   const conDiferencia = hayDiferencia(diferencia)
   const faltantes = valores.filter((v) => presentes[v.clave] === false)
@@ -65,8 +71,10 @@ export default function CierreTurnoModal({ cajero, sistema, resumen, guardando, 
       setPaso(hayValores ? 2 : 3); return
     }
     if (paso === 2) {
-      const sinDecidir = valoresSinDecidir(sistema, valores.filter((v) => presentes[v.clave] !== undefined).map((v) => ({ clave: v.clave, presente: presentes[v.clave] })))
-      if (sinDecidir.length) { setFalta(`Falta decidir ${sinDecidir.length} valor(es): marcá cada uno como "Lo tengo" o "No lo tengo".`); return }
+      const sinDecidir = valoresSinDecidir(sistema, [...valores.filter((v) => presentes[v.clave] !== undefined).map((v) => ({ clave: v.clave, presente: presentes[v.clave] })), ...retencionesDeclaradas])
+      if (sinDecidir.length) { setFalta(`Falta decidir ${sinDecidir.length} cheque(s): marcá cada uno como "Lo tengo" o "No lo tengo".`); return }
+      const sinMotivo = valores.filter((v) => presentes[v.clave] === false && !(motivos[v.clave] ?? '').trim())
+      if (sinMotivo.length) { setFalta(`Escribí el motivo de ${sinMotivo.length === 1 ? 'el cheque que no tenés' : `los ${sinMotivo.length} cheques que no tenés`}.`); return }
       setPaso(3); return
     }
     if (paso === 3) {
@@ -96,7 +104,7 @@ export default function CierreTurnoModal({ cajero, sistema, resumen, guardando, 
   const signo = (n: number) => `${n > 0 ? '+' : ''}${formatoARS(n)}`
 
   return (
-    <Modal open onClose={onCancelar} title="Cerrar mi turno y rendir" wide>
+    <Modal open onClose={onCancelar} title="Cerrar liquidación" extraAncho>
       <div className="space-y-4">
         <div className="flex items-center justify-between gap-3 text-sm">
           <p className="text-gray-700"><b>{cajero}</b> · {resumen.ventas} {resumen.ventas === 1 ? 'venta' : 'ventas'} · {resumen.cobranzas} {resumen.cobranzas === 1 ? 'cobranza' : 'cobranzas'} · {resumen.liquidaciones} {resumen.liquidaciones === 1 ? 'liquidación recibida' : 'liquidaciones recibidas'}</p>
@@ -113,35 +121,13 @@ export default function CierreTurnoModal({ cajero, sistema, resumen, guardando, 
 
         {paso === 2 && (
           <div className="space-y-3">
-            <h3 className="text-lg font-semibold text-gray-900">Valores en papel</h3>
-            <p className="text-sm text-secundario">Estos son los cheques y certificados de retención que tendrías que tener en mano. Tildá uno por uno.</p>
-            <div className="space-y-1.5">
-              {valores.map((v) => {
-                const estado = presentes[v.clave]
-                return (
-                  <div key={v.clave} className={`rounded-lg border px-3 py-2 ${estado === true ? 'border-[#1D9E75] bg-[#E6F5EF]/40' : estado === false ? 'border-red-200 bg-red-50' : 'border-amber-300 bg-amber-50/40'}`}>
-                    <div className="flex items-start gap-3">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm text-gray-900">{v.texto} {v.empresa && <ChipEmpresa empresa={v.empresa} className="ml-1" />}</p>
-                        <p className="text-xs text-secundario">{v.detalle}</p>
-                      </div>
-                      <b className="text-sm tabular-nums text-gray-900">{formatoARS(v.importe)}</b>
-                    </div>
-                    <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                      <button type="button" onClick={() => setPresentes((p) => ({ ...p, [v.clave]: true }))}
-                        className={`inline-flex items-center gap-1.5 text-sm px-3 h-11 rounded-full border select-none ${estado === true ? 'bg-[#1D9E75] text-white border-[#1D9E75]' : 'bg-white text-gray-700 border-[#D3D1C7]'}`}>
-                        <Check size={14} /> Lo tengo
-                      </button>
-                      <button type="button" onClick={() => setPresentes((p) => ({ ...p, [v.clave]: false }))}
-                        className={`inline-flex items-center gap-1.5 text-sm px-3 h-11 rounded-full border select-none ${estado === false ? 'bg-red-600 text-white border-red-600' : 'bg-white text-gray-700 border-[#D3D1C7]'}`}>
-                        <X size={14} /> No lo tengo
-                      </button>
-                      {estado === undefined && <span className="text-xs text-amber-700">Sin decidir</span>}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
+            <h3 className="text-lg font-semibold text-gray-900">Cheques que van en el sobre, tildá cada uno</h3>
+            <p className="text-sm text-secundario">Estos son los cheques que tendrías que tener en mano: de dónde salió cada uno, cuándo se paga y quién lo cobró.</p>
+            {sistema.cheques.length > 0 && (
+              <TablaCheques cheques={sistema.cheques} etiquetaSi="Lo tengo" etiquetaNo="No lo tengo"
+                decisiones={Object.fromEntries(sistema.cheques.map((ch) => { const k = claveDeCheque(ch); const p = presentes[k]; return [k, p === undefined ? undefined : p ? { recibido: true } : { recibido: false, motivo: motivos[k] ?? '' }] }))}
+                onDecision={(clave, d) => { setPresentes((p) => ({ ...p, [clave]: d.recibido })); if (!d.recibido) setMotivos((m) => ({ ...m, [clave]: d.motivo })) }} />
+            )}
           </div>
         )}
 
@@ -160,8 +146,11 @@ export default function CierreTurnoModal({ cajero, sistema, resumen, guardando, 
 
             {sistema.detalle && (
               <p className="text-xs text-secundario tabular-nums">
-                Fondo inicial {formatoARS(sistema.detalle.fondoInicial)} + ventas en efectivo {formatoARS(sistema.detalle.ventasEfectivo)} + cobranzas en efectivo {formatoARS(sistema.detalle.cobranzasEfectivo)} + recibido de choferes {formatoARS(sistema.detalle.recibidoDeLiquidaciones)}
+                Fondo inicial {formatoARS(sistema.detalle.fondoInicial)} + ventas en efectivo {formatoARS(sistema.detalle.ventasEfectivo)} + cobranzas en efectivo {formatoARS(sistema.detalle.cobranzasEfectivo)} + recibido de choferes {formatoARS(sistema.detalle.recibidoDeLiquidaciones)}{sistema.detalle.anticipos ? ` − anticipos a tesorería ${formatoARS(sistema.detalle.anticipos)}` : ''}
               </p>
+            )}
+            {sistema.porEmpresa && diferencia.efectivo === 0 && (
+              <p className="text-sm text-[#0F6B4E] tabular-nums">Cuadra. Armá dos fajos: <b>Redonhielo {formatoARS(sistema.porEmpresa.redonhielo.efectivo)}</b> y <b>Rolito {formatoARS(sistema.porEmpresa.rolito.efectivo)}</b>.</p>
             )}
             {hayValores && (
               <div className={`rounded-lg border p-3 text-sm ${faltantes.length ? 'border-red-200 bg-red-50' : 'border-[#B3DDD3] bg-[#E6F5EF]/40'}`}>
@@ -196,7 +185,7 @@ export default function CierreTurnoModal({ cajero, sistema, resumen, guardando, 
             <p className="text-sm text-gray-700">
               Rendís <b className="tabular-nums">{formatoARS(declarado.efectivo)}</b> en efectivo
               {hayValores ? <> y <b>{valores.length - faltantes.length}</b> de {valores.length} valores en papel</> : null}
-              {conDiferencia ? <span className="text-red-700"> con una diferencia declarada</span> : null}. La plata queda bajo tu custodia hasta que se la entregues en mano a tesorería.
+              {conDiferencia ? <span className="text-red-700"> con una diferencia declarada</span> : null}. Cerrar el turno es entregar el sobre: tesorería lo ve al instante y lo cuenta.
             </p>
             <div>
               <p className="text-xs text-secundario mb-1">Firma de quien rinde</p>
@@ -206,7 +195,7 @@ export default function CierreTurnoModal({ cajero, sistema, resumen, guardando, 
                 <button type="button" onClick={() => firmaRef.current?.clear()} className="text-xs text-secundario hover:text-gray-800 whitespace-nowrap">Borrar firma</button>
               </div>
             </div>
-            <p className="text-xs text-secundario">Al firmar se guarda el sobre (no se puede editar), el turno queda cerrado y se imprime el acta.</p>
+            <p className="text-xs text-secundario">Al firmar se guarda el sobre (no se puede editar), el turno queda cerrado y se abre el acta.</p>
           </div>
         )}
 

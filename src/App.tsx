@@ -110,12 +110,8 @@ const LiquidacionesAbiertasPage = lazy(() => import('@/pages/logistica/expedicio
 const VentanillaPage    = lazy(() => import('@/pages/logistica/expedicion/VentanillaPage'))
 const CobranzasPage     = lazy(() => import('@/pages/logistica/expedicion/CobranzasPage'))
 const RendicionesPage   = lazy(() => import('@/pages/logistica/expedicion/RendicionesPage'))
-const EntregasPage      = lazy(() => import('@/pages/logistica/expedicion/EntregasPage'))
-const BuzonPage         = lazy(() => import('@/pages/logistica/expedicion/BuzonPage'))
-const EntregasTesoreriaPage = lazy(() => import('@/pages/logistica/tesoreria/EntregasTesoreriaPage'))
 const AnulacionesPage   = lazy(() => import('./pages/admin/AnulacionesPage'))
 const RendicionesHistorialPage = lazy(() => import('@/pages/logistica/expedicion/RendicionesHistorialPage'))
-const TesoreriaLivePage        = lazy(() => import('@/pages/logistica/tesoreria/TesoreriaLivePage'))
 const VentasLivePage           = lazy(() => import('@/pages/logistica/tesoreria/VentasLivePage'))
 const RecepcionPage            = lazy(() => import('@/pages/logistica/tesoreria/RecepcionPage'))
 const MuelleDashboard    = lazy(() => import('@/pages/logistica/expedicion/MuelleDashboard'))
@@ -312,9 +308,7 @@ function AppContent() {
             {/* Cierre de caja por persona y día (2026-09-09). */}
             <Route path="/caja/rendiciones"    element={<RendicionesPage />} />
             {/* Buzón: los sobres que dejan los choferes cuando vuelven con caja cerrada (2026-09-18). */}
-            <Route path="/caja/buzon"          element={<BuzonPage />} />
             {/* Entrega de caja a tesorería con acta y doble firma (2026-09-09). */}
-            <Route path="/caja/entregas"       element={<EntregasPage />} />
           </Route>
           {/* Historial de cierres: también gerencia (control de faltantes por repartidor). */}
           <Route element={<ProtectedRoute allowedRoles={rolesDe('/caja/liquidaciones/historial')} />}>
@@ -342,12 +336,11 @@ function AppContent() {
 
           {/* Logística: tesorería (rol propio, 2026-09-09). Gerencia general entra en modo lectura. */}
           <Route element={<ProtectedRoute allowedRoles={rolesDe('/tesoreria')} />}>
-            <Route path="/tesoreria"                       element={<TesoreriaLivePage />} />
-            <Route path="/tesoreria/recepcion"             element={<RecepcionPage />} />
+            <Route path="/tesoreria"                       element={<RecepcionPage />} />
+            <Route path="/tesoreria/recepcion"             element={<Navigate to="/tesoreria" replace />} />
             <Route path="/tesoreria/rendiciones"           element={<Navigate to="/tesoreria/recepcion" replace />} />
             <Route path="/tesoreria/rendiciones/historial" element={<RendicionesHistorialPage enTesoreria />} />
             {/* Entregas de caja: tesorería cuenta, tilda los valores y firma (2026-09-09). */}
-            <Route path="/tesoreria/entregas"              element={<EntregasTesoreriaPage />} />
             <Route path="/tesoreria/anulaciones"           element={<AnulacionesPage />} />
           </Route>
 

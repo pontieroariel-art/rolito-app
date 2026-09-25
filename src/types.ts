@@ -1703,7 +1703,13 @@ export type TipoRendicion = 'repartidor' | 'cobrador' | 'mostrador'
 // liquidación o entrega: de qué recibo salió y si quien recibe lo tildó.
 // `recibido` ausente (docs anteriores al 2026-09-09) = recibido.
 // `empresa` (2026-09-16, rendición por sobres): de qué fajo es el valor; ausente en cierres viejos = Redonhielo.
-export interface ChequeRendido extends ChequeRecibido { cobranzaId: string; numeroRecibo?: string; clienteNombre: string; recibido?: boolean; motivoNoEntregado?: string; empresa?: EmpresaTango }
+/**
+ * `cobradoPor` / `origenCodigo` (2026-09-23, rediseño caja ↔ tesorería): quién
+ * cobró el cheque (el cajero en mostrador, el chofer o el cobrador en la calle)
+ * y por qué documento llegó a la caja (el código de la liquidación). Tesorería
+ * lo ve en la tabla de cheques del sobre.
+ */
+export interface ChequeRendido extends ChequeRecibido { cobranzaId: string; numeroRecibo?: string; clienteNombre: string; recibido?: boolean; motivoNoEntregado?: string; empresa?: EmpresaTango; cobradoPor?: string; origenCodigo?: string }
 export interface RetencionRendida extends RetencionRecibida { cobranzaId: string; numeroRecibo?: string; clienteNombre: string; recibido?: boolean; motivoNoEntregado?: string; empresa?: EmpresaTango }
 
 export interface Rendicion {
@@ -2635,7 +2641,13 @@ export interface CajaSesion {
   rendicionId?:   string            // el sobre que cerró este turno
 }
 
-export type TipoSobre   = 'ventanilla' | 'cobrador' | 'chofer'
+/**
+ * 'anticipo' (2026-09-23): plata que caja le entrega a tesorería ANTES de
+ * cerrar el turno (un vale). Es un sobre chico: nace 'entregada' con la firma
+ * de quien lo recibe en la tablet del cajero, descuenta del cajón de su
+ * empresa y tesorería lo cuenta y confirma como a cualquier sobre.
+ */
+export type TipoSobre   = 'ventanilla' | 'cobrador' | 'chofer' | 'anticipo'
 export type RindeA      = 'tesoreria' | 'caja'
 /** pendiente_recepcion = cerrado, en la ventanilla · entregada = en mano a tesorería, sin contar (2026-09-16) · recibida = contada y firmada. */
 export type EstadoSobre = 'pendiente_recepcion' | 'entregada' | 'recibida'
@@ -2644,7 +2656,7 @@ export type Conformidad = 'conforme' | 'con_diferencia'
 export interface ActorSobre { uid: string; nombre: string; rol: UserRole }
 
 /** Un valor en papel tildado por quien rinde (clave = utils/valoresEnPapel.claveCheque / claveRetencion). */
-export interface ValorDeclarado { clave: string; presente: boolean }
+export interface ValorDeclarado { clave: string; presente: boolean; /** Por qué no lo tiene, cuando `presente` es false (2026-09-24). */ motivo?: string }
 /** Un valor en papel tildado por quien recibe. */
 export interface ValorRecibido  { clave: string; recibido: boolean; motivoNoRecibido?: string }
 
@@ -2665,7 +2677,9 @@ export interface SobrePlataEmpresa {
   cobranzasEfectivo:       number
   recibidoDeLiquidaciones: number
   recibidoDeSobres:        number
-  /** Suma de las cuatro de arriba: el efectivo de esta empresa que tiene que haber. */
+  /** Anticipos a tesorería ya entregados en el turno (2026-09-23): salieron del cajón de esta empresa. */
+  anticipos?:              number
+  /** Ventas + cobranzas + recibido de liquidaciones y sobres − anticipos: el efectivo de esta empresa que tiene que haber. */
   efectivo:                number
   transferencias:          number
   cheques:                 { cantidad: number; total: number }
@@ -2688,8 +2702,10 @@ export interface SobreSistema {
     cobranzasEfectivo:       number
     recibidoDeLiquidaciones: number   // choferes (Fase 1: siguen en `liquidaciones`)
     recibidoDeSobres:        number   // cobradores (Fase 2)
+    /** Anticipos entregados a tesorería durante el turno (2026-09-23): ya no están en el cajón. */
+    anticipos?:              number
   }
-  origenIds: { ventasIds: string[]; cobranzasIds: string[]; liquidacionesIds: string[]; sobresRecibidosIds: string[] }
+  origenIds: { ventasIds: string[]; cobranzasIds: string[]; liquidacionesIds: string[]; sobresRecibidosIds: string[]; anticiposIds?: string[] }
 }
 
 /** Lo que declaró quien rinde, ANTES de ver el sistema (arqueo ciego). */
@@ -2711,6 +2727,8 @@ export interface SobreRecepcion {
   retenciones:     ValorRecibido[]
   conformidad:     Conformidad
   diferencia?:     DiferenciaSobre & { motivo: MotivoDiferenciaLiquidacion; nota: string }
+  /** Contado por fajo (2026-09-23): cuánto contó tesorería de cada empresa; `efectivoContado` es la suma. */
+  fajos?:          Record<EmpresaTango, number>
   firmaRecibe:     string           // dataURL PNG
   firmanteRecibe:  string
 }
@@ -2758,5 +2776,7 @@ export interface Sobre {
   recepcion?: SobreRecepcion
   rectificaA?: string
   anulacionesPosteriores?: AnulacionPosterior[]
+  /** Solo tipo 'anticipo' (2026-09-23): de qué empresa salió la plata (Redonhielo por defecto). */
+  anticipo?: { empresa: EmpresaTango }
   createdAt: Timestamp
 }

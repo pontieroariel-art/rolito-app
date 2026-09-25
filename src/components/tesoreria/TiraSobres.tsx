@@ -40,17 +40,17 @@ export default function TiraSobres({ custodia, horasAviso, titulo = 'Plata de la
       detalle: abiertas.length ? abiertas.map((x) => `${x.sesion.cajero.nombre}, desde las ${hora(x.sesion.abiertaEn.toDate())}`).join(' · ') : 'la plata ya no está en ninguna ventanilla',
     },
     {
-      id: 'porRecibir', etiqueta: 'Por recibir', valor: String(porRecibir.length), tono: porRecibir.length ? (viejos ? 'text-[#97241F]' : 'text-[#14538C]') : 'text-secundario', realce: viejos > 0,
+      id: 'porRecibir', etiqueta: 'Por contar', valor: String(porRecibir.length), tono: porRecibir.length ? (viejos ? 'text-[#97241F]' : 'text-[#14538C]') : 'text-secundario', realce: viejos > 0,
       detalle: porRecibir.length
         ? [
-            enVentanilla.length ? `${enVentanilla.length} en la ventanilla (${enVentanilla.map((x) => `${x.sobre.codigo}, hace ${Math.round(x.horas)} h`).join(', ')})` : '',
+            enVentanilla.length ? `${enVentanilla.length} todavía en la ventanilla (${enVentanilla.map((x) => `${x.sobre.codigo}, hace ${Math.round(x.horas)} h`).join(', ')})` : '',
             entregados.length ? `${entregados.length} entregado${entregados.length === 1 ? '' : 's'} en mano, sin contar (${entregados.map((x) => `${x.sobre.codigo} a ${x.sobre.entrega?.recibio.nombre ?? '—'}`).join(', ')})` : '',
-            viejos ? `${viejos === 1 ? 'uno lleva' : `${viejos} llevan`} más de ${horasAviso} h sin entregar` : '',
+            viejos ? `${viejos === 1 ? 'uno lleva' : `${viejos} llevan`} más de ${horasAviso} h sin contar` : '',
           ].filter(Boolean).join(' · ')
         : 'ningún sobre cerrado esperando',
     },
     {
-      id: 'recibidos', etiqueta: 'Recibidos hoy', valor: String(recibidos.length), tono: recibidos.length ? 'text-[#0B5A3C]' : 'text-secundario',
+      id: 'recibidos', etiqueta: 'Contados hoy', valor: String(recibidos.length), tono: recibidos.length ? 'text-[#0B5A3C]' : 'text-secundario',
       detalle: recibidos.length ? `${formatoARS(contado)} contados por tesorería` : 'todavía no recibiste ninguno',
     },
     {
@@ -79,7 +79,7 @@ export default function TiraSobres({ custodia, horasAviso, titulo = 'Plata de la
           <div className="border-t border-[#E7E5DC] px-3.5 py-2 bg-[#F8F7F2]">
             {error
               ? <p className="text-xs text-red-700">No pudimos leer los sobres o las cajas. Revisá la conexión.</p>
-              : <Link to="/tesoreria/recepcion" className="text-xs text-accent underline underline-offset-2">Ir a Recepción para recibir los sobres</Link>}
+              : <Link to="/tesoreria/recepcion" className="text-xs text-accent underline underline-offset-2">Ir a Sobres para contarlos</Link>}
           </div>
         )}
       </div>

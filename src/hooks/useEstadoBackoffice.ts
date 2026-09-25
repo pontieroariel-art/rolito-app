@@ -8,12 +8,11 @@ import {
 } from '@/services/backofficeEstadoService'
 import { subscribeAnulacionesPendientes } from '@/services/anulacionService'
 import { subscribeRendicionesEnRango } from '@/services/rendicionService'
-import { subscribeEntregasPorConfirmar } from '@/services/entregaTesoreriaService'
 import { subscribeRollupsEnRango } from '@/services/rollupService'
 import { subscribeCotConfig } from '@/services/cotConfigService'
 import { getHistorialAdmin, type HistorialAdminEvento } from '@/services/historialAdminService'
 import { normalizarCotConfig } from '@/utils/cot'
-import type { AnulacionVentanilla, CotConfig, EntregaTesoreria, Rendicion, RollupPedidosDia } from '@/types'
+import type { AnulacionVentanilla, CotConfig, Rendicion, RollupPedidosDia } from '@/types'
 
 // Estado del panel de control del super_admin (2026-09-10). Dos fuentes:
 //  - contadores (getCountFromServer) que se refrescan al montar, cada 60 s con
@@ -35,7 +34,6 @@ export interface EstadoBackoffice {
   conteos:      ConteosBackoffice | null
   anulaciones:  AnulacionVentanilla[]
   rendiciones:  Rendicion[]
-  entregas:     EntregaTesoreria[]
   rollupHoy:    RollupPedidosDia | null
   configTango:  ConfigTangoEstado
   configArca:   ConfigArcaEstado
@@ -78,7 +76,6 @@ export function useEstadoBackoffice() {
     (cb) => subscribeRendicionesEnRango(desdeRendiciones, hastaRendiciones, cb),
     [],
   )
-  const entregas  = useSharedSubscription<EntregaTesoreria[]>('backoffice:entregas', subscribeEntregasPorConfirmar, [])
   const rollups   = useSharedSubscription<RollupPedidosDia[]>(`backoffice:rollup:${hoy}`, (cb) => subscribeRollupsEnRango(hoy, hoy, cb), [])
   const configTango = useSharedSubscription<ConfigTangoEstado>('backoffice:config/tango', subscribeConfigTangoEstado, CONFIG_TANGO_VACIA)
   const configArca  = useSharedSubscription<ConfigArcaEstado>('backoffice:config/arca', subscribeConfigArca, { habilitado: null })
@@ -88,14 +85,13 @@ export function useEstadoBackoffice() {
     conteos,
     anulaciones: anulaciones.data,
     rendiciones: rendiciones.data,
-    entregas:    entregas.data,
     rollupHoy:   rollups.data.find((r) => r.fecha === hoy) ?? null,
     configTango: configTango.data,
     configArca:  configArca.data,
     configCot:   configCot.data,
     historial,
     hoy,
-  }), [conteos, anulaciones.data, rendiciones.data, entregas.data, rollups.data, configTango.data, configArca.data, configCot.data, historial, hoy])
+  }), [conteos, anulaciones.data, rendiciones.data, rollups.data, configTango.data, configArca.data, configCot.data, historial, hoy])
 
   return { estado, loading: conteos === null, refrescando, ultimoRefresco, refrescar }
 }
