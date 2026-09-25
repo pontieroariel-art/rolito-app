@@ -21,7 +21,8 @@
     "seed:dia": "node scripts/seed-dia-caja.mjs",
     "emular:arca": "node scripts/emular-arca.mjs",
     "prepare": "husky",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "manuales": "node scripts/manuales/armar.mjs"
   },
   "lint-staged": {
     "src/**/*.{ts,tsx}": "eslint --fix",

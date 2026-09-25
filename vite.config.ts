@@ -70,6 +70,8 @@ export default defineConfig({
         // carga real en conexiones intermitentes. Se cachean en runtime
         // (StaleWhileRevalidate, ver src/sw.ts) recién cuando se usan.
         globIgnores: [
+          // Manuales de caja y tesorería (HTML + PDF + capturas, ~5 MB): se cargan al abrirlos.
+          '**/manuales/**',
           '**/xlsx-*.js',
           '**/pdfjs-*.js',
           '**/PanolPage-*.js',

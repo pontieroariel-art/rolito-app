@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Manual de caja y tesorería</title>
+<style>
+  @page { size: A4; margin: 18mm 16mm 18mm 16mm; }
+  * { box-sizing: border-box; }
+  html { font-family: Inter, "Segoe UI", Arial, sans-serif; color: #1f2937; font-size: 11pt; line-height: 1.45; }
+  body { margin: 0; }
+  h1 { font-size: 26pt; margin: 0 0 4pt; color: #111827; letter-spacing: -0.01em; }
+  h2 { font-size: 17pt; margin: 0 0 8pt; padding-bottom: 5pt; border-bottom: 2px solid #1D9E75; color: #111827; page-break-after: avoid; }
+  h3 { font-size: 12.5pt; margin: 16pt 0 5pt; color: #0F6B4E; page-break-after: avoid; }
+  p { margin: 0 0 7pt; }
+  ul, ol { margin: 0 0 8pt 18pt; padding: 0; }
+  li { margin-bottom: 3pt; }
+  li > ul, li > ol { margin-top: 3pt; }
+  .portada { height: 250mm; display: flex; flex-direction: column; justify-content: center; page-break-after: always; }
+  .portada .marca { color: #1D9E75; font-weight: 800; font-size: 13pt; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 18pt; }
+  .portada .sub { font-size: 14pt; color: #6B6A62; margin-top: 6pt; }
+  .portada .meta { margin-top: 40pt; color: #6B6A62; font-size: 10pt; }
+  .parte { page-break-before: always; }
+  .parte-titulo { background: #1D9E75; color: white; padding: 16pt 18pt; border-radius: 10pt; margin-bottom: 16pt; }
+  .parte-titulo .n { font-size: 10pt; text-transform: uppercase; letter-spacing: .1em; opacity: .85; }
+  .parte-titulo h2 { color: white; border: 0; margin: 2pt 0 0; font-size: 22pt; padding: 0; }
+  .seccion { page-break-inside: avoid; }
+  .caja { border: 1.5px solid #D3D1C7; border-radius: 8pt; padding: 9pt 12pt; margin: 8pt 0 10pt; background: #FBFAF6; page-break-inside: avoid; }
+  .caja.ojo { border-color: #EFDCB4; background: #FBF6EA; }
+  .caja.ojo b:first-child { color: #8A5203; }
+  .caja.regla { border-color: #B3DDD3; background: #F1F9F5; }
+  .caja.regla b:first-child { color: #0F6B4E; }
+  .pasos li { margin-bottom: 5pt; }
+  .pasos li b { color: #111827; }
+  figure { margin: 8pt 0 12pt; page-break-inside: avoid; }
+  figure img { width: 100%; border: 1px solid #D3D1C7; border-radius: 6pt; }
+  figcaption { font-size: 9pt; color: #6B6A62; margin-top: 3pt; }
+  table { border-collapse: collapse; width: 100%; margin: 6pt 0 10pt; font-size: 10pt; page-break-inside: avoid; }
+  th, td { border: 1px solid #D3D1C7; padding: 4pt 6pt; text-align: left; vertical-align: top; }
+  th { background: #F1F9F5; color: #0F6B4E; font-size: 9.5pt; text-transform: uppercase; letter-spacing: .04em; }
+  .flujo { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6pt; margin: 8pt 0 12pt; }
+  .flujo div { border-radius: 8pt; padding: 8pt 9pt; font-size: 9.5pt; border: 1.5px solid; }
+  .flujo .t { font-weight: 800; font-size: 10.5pt; display: block; margin-bottom: 2pt; }
+  .f1 { border-color: #F0C7C3; background: #FDF3F2; } .f1 .t { color: #97241F; }
+  .f2 { border-color: #EFDCB4; background: #FBF6EA; } .f2 .t { color: #8A5203; }
+  .f3 { border-color: #BFD8EE; background: #EEF4FA; } .f3 .t { color: #14538C; }
+  .f4 { border-color: #AFD9C6; background: #EEF7F2; } .f4 .t { color: #0F6B4E; }
+  .firmas { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6pt; margin: 6pt 0 10pt; }
+  .firmas div { border: 1.5px solid #D3D1C7; border-radius: 8pt; padding: 8pt 9pt; font-size: 9.5pt; background: white; }
+  .firmas .n { display: inline-block; width: 18pt; height: 18pt; border-radius: 50%; background: #1D9E75; color: white; text-align: center; font-weight: 800; line-height: 18pt; margin-right: 4pt; }
+  .boton { display: inline-block; border: 1px solid #1D9E75; color: #0F6B4E; border-radius: 4pt; padding: 0 4pt; font-weight: 700; font-size: 9.5pt; white-space: nowrap; }
+  .menu { display: inline-block; background: #F1F1EC; border-radius: 4pt; padding: 0 4pt; font-weight: 600; white-space: nowrap; }
+  .indice li { margin-bottom: 2pt; }
+  .indice ul { margin-top: 2pt; }
+  .pie { color: #6B6A62; font-size: 9pt; margin-top: 24pt; border-top: 1px solid #D3D1C7; padding-top: 6pt; }
+</style>
+</head>
+<body>
+
+<div class="portada">
+  <div class="marca">Rolito · Distribución de hielo</div>
+  <h1>Manual de caja y tesorería</h1>
+  <div class="sub">Cómo se mueve la plata en la app: del camión a la caja, de la caja a tesorería, y cómo queda todo firmado.</div>
+  <div class="meta">Versión del 24 de septiembre de 2026 · corresponde a la app en producción desde esa fecha.<br>Para los puestos de <b>caja</b> (ventanilla y liquidación de repartidores) y <b>tesorería</b>.</div>
+</div>
+
+<h2>Contenido</h2>
+<ol class="indice">
+  <li>Cómo se mueve la plata
+    <ul><li>Los cuatro lugares</li><li>Las tres firmas</li></ul></li>
+  <li>Parte 1 · Caja
+    <ul>
+      <li>Abrir el turno</li>
+      <li>Durante el día: ventas, cobranzas y liquidar a choferes y cobradores</li>
+      <li>Leer tu Liquidación de caja</li>
+      <li>Anticipo a tesorería</li>
+      <li>Cerrar la liquidación</li>
+      <li>Entregar la liquidación a tesorería, en mano</li>
+      <li>Después de entregar</li>
+    </ul></li>
+  <li>Parte 2 · Tesorería
+    <ul>
+      <li>La pantalla de entrada: ¿dónde está la plata hoy?</li>
+      <li>Los tres carriles de Recepción</li>
+      <li>Recibir en mano</li>
+      <li>Contar y validar</li>
+      <li>Anticipos</li>
+      <li>Las otras pantallas</li>
+    </ul></li>
+  <li>Avisos automáticos</li>
+  <li>Preguntas frecuentes</li>
+</ol>
+
+<h2 style="margin-top:20pt">1 · Cómo se mueve la plata</h2>
+<p>La app sigue la plata por etapas. En cada etapa hay una persona responsable y una firma que lo deja escrito. La idea es que <b>ninguna caja quede sin rastrear</b>: en cualquier momento se puede ver dónde está cada peso y quién lo tiene.</p>
+
+<h3>Los cuatro lugares</h3>
+<div class="flujo">
+  <div class="f1"><span class="t">1 · En la calle</span>Choferes y cobradores con plata que todavía no liquidaron con caja.</div>
+  <div class="f2"><span class="t">2 · En caja</span>Turnos abiertos de ventanilla y liquidaciones de caja cerradas que todavía no se entregaron.</div>
+  <div class="f3"><span class="t">3 · Entregada, sin contar</span>Liquidaciones que tesorería ya recibió en mano, con firma, y todavía no contó.</div>
+  <div class="f4"><span class="t">4 · Contada y validada</span>Lo que tesorería contó, validó y firmó. Ya entró.</div>
+</div>
+<p>Tesorería ve estos cuatro números apenas entra a la app. Caja los ve en su propia liquidación y en la pantalla de liquidaciones abiertas.</p>
+
+<h3>Las tres firmas</h3>
+<div class="firmas">
+  <div><span class="n">1</span><b>Caja cierra</b><br>Cuenta el efectivo billete por billete, tilda los cheques y firma su liquidación. Desde ahí no se edita más.</div>
+  <div><span class="n">2</span><b>Tesorería recibe en mano</b><br>Caja le entrega el sobre cerrado y tesorería firma <i>en la tablet de caja</i> que lo recibió. Todavía no se cuenta.</div>
+  <div><span class="n">3</span><b>Tesorería cuenta y valida</b><br>En su pantalla, cuenta billete por billete, tilda los cheques, deja motivo si hay diferencia y firma. Sale el acta.</div>
+</div>
+<div class="caja regla"><b>Regla de oro.</b> Sin la firma 2 no hay firma 3: tesorería no puede contar una liquidación que caja no le entregó en mano. Y sin la firma 3 la plata sigue figurando como "entregada, sin contar" para todo el mundo.</div>
+
+<div class="caja">
+  <b>Dos empresas, siempre.</b> Toda la plata se mira partida en <b>Redonhielo</b> (contado con factura electrónica) y <b>Rolito</b> (promo, factura X). Cada cobranza trae su empresa. En las pantallas de caja siempre vas a ver tres columnas: Redonhielo · Rolito · Total.
+</div>
+
+<!-- ───────────────────────────── PARTE 1 · CAJA ───────────────────────────── -->
+<div class="parte">
+<div class="parte-titulo"><div class="n">Parte 1</div><h2>Caja</h2></div>
+
+<p>El puesto de caja hace dos cosas con la plata: <b>vende y cobra en la ventanilla</b>, y <b>recibe la rendición de los choferes y cobradores</b> cuando vuelven. Todo eso termina en una sola cosa por turno: <b>tu Liquidación de caja</b>, que cerrás, firmás y entregás en mano a tesorería.</p>
+
+<h3>1.1 · Abrir el turno</h3>
+<ol class="pasos">
+  <li>Entrá a la app con tu DNI y contraseña y andá a <span class="menu">Tesorería › Liquidación de caja</span>.</li>
+  <li>Tocá <span class="boton">Abrir mi turno</span>. El fondo inicial es $0: hoy no hay fondo fijo.</li>
+  <li>Desde ese momento la ventanilla vende y la app registra la hora de apertura en tu liquidación.</li>
+</ol>
+<div class="caja ojo"><b>Ojo.</b> Sin turno abierto la ventanilla no vende. Y si te quedó un turno de <b>otro día sin cerrar</b>, la app no te deja abrir uno nuevo hasta que cierres ese: te lo muestra con su fecha y el botón para cerrarlo.</div>
+
+<h3>1.2 · Durante el día</h3>
+<p><b>Ventas de ventanilla y cobranzas de mostrador</b> se cargan desde sus pantallas de siempre (<span class="menu">Ventanilla</span> y <span class="menu">Cobranzas</span>). Cada venta o cobranza que hacés entra sola en tu liquidación, con su empresa y su medio de pago.</p>
+
+<p><b>Liquidar a un chofer o cobrador</b> es recibirle la plata del reparto. Se hace en <span class="menu">Tesorería › Liquidaciones</span>:</p>
+<ol class="pasos">
+  <li><b>Elegí la fecha, el repartidor</b> (por depósito de Tango) <b>y el viaje</b>, si ese día hizo más de uno. La pantalla arma sola el cálculo del viaje: ventas de contado, promo, cuenta corriente, cobranzas, cheques, retenciones y lo que muelle contó en la descarga.</li>
+  <li><b>Contá el efectivo que te entrega, por empresa</b>, en las dos tablas de billetes que están en la misma pantalla: una para Redonhielo y otra para Rolito ($20.000, $10.000, $2.000, $1.000, $500 y monedas). No hay atajo de "total directo": se cuenta billete por billete. Si de una empresa no recibís efectivo, marcá "no recibí efectivo". Hasta que las dos tablas no estén contadas, el botón de cerrar no se habilita.</li>
+  <li>Tocá <span class="boton">Cerrar liquidación</span>. Se abre el cierre:
+    <ul>
+      <li><b>Cheques y retenciones: tildá cada uno al recibirlo.</b> Uno que no te entregan queda "No entregado" con su motivo. Ninguno puede quedar sin decidir.</li>
+      <li>Si el efectivo no cuadra con el sistema, elegí el <b>motivo</b> (faltante del repartidor, vuelto mal dado, billete falso o dañado, error de carga, otro) y escribí qué pasó.</li>
+      <li><b>Dos firmas:</b> el repartidor firma la conformidad con lo rendido y vos firmás que recibiste.</li>
+    </ul></li>
+  <li>Al confirmar se guarda el cierre (no se edita más) y sale la liquidación en PDF con una hoja de fajo por empresa, para enrollar cada fajo.</li>
+</ol>
+<figure><img src="img/caja-liquidacion-chofer.png" alt="Liquidación de un chofer"><figcaption>Liquidación de un chofer: arriba el estado del viaje (plata y mercadería), en el medio el resumen por empresa y abajo las dos tablas de billetes para contar lo que entrega.</figcaption></figure>
+<div class="caja"><b>Mercadería.</b> Si muelle contó la descarga y falta mercadería, la pantalla lo muestra en rojo. Un tema de stock <b>nunca traba tu turno</b>: podés pedir autorización o "Cerrar con desvío observado" con motivo. Queda escrito con nombre y motivo.</div>
+<div class="caja"><b>Lo que recibiste de cada chofer entra a tu caja.</b> Ese efectivo y esos cheques pasan a formar parte de tu Liquidación de caja, en el bloque "Liquidaciones de choferes y cobradores".</div>
+
+<h3>1.3 · Leer tu Liquidación de caja</h3>
+<p>La pantalla <span class="menu">Liquidación de caja</span> es tu resumen del turno en vivo. Se lee de arriba hacia abajo:</p>
+<figure><img src="img/caja-liquidacion.png" alt="Liquidación de caja"><figcaption>Liquidación de caja: la tarjeta de arriba resume el turno; abajo, cada bloque dice de dónde sale cada peso.</figcaption></figure>
+<table>
+  <tr><th style="width:34%">Bloque</th><th>Qué es</th></tr>
+  <tr><td><b>Liquidación de (tu nombre)</b></td><td>Efectivo y Cheques del turno, en grande, y los dos recuadros Redonhielo / Rolito con Efectivo · Cheques · Total de cada empresa. Fecha, turno y hora de apertura y cierre.</td></tr>
+  <tr><td><b>Lo líquido · efectivo y cheques</b></td><td>Lo que tiene que estar en tu caja: ventas de ventanilla en efectivo, cobranzas de mostrador en efectivo y en cheques, liquidaciones de choferes y cobradores en efectivo y en cheques, y los anticipos que ya le diste a tesorería (restan).</td></tr>
+  <tr><td><b>No entra a la caja</b></td><td>Se registra pero no se rinde: ventas en cuenta corriente, transferencias y retenciones. Están para que el total del día cierre, no para contarlos.</td></tr>
+  <tr><td><b>Tu liquidación · RV-…</b></td><td>Aparece cuando cerraste: código, acta, y el estado de la entrega y la recepción por tesorería.</td></tr>
+</table>
+<p>Cada bloque se abre y muestra los renglones uno por uno, con el importe debajo de la columna de su empresa. Los cheques se listan con número, banco, fecha de emisión y fecha de pago.</p>
+
+<h3>1.4 · Anticipo a tesorería</h3>
+<p>Si en medio del turno tesorería te pide plata (o la caja está muy cargada), podés darle un <b>anticipo</b> sin cerrar el turno.</p>
+<ol class="pasos">
+  <li>En Liquidación de caja tocá <span class="boton">Anticipo a tesorería</span>.</li>
+  <li>Elegí el <b>monto</b>, la <b>empresa</b> de la que sale (no puede pasar de lo que hay de esa empresa en tu caja) y <b>quién recibe</b> (una persona de tesorería).</li>
+  <li>Pasale la tablet: la persona de tesorería <b>firma que lo recibió</b> y tocás <span class="boton">Entregar anticipo</span>.</li>
+</ol>
+<p>El anticipo sale con código <b>VA-…</b>, se descuenta de tu caja (lo ves en el bloque "Anticipos a tesorería" y en una franja arriba de la pantalla) y tesorería lo cuenta como a cualquier liquidación. Podés hacer varios en el mismo turno.</p>
+<figure><img src="img/caja-anticipo.png" alt="Anticipo a tesorería"><figcaption>Anticipo: monto, empresa, quién recibe y la firma de esa persona en tu tablet.</figcaption></figure>
+
+<h3>1.5 · Cerrar la liquidación</h3>
+<p>Al final del turno, con todos los choferes ya liquidados:</p>
+<ol class="pasos">
+  <li>En Liquidación de caja tocá <span class="boton">Cerrar liquidación</span>.</li>
+  <li><b>Contá todo el efectivo de la caja</b> en una sola tabla de billetes (ya no importa de qué empresa es cada billete: caja junta todo en un solo sobre). El total sale solo.</li>
+  <li><b>Cheques que van en el sobre: tildá cada uno.</b> La lista dice de dónde salió cada cheque, cuándo se paga y quién lo cobró. Si uno no lo tenés, dejalo sin tildar y escribí el motivo. Las retenciones no se confirman acá: van por otro circuito.</li>
+  <li><b>Sistema vs. lo que contaste.</b> La app recién ahora te dice cuánto tenía que haber y cómo se compone. Si cuadra, te dice cómo <b>armar los dos fajos</b> (Redonhielo y Rolito) que van juntos en el sobre. Si hay diferencia, elegí el motivo y escribí qué pasó (obligatorio).</li>
+  <li><b>Firmar y rendir.</b> Firmá con el dedo y poné tu nombre. Al firmar se guarda el sobre (no se puede editar), el turno queda cerrado y se abre el acta.</li>
+</ol>
+<figure><img src="img/caja-cerrar.png" alt="Cerrar liquidación, paso 1"><figcaption>Paso 1 de 4: toda la caja en una sola tabla de billetes. El total sale solo.</figcaption></figure>
+<figure><img src="img/caja-cerrar-cheques.png" alt="Cerrar liquidación, paso 2"><figcaption>Paso 2: los cheques que tendrías que tener en mano, con "Lo tengo" / "No lo tengo".</figcaption></figure>
+<figure><img src="img/caja-cerrar-sistema.png" alt="Cerrar liquidación, paso 3"><figcaption>Paso 3: sistema contra lo contado, cómo se compone y cómo armar los fajos.</figcaption></figure>
+<figure><img src="img/caja-cerrar-firma.png" alt="Cerrar liquidación, paso 4"><figcaption>Paso 4: firma de quien rinde. Al firmar, el turno queda cerrado.</figcaption></figure>
+<figure><img src="img/caja-acta.png" alt="Acta de la liquidación de caja"><figcaption>El acta se abre en el visor apenas firmás: es la misma planilla de la pantalla. Enviar, Imprimir o Descargar son clics tuyos.</figcaption></figure>
+<div class="caja ojo"><b>No se puede cerrar si…</b> hay un recibo de cobranza con anulación esperando autorización, o hay una anulación de factura pendiente. Primero se resuelve eso.</div>
+<div class="caja regla"><b>El acta es la misma planilla que ves en pantalla.</b> Sale en PDF con la tarjeta, los dos recuadros por empresa, los bloques con sus renglones, los billetes contados y las tres firmas. Se abre en el visor: desde ahí se imprime, se descarga o se envía. Nada se descarga solo.</div>
+
+<h3>1.6 · Entregar la liquidación a tesorería, en mano</h3>
+<p>Cerrar no es entregar. La plata sigue siendo tuya hasta que tesorería firma que la recibió, y eso se hace <b>en tu tablet</b>:</p>
+<ol class="pasos">
+  <li>Con el sobre cerrado en la mano, en Liquidación de caja tocá <span class="boton">Entregar a tesorería</span>.</li>
+  <li>Elegí <b>quién recibe</b> (una persona de tesorería, no vos).</li>
+  <li>Pasale la tablet: <b>firma que recibió el sobre cerrado</b> y tocás <span class="boton">Entregar y firmar</span>. Contar es después, en la pantalla de tesorería.</li>
+</ol>
+<p>Si te quedó una liquidación de otro día cerrada y sin entregar, la vas a ver en el bloque <b>"Liquidaciones de otros días sin entregar a tesorería"</b>, con el mismo botón. Hasta que no la entregues, tesorería no la puede contar.</p>
+<figure><img src="img/caja-entregar.png" alt="Entregar a tesorería"><figcaption>Entrega en mano: elegís quién recibe y esa persona firma en tu tablet que recibió el sobre cerrado.</figcaption></figure>
+
+<h3>1.7 · Después de entregar</h3>
+<ul>
+  <li>En <b>"Tu liquidación"</b> ves: <i>Entregado en mano a (nombre)</i> y, cuando tesorería la cuenta, <i>Contó (nombre) · conforme</i> o <i>con diferencia</i> con el motivo.</li>
+  <li><span class="menu">Historial</span> lista tus cierres de los últimos 30 días con el acta de cada uno.</li>
+  <li><span class="menu">Liquidaciones abiertas</span> muestra los choferes y cobradores de cualquier fecha que todavía no liquidaron con caja. Si hay dos o más, la app avisa arriba en amarillo.</li>
+  <li>Si después del cierre se anula una venta de ese día, la anulación aparece marcada en el historial ("anulada después de cerrar"); los importes del cierre no cambian.</li>
+</ul>
+<figure><img src="img/caja-despues.png" alt="Después de entregar"><figcaption>Después de entregar: "Entregado en mano a …, con su firma. Falta que lo cuente." Abajo, una liquidación de otro día que todavía no se entregó.</figcaption></figure>
+</div>
+
+<!-- ───────────────────────────── PARTE 2 · TESORERÍA ───────────────────────────── -->
+<div class="parte">
+<div class="parte-titulo"><div class="n">Parte 2</div><h2>Tesorería</h2></div>
+
+<p>Tesorería recibe la plata de todas las cajas, la cuenta, la valida y deja el acta. Su pantalla de entrada responde una sola pregunta: <b>¿dónde está la plata hoy?</b></p>
+
+<h3>2.1 · La pantalla de entrada: Recepción de liquidaciones</h3>
+<figure><img src="img/tesoreria-recepcion.png" alt="Recepción de liquidaciones"><figcaption>Arriba, los cuatro lugares de la plata con quién la tiene. Abajo, las liquidaciones una por una en tres carriles.</figcaption></figure>
+<p>La tira de arriba muestra los cuatro lugares (en la calle · en caja · entregada sin contar · contada y validada) con el efectivo, los cheques y <b>quién tiene esa plata</b>. Los importes son los del sistema hasta que se cuenta; una vez contada, el número es lo contado y, si hubo, la diferencia en rojo.</p>
+<p>Arriba a la derecha podés filtrar por <b>planta</b> y elegir el <b>día</b> (para revisar un día anterior; el carril 3 muestra lo contado ese día).</p>
+
+<h3>2.2 · Los tres carriles</h3>
+<table>
+  <tr><th style="width:22%">Carril</th><th>Qué hay</th><th style="width:30%">Qué podés hacer</th></tr>
+  <tr><td><b>1 · Por recibir</b> (naranja)</td><td>Liquidaciones que caja cerró y <b>todavía tiene</b>. No están en tus manos.</td><td>Nada acá. Caja te la entrega desde su pantalla y ahí firmás que la recibiste.</td></tr>
+  <tr><td><b>2 · A contar y validar</b> (azul)</td><td>Liquidaciones y anticipos que <b>ya están en tus manos</b> con tu firma de entrega.</td><td><span class="boton">Contar y validar</span></td></tr>
+  <tr><td><b>3 · Contadas hoy</b> (verde)</td><td>Lo que contaste y validaste hoy, conformes y con diferencia.</td><td>Ver el acta.</td></tr>
+</table>
+<p>Cada tarjeta muestra el código (RV-… para liquidaciones, VA-… para anticipos), la hora, Efectivo y Cheques con el partido por empresa, quién rindió, cuántas horas lleva esperando y, si caja declaró diferencia al cerrar, el aviso en rojo. "Este mes: N turnos, M con diferencia" es la memoria de ese cajero.</p>
+
+<h3>2.3 · Recibir en mano</h3>
+<p>Cuando caja te trae el sobre cerrado, <b>no lo abras ni lo cuentes todavía</b>. Caja toca "Entregar a tesorería" en su tablet, elige tu nombre y vos <b>firmás ahí</b> que recibiste el sobre cerrado. Recién entonces la liquidación pasa del carril 1 al carril 2 y aparece en "Entregada, sin contar".</p>
+<div class="caja regla"><b>Por qué se firma antes de contar.</b> La firma de entrega deja escrito en qué momento la plata dejó de estar en caja y pasó a tesorería. Si después falta algo, se sabe de qué lado.</div>
+
+<h3>2.4 · Contar y validar</h3>
+<ol class="pasos">
+  <li>En el carril 2 tocá <span class="boton">Contar y validar</span> en la liquidación que tenés en la mano.</li>
+  <li>Arriba ves <b>la misma liquidación que cerró caja</b>: la tarjeta con Redonhielo / Rolito y los bloques con sus renglones. Si querés el papel, <span class="boton">Ver el acta de caja, tal cual la cerró</span>.</li>
+  <li><b>Cheques entregados: tildá cada uno</b> ("Recibido" / "No vino"). Uno que no vino queda con su motivo. Las retenciones no se tildan: van por otro lado.</li>
+  <li><b>Efectivo recibido.</b> Contá todo el efectivo del sobre en la tabla de billetes; el total sale solo y abajo dice si cuadra o cuánto falta o sobra contra lo que declaró caja. Un solo conteo: caja ya juntó todo en un sobre, y el detalle por empresa está en la liquidación.</li>
+  <li>Si hay diferencia, elegí el <b>motivo</b> (faltante de caja, faltante en la entrega a tesorería, billete falso o dañado, error de carga, otro) y escribí la <b>nota</b>: qué pasó, con quién se habló, qué se va a revisar. Los dos son obligatorios.</li>
+  <li><b>Firma de quien contó y validó.</b> Firmá y poné tu nombre. El botón dice <span class="boton">Validar la liquidación, conforme</span> o <span class="boton">… con diferencia</span>, según cómo dio.</li>
+</ol>
+<figure><img src="img/tesoreria-contar.png" alt="Contar y validar, arriba"><figcaption>Contar y validar: arriba, la liquidación tal cual la cerró caja, y el botón para ver su acta.</figcaption></figure>
+<figure><img src="img/tesoreria-contar-2.png" alt="Contar y validar, abajo"><figcaption>Más abajo: la tabla de billetes, el total recibido contra lo declarado, la conformidad y la firma de quien contó.</figcaption></figure>
+<p>Al validar, la liquidación pasa al carril 3, la tira de arriba la suma en "Contada y validada", el cajero ve en su pantalla quién la contó y cómo dio, y sale el <b>acta con las tres firmas</b>: quien rindió, quien recibió el sobre cerrado y quien contó.</p>
+<figure><img src="img/tesoreria-validada.png" alt="Liquidación validada"><figcaption>Después de validar: la liquidación pasa al carril 3 y la tira de arriba la suma en "Contada y validada".</figcaption></figure>
+<div class="caja ojo"><b>Una liquidación se cuenta una sola vez.</b> Después de validar no se edita. Si se contó mal, se deja constancia en la siguiente o se habla con administración.</div>
+
+<h3>2.5 · Anticipos</h3>
+<p>Un anticipo (código VA-…) es plata que caja te dio <b>antes de cerrar el turno</b>. Ya nace con tu firma de entrega (la pusiste en la tablet de caja), así que aparece directo en el carril 2, <b>A contar y validar</b>, y se cuenta igual que una liquidación: tabla de billetes, conforme o con diferencia, firma. Dice de qué empresa sale.</p>
+
+<h3>2.6 · Las otras pantallas de tesorería</h3>
+<table>
+  <tr><th style="width:28%">Pantalla</th><th>Para qué</th></tr>
+  <tr><td><span class="menu">Liquidaciones</span></td><td>Ver, en modo lectura, lo que rinden los repartidores y sobre todo <b>qué están cobrando los supervisores</b>: cada recibo, con sus cheques y retenciones.</td></tr>
+  <tr><td><span class="menu">Liquidaciones abiertas</span></td><td>Choferes y cobradores de cualquier fecha (hasta 45 días) que todavía no liquidaron con caja: la plata que sigue "en la calle".</td></tr>
+  <tr><td><span class="menu">Anulaciones y faltantes</span></td><td>Bandeja para autorizar anulaciones de facturas y recibos, y faltantes de mercadería que caja pidió autorizar. Solo aparece si tenés el permiso.</td></tr>
+  <tr><td><span class="menu">Historial</span></td><td>Cierres de caja de todos los cajeros, por mes, con la diferencia de cada uno y el acta.</td></tr>
+</table>
+</div>
+
+<!-- ───────────────────────────── AVISOS ───────────────────────────── -->
+<div class="parte">
+<h2>3 · Avisos automáticos</h2>
+<p>Tres veces por día, a las <b>6</b>, a las <b>13</b> y a las <b>18</b>, la app revisa qué quedó colgado y avisa por notificación (push) a caja, tesorería y gerencia, y por mail a la lista configurada en Ajustes generales:</p>
+<ul>
+  <li><b>Viajes sin liquidar:</b> remitos de carga y cobradores de días anteriores sin liquidación de caja.</li>
+  <li><b>Liquidaciones sin contar:</b> sobres y anticipos entregados o cerrados que tesorería no contó.</li>
+  <li><b>Cajas de otro día sin cerrar:</b> turnos abiertos con fecha anterior a hoy.</li>
+</ul>
+<p>El mismo aviso aparece como <b>franja amarilla</b> arriba de Liquidación de caja y de Recepción, con el link a Liquidaciones abiertas. Es un aviso: nunca frena la operación.</p>
+
+<h2 style="margin-top:22pt">4 · Preguntas frecuentes</h2>
+<p><b>Cerré la liquidación y me equivoqué en un billete.</b> El cierre no se edita. Tesorería lo va a ver como diferencia al contar y queda con motivo y nota. Avisale antes de entregar para que lo escriba en la nota.</p>
+<p><b>Tesorería no está para firmar la entrega.</b> La liquidación queda cerrada y sin entregar (carril 1 de tesorería, y en tu pantalla "Todavía no se lo entregaste"). Cuando aparezca, la entregás con la firma, aunque sea otro día: el bloque "Liquidaciones de otros días sin entregar" queda a la vista hasta entonces.</p>
+<p><b>Un chofer volvió tarde y ya cerré mi turno.</b> Lo liquidás igual desde Liquidaciones; esa plata entra en tu <b>turno siguiente</b> (la app la arrastra hasta 7 días). Si el chofer dejó la plata en el buzón, la contás al abrir el turno siguiente y la liquidás ahí.</p>
+<p><b>Un cheque de un chofer no me lo entregó.</b> En el cierre de esa liquidación lo dejás sin tildar con el motivo. No aparece en tu sobre ni tesorería te lo va a pedir.</p>
+<p><b>¿Por qué tesorería cuenta un solo total si caja contó por empresa?</b> Porque caja juntó todo el efectivo en un solo sobre. El partido por empresa ya quedó escrito en la liquidación; tesorería solo necesita saber si el sobre tiene lo que dice.</p>
+<p><b>Me pidieron un anticipo pero el que recibe soy yo mismo.</b> No se puede: el anticipo y la entrega los tiene que recibir una persona de tesorería distinta de quien rinde.</p>
+<p><b>Falta mercadería en la descarga de un chofer, ¿cierro igual?</b> Sí. Un tema de stock nunca traba el turno de caja: cerrás con el faltante autorizado o "con desvío observado" y motivo. Queda escrito en rojo en la liquidación y en el PDF.</p>
+<p><b>¿Dónde veo la plata que sigue en la calle?</b> Tesorería, en la tira de arriba ("En la calle") y en Liquidaciones abiertas. Caja, en Liquidaciones abiertas.</p>
+
+<div class="pie">Rolito · app de gestión · manual de caja y tesorería · 24/09/2026. Las pantallas pueden cambiar de detalle; el circuito (cerrar → entregar en mano → contar y validar) es el que manda.</div>
+</div>
+
+</body>
+</html>

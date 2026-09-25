@@ -149,6 +149,8 @@ export const CATALOGO: RutaConfig[] = [
   // Camiones y cobradores sin liquidar de cualquier fecha (2026-09-16, pedido de la oficina).
   R('/caja/liquidaciones/abiertas',  'Liquidaciones abiertas', 'tesoreria', CAJA_HISTORIAL, { icon: 'ClipboardList', menuGroup: 'caja' }),
   R('/caja/rendiciones/historial',   'Historial de cierres', 'tesoreria', CAJA_HISTORIAL, { deepLink: true }),
+  // Manuales de uso (2026-09-24): uno por puesto, dentro de la app (public/manuales).
+  R('/caja/manual',                  'Manual de caja',       'tesoreria', CAJA, { icon: 'BookOpen', menuGroup: 'caja' }),
   R('/muelle',                       'Muelle',               'logistica', ['muelle', 'super_admin'], { icon: 'Warehouse', menuGroup: 'expedicion', rolesMenu: ['muelle'] }),
   R('/muelle/tv',                    'Muelle · pantalla',    'logistica', ['muelle', 'super_admin'], { icon: 'Tv' }),
   // MAQUETA DESCARTABLE del TV del muelle (2026-09-13): pública, con datos
@@ -182,6 +184,7 @@ export const CATALOGO: RutaConfig[] = [
   R('/tesoreria/rendiciones',             'Rendiciones',        'tesoreria', TESORERIA, { deepLink: true }),
   R('/tesoreria/anulaciones',             'Anulaciones y faltantes', 'tesoreria', TESORERIA, { icon: 'Ban', menuGroup: 'tesoreria' }),
   R('/tesoreria/rendiciones/historial',   'Historial',          'tesoreria', TESORERIA, { icon: 'History', menuGroup: 'tesoreria' }),
+  R('/tesoreria/manual',                  'Manual de tesorería', 'tesoreria', TESORERIA, { icon: 'BookOpen', menuGroup: 'tesoreria' }),
   R('/tesoreria/liquidaciones/historial', 'Historial de liquidaciones', 'tesoreria', LIQUIDACIONES_LECTURA, { deepLink: true }),
   R('/tesoreria/liquidaciones/abiertas',  'Liquidaciones abiertas',     'tesoreria', LIQUIDACIONES_LECTURA, { icon: 'ClipboardList', menuGroup: 'tesoreria' }),
 
@@ -286,8 +289,8 @@ export const SIDEBARS: Record<Sistema, GrupoSidebar[]> = {
     // Rediseño caja → tesorería (2026-09-23): cerrar el turno ES entregar el sobre.
     // Buzón, Entrega a tesorería (acta) y Entregas de caja se borraron el 2026-09-24 (0 usos
     // desde el 14/09): cerrar la liquidación es entregar, y tesorería la cuenta en Recepción.
-    { id: 'caja',      label: 'Caja & Ventanilla', entradas: ['/caja/ventanilla', '/caja/cobranzas', '/caja/liquidaciones', '/caja/liquidaciones/abiertas', '/caja/rendiciones', '/caja/liquidaciones/historial'] },
-    { id: 'tesoreria', label: 'Tesorería',         entradas: ['/tesoreria', '/tesoreria/liquidaciones', '/tesoreria/liquidaciones/abiertas', '/tesoreria/anulaciones', '/tesoreria/rendiciones/historial'] },
+    { id: 'caja',      label: 'Caja & Ventanilla', entradas: ['/caja/ventanilla', '/caja/cobranzas', '/caja/liquidaciones', '/caja/liquidaciones/abiertas', '/caja/rendiciones', '/caja/liquidaciones/historial', '/caja/manual'] },
+    { id: 'tesoreria', label: 'Tesorería',         entradas: ['/tesoreria', '/tesoreria/liquidaciones', '/tesoreria/liquidaciones/abiertas', '/tesoreria/anulaciones', '/tesoreria/rendiciones/historial', '/tesoreria/manual'] },
   ],
   comercial: [
     // El listado de producción es consulta de stock para gerencia, comercial y
