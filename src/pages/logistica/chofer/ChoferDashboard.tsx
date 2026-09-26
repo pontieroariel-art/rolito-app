@@ -448,7 +448,7 @@ export default function ChoferDashboard() {
                         {yaEntregado && <span className="text-xs text-accent font-medium">✓ Entregado</span>}
                       </div>
                       <p className="text-secundario text-xs mt-0.5">{p.clientAddress}</p>
-                      {p.clientPhone && <a href={`tel:${p.clientPhone}`} className="text-accent text-xs hover:underline">{p.clientPhone}</a>}
+                      {p.clientPhone && <a href={`tel:${p.clientPhone}`} className="text-accent text-xs hover:underline py-4">{p.clientPhone}</a>}
                       {p.notas && <p className="text-xs text-secundario italic mt-1">"{p.notas}"</p>}
                     </div>
                     {!yaEntregado && !isAyudante && (
@@ -470,7 +470,7 @@ export default function ChoferDashboard() {
                       {v.status === 'sin_contacto' && <span className="text-xs text-orange-500 font-medium">Sin contacto</span>}
                     </div>
                     <p className="text-secundario text-xs mt-0.5">{v.clientAddress}</p>
-                    {v.clientPhone && <a href={`tel:${v.clientPhone}`} className="text-accent text-xs hover:underline">{v.clientPhone}</a>}
+                    {v.clientPhone && <a href={`tel:${v.clientPhone}`} className="text-accent text-xs hover:underline py-4">{v.clientPhone}</a>}
                     {v.notas && <p className="text-xs text-secundario italic mt-1">"{v.notas}"</p>}
                   </div>
                   {v.status === 'pendiente' && !isAyudante && (
@@ -503,7 +503,7 @@ export default function ChoferDashboard() {
                     <div key={v.id} className="bg-white border border-[#D3D1C7] rounded-2xl p-4 shadow-sm">
                       <p className="font-semibold text-sm text-gray-900">{v.clientName}</p>
                       <p className="text-secundario text-xs mt-0.5">{v.clientAddress}</p>
-                      {v.clientPhone && <a href={`tel:${v.clientPhone}`} className="text-accent text-xs hover:underline">{v.clientPhone}</a>}
+                      {v.clientPhone && <a href={`tel:${v.clientPhone}`} className="text-accent text-xs hover:underline py-4">{v.clientPhone}</a>}
                       {v.notas && <p className="text-xs text-secundario italic mt-1">"{v.notas}"</p>}
                     </div>
                   ))}
@@ -728,7 +728,7 @@ const DeliveryCard = memo(function DeliveryCard({ order, index, isFirst, chofer,
               </div>
               <p className="text-secundario text-sm">{order.clientAddress}</p>
               {order.clientPhone && (
-                <a href={`tel:${order.clientPhone}`} className="text-accent text-sm hover:underline">
+                <a href={`tel:${order.clientPhone}`} className="text-accent text-sm hover:underline py-3.5">
                   📞 {order.clientPhone}
                 </a>
               )}
