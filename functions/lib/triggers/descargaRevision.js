@@ -71,6 +71,7 @@ exports.onDescargaContada = (0, firestore_1.onDocumentCreated)('descargasCamion/
             id: d.id,
             rectificaA: d.data().rectificaA,
             items: (d.data().items ?? []),
+            bolsasRotas: (d.data().bolsasRotas ?? []),
         })), umbral, 
         // Topeado a lo pedido (2026-09-26, auditoría del chofer, C4).
         pedidosFabrica.docs.map((d) => ({ productos: (0, entregaFabricaTope_1.productosFabricaTopeados)(d.data().products, d.data().entregaFabrica?.productos).productos })));

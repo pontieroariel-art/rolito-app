@@ -79,6 +79,7 @@ export const onDescargaContada = onDocumentCreated(
           id:         d.id,
           rectificaA: d.data().rectificaA as string | undefined,
           items:      (d.data().items ?? []) as ItemContado[],
+          bolsasRotas: (d.data().bolsasRotas ?? []) as ItemContado[],
         })),
         umbral,
         // Topeado a lo pedido (2026-09-26, auditoría del chofer, C4).

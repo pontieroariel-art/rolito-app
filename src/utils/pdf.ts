@@ -951,17 +951,18 @@ export async function generateLiquidacion(
 
   autoTable(doc, {
     startY: 32,
-    head: [['Producto', 'Carga', 'Venta Cdo.', 'Promoción', 'Cambios', 'Dev. teórica', 'Descarga', 'Diferencia']],
+    // Rotas y 'Debía volver sano' (2026-09-26): la misma cuenta que la pantalla y Tango.
+    head: [['Producto', 'Carga', 'Venta Cdo.', 'Promoción', 'Cambios', 'Rotas', 'Debía volver sano', 'Volvió sano', 'Diferencia']],
     body: productos.map((p: LiquidacionResumenProducto) => [
       p.nombre, String(p.carga), String(p.ventaContado), String(p.ventaPromo),
-      String(p.cambios), String(p.devolucionTeorica), String(p.descarga),
+      String(p.cambios), String(p.rotas ?? 0), String(p.devolucionTeorica), String(p.descarga),
       p.diferencia === 0 ? '0' : (p.diferencia > 0 ? `+${p.diferencia}` : String(p.diferencia)),
     ]),
     styles: { fontSize: 8.5, cellPadding: 2 },
     headStyles: { fillColor: [45, 106, 79], textColor: 255, fontStyle: 'bold', fontSize: 7.5 },
     columnStyles: {
       1: { halign: 'right' }, 2: { halign: 'right' }, 3: { halign: 'right' },
-      4: { halign: 'right' }, 5: { halign: 'right' }, 6: { halign: 'right' }, 7: { halign: 'right', fontStyle: 'bold' },
+      4: { halign: 'right' }, 5: { halign: 'right' }, 6: { halign: 'right' }, 7: { halign: 'right' }, 8: { halign: 'right', fontStyle: 'bold' },
     },
     margin: { left: 14, right: 14 },
   })

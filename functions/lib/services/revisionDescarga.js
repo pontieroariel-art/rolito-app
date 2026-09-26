@@ -34,7 +34,11 @@ const PREFIJO_CAMBIO = 'cambio_';
 /** Los renglones de cambio vienen con el id prefijado; se agrupan en el producto que son. */
 const productoDelCambio = (id) => id.startsWith(PREFIJO_CAMBIO) ? id.slice(PREFIJO_CAMBIO.length) : id;
 const nombreDelCambio = (nombre) => nombre.startsWith('Cambio ') ? nombre.slice('Cambio '.length) : nombre;
-/** Igual que utils/liquidacion.ts: devolución teórica = carga − ventas − cambios. */
+/**
+ * Igual que utils/liquidacion.ts: con el conteo del muelle la devolución teórica
+ * es carga − ventas − ROTAS contadas (2026-09-26; antes descontaba los cambios y
+ * la bolsa rota en el camión salía como faltante). Acá siempre hay conteo.
+ */
 function calcularRevision(remitos, ventas, cambiosViejos, descargas, umbral = exports.UMBRAL_FALTANTES_DEFAULT, 
 /** Entregas con remito de fábrica del día (orders.entregaFabrica, 2026-09-23): bajaron sin venta de la app. */
 entregasFabrica = []) {
@@ -53,14 +57,16 @@ entregasFabrica = []) {
         .filter((v) => v.anulacion?.estado !== 'anulada')
         .forEach((v) => {
         (v.items ?? []).forEach((i) => { fila(i.productoId, i.nombre).teorico -= i.cantidad; });
-        (v.cambios ?? []).forEach((i) => {
-            fila(productoDelCambio(i.productoId), nombreDelCambio(i.nombre)).teorico -= i.cantidad;
-        });
+        (v.cambios ?? []).forEach((i) => { fila(productoDelCambio(i.productoId), nombreDelCambio(i.nombre)); });
     });
     // Registro viejo de cambios (cuando el cambio era una pantalla aparte).
-    cambiosViejos.forEach((c) => { fila(productoDelCambio(c.productoId), nombreDelCambio(c.nombre)).teorico -= c.cantidad; });
+    cambiosViejos.forEach((c) => { fila(productoDelCambio(c.productoId), nombreDelCambio(c.nombre)); });
     entregasFabrica.forEach((e) => (e.productos ?? []).forEach((i) => { fila(i.productoId, i.nombre).teorico -= i.cantidad; }));
-    descargasVigentes(descargas).forEach((d) => (d.items ?? []).forEach((i) => { fila(i.productoId, i.nombre).descarga += i.cantidad; }));
+    descargasVigentes(descargas).forEach((d) => {
+        ;
+        (d.items ?? []).forEach((i) => { fila(i.productoId, i.nombre).descarga += i.cantidad; });
+        (d.bolsasRotas ?? []).forEach((i) => { fila(productoDelCambio(i.productoId), nombreDelCambio(i.nombre)).teorico -= i.cantidad; });
+    });
     const productos = [];
     let bolsasFaltantes = 0;
     let bolsasSobrantes = 0;

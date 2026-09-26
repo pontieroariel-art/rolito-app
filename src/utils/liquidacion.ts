@@ -142,8 +142,15 @@ export function mercaderiaDelViaje(
     f.rotas = (f.rotas ?? 0) + i.cantidad
   }))
 
+  const hayConteo = descargas.length > 0
   const productos = [...porProducto.values()].map((f) => {
-    const devolucionTeorica = f.carga - f.ventaContado - f.ventaPromo - f.cambios - (f.entregasFabrica ?? 0)
+    // Con el conteo del muelle se descuentan las ROTAS que volvieron, no los
+    // cambios (2026-09-26, muelle: "la bolsa que se rompió en el camión me da
+    // faltante"). Es la misma cuenta que va a Tango (diferenciasReparto):
+    // faltante = carga − ventas − rotas − sanas. Una rota de más (rota en el
+    // camión) no es faltante, es merma; un cambio sin su rota sí es faltante.
+    // Sin conteo todavía (camión en la calle) la mejor estimación son los cambios.
+    const devolucionTeorica = f.carga - f.ventaContado - f.ventaPromo - (f.entregasFabrica ?? 0) - (hayConteo ? (f.rotas ?? 0) : f.cambios)
     return { ...f, devolucionTeorica, diferencia: f.descarga - devolucionTeorica }
   }).sort((a, b) => a.nombre.localeCompare(b.nombre))
 

@@ -27,12 +27,12 @@ describe('faltante de la descarga contada (2026-09-13)', () => {
     expect(r.productos).toEqual([{ productoId: 'b3', nombre: 'Bolsa 3 kg', faltan: 15 }])
   })
 
-  it('los cambios del camión bajan el teórico (la bolsa rota se entregó)', () => {
+  it('las rotas contadas bajan el teórico: los cambios cuentan cuando vuelve su bolsa rota (2026-09-26)', () => {
     const r = calcularRevision(
       [{ items: [item('b3', 100)] }],
       [{ items: [item('b3', 80)], cambios: [item('cambio_b3', 10, 'Cambio b3')] }],
       [],
-      [{ items: [item('b3', 10)] }],
+      [{ items: [item('b3', 10)], bolsasRotas: [item('b3', 10)] }],
     )
     expect(r.bolsasFaltantes).toBe(0)
   })
@@ -76,14 +76,16 @@ describe('faltante de la descarga contada (2026-09-13)', () => {
     expect(r.requiere).toBe(true)
   })
 
-  it('el registro viejo de cambiosCamion también baja el teórico', () => {
+  it('un cambio del registro viejo sin su bolsa rota es faltante', () => {
     const r = calcularRevision(
       [{ items: [item('b3', 100)] }],
       [{ items: [item('b3', 80)] }],
       [item('cambio_b3', 20, 'Cambio b3')],
       [{ items: [] }],
     )
-    expect(r.bolsasFaltantes).toBe(0)
+    expect(r.bolsasFaltantes).toBe(20)
+    // Con sus 20 rotas contadas, cuadra.
+    expect(calcularRevision([{ items: [item('b3', 100)] }], [{ items: [item('b3', 80)] }], [item('cambio_b3', 20, 'Cambio b3')], [{ items: [], bolsasRotas: [item('b3', 20)] }]).bolsasFaltantes).toBe(0)
   })
 
   it('con el control apagado informa el faltante pero no lo marca', () => {

@@ -26,7 +26,7 @@ export interface VentaParaRevision {
   cambios?:   ItemContado[] | null
   anulacion?: { estado?: string } | null
 }
-export interface DescargaParaRevision { id?: string; rectificaA?: string; items: ItemContado[] }
+export interface DescargaParaRevision { id?: string; rectificaA?: string; items: ItemContado[]; bolsasRotas?: ItemContado[] | null }
 
 /**
  * Las descargas que valen: sin las que una corrección posterior reemplazó
@@ -57,7 +57,11 @@ const productoDelCambio = (id: string): string =>
 const nombreDelCambio = (nombre: string): string =>
   nombre.startsWith('Cambio ') ? nombre.slice('Cambio '.length) : nombre
 
-/** Igual que utils/liquidacion.ts: devolución teórica = carga − ventas − cambios. */
+/**
+ * Igual que utils/liquidacion.ts: con el conteo del muelle la devolución teórica
+ * es carga − ventas − ROTAS contadas (2026-09-26; antes descontaba los cambios y
+ * la bolsa rota en el camión salía como faltante). Acá siempre hay conteo.
+ */
 export function calcularRevision(
   remitos:   RemitoParaRevision[],
   ventas:    VentaParaRevision[],
@@ -80,14 +84,17 @@ export function calcularRevision(
     .filter((v) => v.anulacion?.estado !== 'anulada')
     .forEach((v) => {
       (v.items ?? []).forEach((i) => { fila(i.productoId, i.nombre).teorico -= i.cantidad })
-      ;(v.cambios ?? []).forEach((i) => {
-        fila(productoDelCambio(i.productoId), nombreDelCambio(i.nombre)).teorico -= i.cantidad
-      })
+      // Los cambios se registran para que la fila exista, pero no descuentan:
+      // descuentan las rotas que el muelle contó (abajo).
+      ;(v.cambios ?? []).forEach((i) => { fila(productoDelCambio(i.productoId), nombreDelCambio(i.nombre)) })
     })
   // Registro viejo de cambios (cuando el cambio era una pantalla aparte).
-  cambiosViejos.forEach((c) => { fila(productoDelCambio(c.productoId), nombreDelCambio(c.nombre)).teorico -= c.cantidad })
+  cambiosViejos.forEach((c) => { fila(productoDelCambio(c.productoId), nombreDelCambio(c.nombre)) })
   entregasFabrica.forEach((e) => (e.productos ?? []).forEach((i) => { fila(i.productoId, i.nombre).teorico -= i.cantidad }))
-  descargasVigentes(descargas).forEach((d) => (d.items ?? []).forEach((i) => { fila(i.productoId, i.nombre).descarga += i.cantidad }))
+  descargasVigentes(descargas).forEach((d) => {
+    ;(d.items ?? []).forEach((i) => { fila(i.productoId, i.nombre).descarga += i.cantidad })
+    ;(d.bolsasRotas ?? []).forEach((i) => { fila(productoDelCambio(i.productoId), nombreDelCambio(i.nombre)).teorico -= i.cantidad })
+  })
 
   const productos: RevisionCalculada['productos'] = []
   let bolsasFaltantes = 0

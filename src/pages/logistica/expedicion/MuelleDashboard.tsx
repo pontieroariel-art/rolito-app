@@ -1,4 +1,5 @@
 import { claveDia } from '@/utils/diaReparto'
+import { resumenDescarga } from '@/utils/rotasCambios'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { CheckCircle2, Eye, Minus, MonitorPlay, PackageCheck, Plus, Truck, X } from 'lucide-react'
 import Navbar from '@/components/layout/Navbar'
@@ -994,48 +995,81 @@ export default function MuelleDashboard() {
                   : null)}
 
               <div>
-                <p className="text-sm font-medium text-secundario mb-2">
-                  Mercadería que volvió (contada)
-                  {remitoDescarga && <span className="text-secundario font-normal"> · lo que salió en {remitoDescarga.codigo}</span>}
+                {/* Una sola pregunta por producto (2026-09-26, muelle: "si la bolsa
+                    se rompió en el camión, ¿dónde la pongo?"). Antes eran dos listas
+                    y la de rotas decía "(de los cambios)": no había lugar para la
+                    que se rompió en el camión, y hubo mercadería sana anotada como
+                    rota que se fue a merma. */}
+                <p className="text-base font-semibold text-gray-900">
+                  ¿Cómo volvió cada producto?
+                  {remitoDescarga && <span className="text-sm text-secundario font-normal"> · lo que salió en {remitoDescarga.codigo}</span>}
                 </p>
-                <div className="space-y-1.5">
+                <p className="text-sm text-secundario mb-3">
+                  <b className="text-gray-900">Sana</b>: vuelve a la planta. <b className="text-gray-900">Rota</b>: se tira y va a merma, sea de un cambio o rota en el camión.
+                </p>
+                <div className="space-y-3">
                   {/* Igual que en la carga (21/09, Ariel: "en la vuelta estamos errando
-                      en los pallets"): + y − mueven un PALLET entero según el
+                      en los pallets"): + y − de SANA mueven un PALLET entero según el
                       catálogo, el campo es el total y abajo se lee "3 pallets +
                       24 sueltas". Lo que se guarda sigue siendo bolsas. */}
                   {productosAContar.map((p) => {
                     const upp   = unidadesPorPallet[p.id] ?? 0
                     const n     = sanas[p.id] ?? 0
+                    const rota  = rotas[p.id] ?? 0
                     const paso  = upp > 0 ? upp : 1
                     const pal   = upp > 0 ? Math.floor(n / upp) : 0
                     const suelt = upp > 0 ? n % upp : n
                     const poner = (v: number) => setSanas((prev) => ({ ...prev, [p.id]: Math.max(0, Math.min(99999, v)) }))
+                    const ponerRota = (v: number) => setRotas((prev) => ({ ...prev, [p.id]: Math.max(0, Math.min(99999, v)) }))
                     return (
-                      <div key={p.id} className="space-y-0.5">
-                        <div className="flex items-center gap-2">
-                          <span className="flex-1 min-w-0 truncate text-base text-gray-900" title={p.nombre}>{p.nombre}</span>
-                          <button type="button" aria-label={`Menos ${p.nombre}`} title={`−1 pallet (${paso})`} className={btnPallet} onClick={() => poner(n - paso)}>
-                            <Minus size={18} />
-                          </button>
-                          <input
-                            value={n}
-                            onChange={(e) => poner(num(e.target.value))}
-                            inputMode="numeric"
-                            aria-label={`Cantidad de ${p.nombre}`}
-                            className={inputClass}
-                          />
-                          <button type="button" aria-label={`Más ${p.nombre}`} title={`+1 pallet (${paso})`} className={btnPallet} onClick={() => poner(n + paso)}>
-                            <Plus size={18} />
-                          </button>
+                      <div key={p.id} className="border border-[#E7E5DC] rounded-xl p-3 space-y-2">
+                        <p className="text-base font-medium text-gray-900 truncate" title={p.nombre}>{p.nombre}</p>
+                        <div className="grid grid-cols-1 sm:grid-cols-[3fr_2fr] gap-3">
+                          <div>
+                            <p className="text-sm text-secundario mb-1">Sana · a planta</p>
+                            <div className="flex items-center gap-2">
+                              <button type="button" aria-label={`Menos ${p.nombre} sana`} title={`−1 pallet (${paso})`} className={btnPallet} onClick={() => poner(n - paso)}>
+                                <Minus size={18} />
+                              </button>
+                              <input
+                                value={n}
+                                onChange={(e) => poner(num(e.target.value))}
+                                inputMode="numeric"
+                                aria-label={`Sanas de ${p.nombre}`}
+                                className={inputClass}
+                              />
+                              <button type="button" aria-label={`Más ${p.nombre} sana`} title={`+1 pallet (${paso})`} className={btnPallet} onClick={() => poner(n + paso)}>
+                                <Plus size={18} />
+                              </button>
+                            </div>
+                            {n > 0 && upp > 0 && (
+                              <p className="text-sm text-secundario tabular-nums mt-0.5">
+                                {pal > 0 && <>{pal} pallet{pal > 1 ? 's' : ''}</>}
+                                {pal > 0 && suelt > 0 && ' + '}
+                                {suelt > 0 && <>{suelt} suelta{suelt > 1 ? 's' : ''}</>}
+                                {` · ${upp} por pallet`}
+                              </p>
+                            )}
+                          </div>
+                          <div>
+                            <p className="text-sm text-[#97241F] mb-1">Rota · a merma</p>
+                            <div className="flex items-center gap-2">
+                              <button type="button" aria-label={`Menos ${p.nombre} rota`} className={btnPallet} onClick={() => ponerRota(rota - 1)}>
+                                <Minus size={18} />
+                              </button>
+                              <input
+                                value={rota}
+                                onChange={(e) => ponerRota(num(e.target.value))}
+                                inputMode="numeric"
+                                aria-label={`Rotas de ${p.nombre}`}
+                                className={`${inputClass} ${rota > 0 ? 'border-[#E4B4B1] bg-[#FDF3F2]' : ''}`}
+                              />
+                              <button type="button" aria-label={`Más ${p.nombre} rota`} className={btnPallet} onClick={() => ponerRota(rota + 1)}>
+                                <Plus size={18} />
+                              </button>
+                            </div>
+                          </div>
                         </div>
-                        {n > 0 && upp > 0 && (
-                          <p className="text-sm text-secundario tabular-nums text-right pr-1">
-                            {pal > 0 && <>{pal} pallet{pal > 1 ? 's' : ''}</>}
-                            {pal > 0 && suelt > 0 && ' + '}
-                            {suelt > 0 && <>{suelt} suelta{suelt > 1 ? 's' : ''}</>}
-                            {` · ${upp} por pallet`}
-                          </p>
-                        )}
                       </div>
                     )
                   })}
@@ -1053,23 +1087,6 @@ export default function MuelleDashboard() {
                     {productosExtra.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
                   </select>
                 )}
-              </div>
-
-              <div>
-                <p className="text-sm font-medium text-secundario mb-2">Bolsas rotas recibidas (de los cambios)</p>
-                <div className="space-y-1.5">
-                  {productosAContar.map((p) => (
-                    <div key={p.id} className="flex items-center gap-3">
-                      <span className="flex-1 min-w-0 truncate text-base text-gray-900" title={p.nombre}>{p.nombre}</span>
-                      <input
-                        value={rotas[p.id] ?? 0}
-                        onChange={(e) => setRotas((prev) => ({ ...prev, [p.id]: num(e.target.value) }))}
-                        inputMode="numeric"
-                        className={inputClass}
-                      />
-                    </div>
-                  ))}
-                </div>
               </div>
 
               <div>
@@ -1235,23 +1252,38 @@ export default function MuelleDashboard() {
               <p className="text-sm text-gray-700">
                 {descargaSeleccionada.camionLabel || descargaSeleccionada.depositoTangoNombre} · <span className="font-medium">{descargaSeleccionada.choferNombre}</span>
               </p>
-              <div className="border border-[#D3D1C7] rounded-lg divide-y divide-[#E7E5DC] text-sm">
-                {toItems(sanas).map((i) => (
+              {/* Lo que va a pasar, dicho con todas las letras (2026-09-26): lo sano
+                  vuelve a la planta y lo roto sale a merma en Tango. */}
+              {(() => {
+                const r = resumenDescarga(toItems(sanas), toItems(rotas))
+                const fila = (i: { productoId: string; nombre: string; cantidad: number }) => (
                   <div key={i.productoId} className="flex justify-between gap-3 px-3 py-1.5">
                     <span className="text-gray-900 truncate" title={i.nombre}>{i.nombre}</span>
                     <span className="font-semibold text-gray-900 tabular-nums shrink-0">{i.cantidad}</span>
                   </div>
-                ))}
-                {toItems(rotas).map((i) => (
-                  <div key={`rota-${i.productoId}`} className="flex justify-between gap-3 px-3 py-1.5">
-                    <span className="text-gray-900 truncate" title={i.nombre}>{i.nombre} <span className="text-[#97241F] text-xs">(rotas)</span></span>
-                    <span className="font-semibold text-gray-900 tabular-nums shrink-0">{i.cantidad}</span>
-                  </div>
-                ))}
-                <div className="px-3 py-1.5 bg-[#F8F7F2] text-gray-900">
-                  Envases: <span className="font-medium text-gray-900">{describirEnvases(envases) || 'ninguno'}</span>
-                </div>
-              </div>
+                )
+                return (
+                  <>
+                    {r.dudosos.length > 0 && (
+                      <div className="text-sm text-amber-900 bg-amber-50 border border-amber-300 rounded-lg px-3 py-2 space-y-1">
+                        {r.dudosos.map((i) => (
+                          <p key={i.productoId}>¿Seguro que <b>ninguna</b> de {i.nombre} volvió sana? Marcaste <b>{i.cantidad} rotas</b> y se van a merma.</p>
+                        ))}
+                        <p className="text-amber-800">Si volvieron sanas, tocá Cancelar y pasalas a <b>Sana</b>.</p>
+                      </div>
+                    )}
+                    <div className="border border-[#D3D1C7] rounded-lg divide-y divide-[#E7E5DC] text-sm">
+                      <p className="px-3 py-1.5 bg-[#F1F8F5] text-xs font-semibold uppercase text-[#0F6B4E]">Vuelve a la planta (sana)</p>
+                      {r.aPlanta.length ? r.aPlanta.map(fila) : <p className="px-3 py-1.5 text-secundario">Nada</p>}
+                      <p className="px-3 py-1.5 bg-[#FDF3F2] text-xs font-semibold uppercase text-[#97241F]">Va a merma (rota)</p>
+                      {r.aMerma.length ? r.aMerma.map(fila) : <p className="px-3 py-1.5 text-secundario">Nada</p>}
+                      <div className="px-3 py-1.5 bg-[#F8F7F2] text-gray-900">
+                        Envases: <span className="font-medium text-gray-900">{describirEnvases(envases) || 'ninguno'}</span>
+                      </div>
+                    </div>
+                  </>
+                )
+              })()}
               <p className="text-xs text-secundario">La descarga es definitiva — es el conteo contra el que se liquida el día.</p>
               <div className="flex gap-2 pt-1">
                 <Button variant="outline" type="button" onClick={() => setConfirmando(false)} className="flex-1">Cancelar</Button>

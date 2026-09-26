@@ -1,4 +1,5 @@
 import { AlertTriangle, CheckCircle2, PackageX, Truck } from 'lucide-react'
+import { explicarRotas } from '@/utils/rotasCambios'
 import { formatoARS } from '@/utils/money'
 import { describirRacks } from '@/utils/envases'
 import type { LiquidacionCalculada, RepartoClasificado } from '@/utils/liquidacion'
@@ -221,6 +222,15 @@ export function ResumenPorCliente({ reparto }: { reparto: RepartoClasificado }) 
   )
 }
 
+const TITULOS: Record<string, string> = {
+  'Rem. fábrica': 'Entregas con remito de fábrica: sin comprobante de la app, descuentan del camión',
+  Cambios: 'Bolsas que el chofer dio de cambio (registradas en la venta)',
+  Rotas: 'Bolsas rotas que contó el muelle: las de los cambios más las que se rompieron en el camión. Van a merma',
+  'Debía volver sano': 'Carga − ventas − rotas. Sin conteo todavía: carga − ventas − cambios',
+  'Volvió sano': 'Lo que contó el muelle como sano: vuelve a la planta',
+  Diferencia: 'Volvió sano − debía volver sano. Negativo: falta (va al depósito 98)',
+}
+
 export function DetallePorProducto({ calc, sinDescarga = false }: {
   calc: LiquidacionCalculada
   /**
@@ -242,7 +252,10 @@ export function DetallePorProducto({ calc, sinDescarga = false }: {
       )}
       <table className="w-full min-w-[640px]">
         {/* "Rem. fábrica" (Coto/Carrefour, 2026-09-23) solo cuando hubo: entregas sin venta de la app que igual bajaron del camión. */}
-        <thead><tr>{['Producto', 'Carga', 'Contado', 'Promo', ...(conFabrica ? ['Rem. fábrica'] : []), 'Cambios', 'Dev. teórica', 'Descarga', 'Diferencia'].map((h, i) => <th key={h} className={`${th} ${i > 0 ? 'text-right' : ''}`} title={h === 'Rem. fábrica' ? 'Entregas con remito de fábrica: sin comprobante de la app, descuentan del camión' : undefined}>{h}</th>)}</tr></thead>
+        {/* "Debía volver sano" (2026-09-26): con el conteo del muelle es carga −
+            ventas − ROTAS, la misma cuenta que va a Tango; sin conteo, la
+            estimación descuenta los cambios. */}
+        <thead><tr>{['Producto', 'Carga', 'Contado', 'Promo', ...(conFabrica ? ['Rem. fábrica'] : []), 'Cambios', 'Rotas', 'Debía volver sano', 'Volvió sano', 'Diferencia'].map((h, i) => <th key={h} className={`${th} ${i > 0 ? 'text-right' : ''}`} title={TITULOS[h]}>{h}</th>)}</tr></thead>
         <tbody>
           {calc.productos.map((p) => (
             <tr key={p.productoId}>
@@ -252,19 +265,27 @@ export function DetallePorProducto({ calc, sinDescarga = false }: {
               <td className={`${td} text-right`}>{num(p.ventaPromo)}</td>
               {conFabrica && <td className={`${td} text-right`}>{num(p.entregasFabrica ?? 0)}</td>}
               <td className={`${td} text-right`}>{num(p.cambios)}</td>
+              <td className={`${td} text-right`}>{sinDescarga ? pendiente : num(p.rotas ?? 0)}</td>
               <td className={`${td} text-right`}>{num(p.devolucionTeorica)}</td>
               <td className={`${td} text-right`}>{sinDescarga ? pendiente : num(p.descarga)}</td>
               <td className={`${td} text-right`}>{sinDescarga ? pendiente : dif(p.diferencia)}</td>
             </tr>
           ))}
-          {calc.productos.length === 0 && <tr><td className={`${td} text-secundario`} colSpan={conFabrica ? 9 : 8}>Sin movimientos.</td></tr>}
+          {calc.productos.length === 0 && <tr><td className={`${td} text-secundario`} colSpan={conFabrica ? 10 : 9}>Sin movimientos.</td></tr>}
         </tbody>
       </table>
-      <div className="grid sm:grid-cols-2 gap-x-8 gap-y-1 text-sm text-gray-700 max-w-xl">
-        <p className="flex justify-between"><span>Cambios registrados por el repartidor</span><b>{calc.cambios.registrados}</b></p>
-        <p className="flex justify-between"><span>Rotas recibidas en muelle</span><b>{sinDescarga ? pendiente : calc.cambios.rotasRecibidas}</b></p>
-        <p className="flex justify-between sm:col-start-2"><span>Diferencia de cambios</span>{sinDescarga ? pendiente : dif(calc.cambios.rotasRecibidas - calc.cambios.registrados)}</p>
-      </div>
+      {/* Cambios y rotas en palabras, por producto (2026-09-26): antes era una
+          "diferencia de cambios" suelta que nadie conectaba con el faltante. */}
+      {!sinDescarga && (() => {
+        const lineas = calc.productos.map((p) => ({ p, texto: explicarRotas(p.cambios, p.rotas ?? 0) })).filter((x) => x.texto)
+        return lineas.length > 0 && (
+          <ul className="space-y-1 text-sm text-gray-700 max-w-3xl">
+            {lineas.map(({ p, texto }) => (
+              <li key={p.productoId}><span className="font-medium text-gray-900">{p.nombre}:</span> {texto}</li>
+            ))}
+          </ul>
+        )
+      })()}
       {/* Envases retornables: lo que salió (remitos, puntales y aros
           implícitos) contra lo que muelle contó al descargar, y los racks por
           número. No bloquea el cierre: queda a la vista y en el PDF. */}

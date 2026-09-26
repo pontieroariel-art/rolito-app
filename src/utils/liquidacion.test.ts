@@ -65,7 +65,7 @@ function cobranza(formaPago: Cobranza['formaPago'], importe: number): Cobranza {
 }
 
 describe('calcularLiquidacion — por producto', () => {
-  it('carga − ventas − cambios = devolución teórica, y cuadra contra la descarga', () => {
+  it('con conteo: carga − ventas − rotas = devolución teórica, y cuadra contra la descarga', () => {
     const r = calcularLiquidacion(
       [remito([item('hielo10', 'Hielo 10kg', 100)])],
       [
@@ -73,7 +73,7 @@ describe('calcularLiquidacion — por producto', () => {
         venta('promo',   'cuenta_corriente', [item('hielo10', 'Hielo 10kg', 20)], 0),
       ],
       [cambio('hielo10', 'Hielo 10kg', 5)],
-      [descarga({ items: [di('hielo10', 'Hielo 10kg', 15)] })],
+      [descarga({ items: [di('hielo10', 'Hielo 10kg', 15)], bolsasRotas: [di('hielo10', 'Hielo 10kg', 5)] })],
     )
     expect(r.productos).toHaveLength(1)
     const p = r.productos[0]
@@ -81,7 +81,7 @@ describe('calcularLiquidacion — por producto', () => {
     expect(p.ventaContado).toBe(60)
     expect(p.ventaPromo).toBe(20)
     expect(p.cambios).toBe(5)
-    expect(p.devolucionTeorica).toBe(15)   // 100 − 60 − 20 − 5
+    expect(p.devolucionTeorica).toBe(15)   // 100 − 60 − 20 − 5 rotas (las 5 bolsas de los cambios)
     expect(p.descarga).toBe(15)
     expect(p.diferencia).toBe(0)           // descarga − devolución teórica
   })
@@ -161,6 +161,32 @@ describe('calcularLiquidacion — envases retornables', () => {
 })
 
 describe('calcularLiquidacion — cambios vs bolsas rotas', () => {
+  // Ejemplos de Ariel (2026-09-26 y 2026-09-17): la pantalla da la misma falta que va a Tango.
+  const viaje = (cambios: number, rotas: number, sanas: number, conConteo = true) => calcularLiquidacion(
+    [remito([item('hielo3', 'Hielo 3kg', 100)])],
+    [venta('contado', 'contado_efectivo', [item('hielo3', 'Hielo 3kg', 90)], 9000)],
+    [cambio('hielo3', 'Hielo 3kg', cambios)],
+    conConteo ? [descarga({ items: sanas ? [di('hielo3', 'Hielo 3kg', sanas)] : [], bolsasRotas: rotas ? [di('hielo3', 'Hielo 3kg', rotas)] : [] })] : [],
+  ).productos[0]
+
+  it('una bolsa rota en el camión no es faltante: 5 cambios, 7 rotas, 2 sanas → falta 1', () => {
+    const p = viaje(5, 7, 2)
+    expect(p.devolucionTeorica).toBe(3)   // 100 − 90 − 7
+    expect(p.diferencia).toBe(-1)         // 1 que no volvió ni sana ni rota
+  })
+
+  it('un cambio sin su bolsa rota sí es faltante: 5 cambios, 3 rotas, 4 sanas → falta 3', () => {
+    expect(viaje(5, 3, 4).diferencia).toBe(-3)   // lo mismo que va al depósito 98
+  })
+
+  it('todo en orden: 5 cambios, 5 rotas, 5 sanas → cuadra', () => {
+    expect(viaje(5, 5, 5).diferencia).toBe(0)
+  })
+
+  it('sin conteo todavía (camión en la calle) la teórica descuenta los cambios', () => {
+    expect(viaje(5, 0, 0, false).devolucionTeorica).toBe(5)   // 100 − 90 − 5
+  })
+
   it('cuenta cambios registrados por el chofer y rotas recibidas por muelle por separado', () => {
     const r = calcularLiquidacion(
       [remito([item('hielo10', 'Hielo 10kg', 100)])],
@@ -185,7 +211,7 @@ describe('calcularLiquidacion — cambios vs bolsas rotas', () => {
     const por = Object.fromEntries(r.productos.map((p) => [p.productoId, p]))
     expect(por.hielo10.rotas).toBe(3)   // el prefijo cambio_ cae en la fila del producto
     expect(por.hielo3.rotas).toBe(4)
-    expect(por.hielo10.diferencia).toBe(4 - 100)   // la diferencia de la app sigue siendo descarga − teórica
+    expect(por.hielo10.diferencia).toBe(4 - (100 - 3))   // descarga − teórica, con la teórica ya sin las rotas (2026-09-26)
   })
 
   it('cuenta los cambios que vienen adentro de la venta', () => {
@@ -197,7 +223,7 @@ describe('calcularLiquidacion — cambios vs bolsas rotas', () => {
       [remito([item('hielo10', 'Hielo 10kg', 100)])],
       [v],
       [],
-      [descarga({ items: [di('hielo10', 'Hielo 10kg', 77)] })],
+      [descarga({ items: [di('hielo10', 'Hielo 10kg', 77)], bolsasRotas: [di('hielo10', 'Hielo 10kg', 3)] })],
     )
 
     expect(r.cambios.registrados).toBe(3)

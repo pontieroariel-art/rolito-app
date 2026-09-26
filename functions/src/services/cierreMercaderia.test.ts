@@ -24,14 +24,21 @@ describe('mercadería del viaje (2026-09-18)', () => {
     expect(m.productos[0]).toMatchObject({ carga: 100, ventaContado: 80, devolucionTeorica: 20, descarga: 20, diferencia: 0 })
   })
 
-  it('separa contado de promo y descuenta los cambios del teórico', () => {
+  it('separa contado de promo y, con el conteo, descuenta las rotas del teórico (2026-09-26)', () => {
     const ventas: VentaParaCierre[] = [
       { canal: 'contado', items: [item('b3', 50)], cambios: [item('cambio_b3', 5, 'Cambio b3')] },
       { canal: 'promo',   items: [item('b3', 10)] },
     ]
-    const m = mercaderiaDelViaje([remito()], ventas, [], [{ id: 'd1', items: [item('b3', 35)] }])
+    const m = mercaderiaDelViaje([remito()], ventas, [], [{ id: 'd1', items: [item('b3', 35)], bolsasRotas: [item('b3', 5)] }])
     expect(m.productos[0]).toMatchObject({ ventaContado: 50, ventaPromo: 10, cambios: 5, devolucionTeorica: 35, diferencia: 0 })
     expect(m.cambios.registrados).toBe(5)
+  })
+
+  it('una rota en el camión no es faltante y un cambio sin rota sí (ejemplos de Ariel)', () => {
+    const viaje = (rotas: number, sanas: number) => mercaderiaDelViaje([remito()], [{ canal: 'contado', items: [item('b3', 90)], cambios: [item('cambio_b3', 5, 'Cambio b3')] }], [], [{ id: 'd1', items: [item('b3', sanas)], bolsasRotas: [item('b3', rotas)] }]).productos[0]!
+    expect(viaje(7, 2).diferencia).toBe(-1)
+    expect(viaje(3, 4).diferencia).toBe(-3)
+    expect(viaje(5, 5).diferencia).toBe(0)
   })
 
   it('suma el registro viejo de cambiosCamion normalizando el prefijo cambio_', () => {
