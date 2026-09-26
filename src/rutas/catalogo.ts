@@ -161,6 +161,8 @@ export const CATALOGO: RutaConfig[] = [
   // Reporte de gestión (2026-09-13): mide al muelle, a los choferes y a la
   // ventanilla, así que lo ven los mismos que Monitoreo — nunca los medidos.
   R('/logistica/tiempos-muelle',     'Tiempos del muelle',   'logistica', ['super_admin', 'logistica', 'gerente_general', 'gerente_comercial'], { icon: 'Timer', menuGroup: 'expedicion' }),
+  // Merma y faltantes por chofer (2026-09-26): reporte de gestión, mismos roles que Tiempos del muelle, sin tesorería (Ariel).
+  R('/logistica/merma-choferes',     'Merma y faltantes', 'logistica', ['super_admin', 'logistica', 'gerente_general', 'gerente_comercial'], { icon: 'PackageX', menuGroup: 'expedicion' }),
 
   // ── Logística: producción de hielo ────────────────────────────────────────
   R('/produccion',                  'Cargar producción',  'produccion', ['produccion_hielo'], { icon: 'Package' }),
@@ -278,7 +280,7 @@ export const SIDEBARS: Record<Sistema, GrupoSidebar[]> = {
     // seguridad controla la salida. Un cajero con el rol adicional muelle o
     // seguridad (2026-09-12: caja carga la descarga mientras muelle no tiene
     // tablet) llega a esos paneles desde acá.
-    { id: 'expedicion', label: 'Muelle & Expedición', entradas: ['/caja/remitos', '/muelle', '/seguridad', '/logistica/tiempos-muelle'] },
+    { id: 'expedicion', label: 'Muelle & Expedición', entradas: ['/caja/remitos', '/muelle', '/seguridad', '/logistica/tiempos-muelle', '/logistica/merma-choferes'] },
   ],
   // Producción & Stock: lo que se fabrica. Las líneas que vienen (agua,
   // plástico y bobinas) y el mantenimiento electromecánico de planta entran

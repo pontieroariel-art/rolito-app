@@ -121,6 +121,7 @@ const VentasLivePage           = lazy(() => import('@/pages/logistica/tesoreria/
 const RecepcionPage            = lazy(() => import('@/pages/logistica/tesoreria/RecepcionPage'))
 const MuelleDashboard    = lazy(() => import('@/pages/logistica/expedicion/MuelleDashboard'))
 const TiemposMuellePage  = lazy(() => import('@/pages/logistica/expedicion/TiemposMuellePage'))
+const MermaChoferPage    = lazy(() => import('@/pages/logistica/expedicion/MermaChoferPage'))
 const MuelleTvPage       = lazy(() => import('@/pages/logistica/expedicion/MuelleTvPage'))
 const SeguridadDashboard = lazy(() => import('@/pages/logistica/expedicion/SeguridadDashboard'))
 const CobranzaCalle      = lazy(() => import('@/pages/logistica/chofer/CobranzaCalle'))
@@ -284,6 +285,7 @@ function AppContent() {
               roles que Monitoreo — no lo ven los medidos. */}
           <Route element={<ProtectedRoute allowedRoles={rolesDe('/logistica/tiempos-muelle')} />}>
             <Route path="/logistica/tiempos-muelle" element={<TiemposMuellePage />} />
+            <Route path="/logistica/merma-choferes" element={<MermaChoferPage />} />
           </Route>
           <Route element={<ProtectedRoute allowedRoles={rolesDe('/comercial/mapa')} />}>
             <Route path="/comercial/mapa" element={<MapaLivePage />} />
