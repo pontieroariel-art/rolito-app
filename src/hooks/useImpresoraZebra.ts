@@ -1,15 +1,22 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
-  conectarImpresora, imprimirZpl, reconectarImpresoraGuardada, suscribirImpresora,
+  conectarImpresora, hayImpresoraGuardada, imprimirZpl, reconectarImpresoraGuardada, suscribirImpresora,
   type InfoImpresora,
 } from '@/services/zebraBleService'
 import { armarZplPrueba } from '@/utils/zplPallet'
 import { reportError } from '@/services/observability'
 
+/** Cada cuánto se reintenta volver a la impresora si se cayó. */
+const REINTENTO_MS = 8_000
+
 // Estado de la Zebra por Bluetooth para la tablet de planta (2026-09-14).
 // Al montar intenta volver a la impresora ya elegida sin abrir el selector;
 // `conectar` abre el selector de Chrome (necesita un toque) y `probar`
 // imprime la etiqueta de calibración.
+//
+// Desde el 2026-09-25, si la impresora se cae (se apagó, se alejó, cambiaron
+// el rollo) se reintenta sola cada 8 segundos mientras la pantalla esté
+// abierta: el operario no tiene que tocar nada para recuperarla.
 export function useImpresoraZebra() {
   const [info, setInfo] = useState<InfoImpresora>({ estado: 'desconectada', nombre: null })
   const [error, setError] = useState('')
@@ -19,6 +26,12 @@ export function useImpresoraZebra() {
     reconectarImpresoraGuardada().catch(() => {})
     return off
   }, [])
+
+  useEffect(() => {
+    if (info.estado !== 'desconectada' || !hayImpresoraGuardada()) return
+    const id = setInterval(() => { reconectarImpresoraGuardada().catch(() => {}) }, REINTENTO_MS)
+    return () => clearInterval(id)
+  }, [info.estado])
 
   const conectar = useCallback(async () => {
     setError('')

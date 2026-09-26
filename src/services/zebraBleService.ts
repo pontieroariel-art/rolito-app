@@ -76,6 +76,16 @@ async function abrirGatt(dev: BluetoothDevice): Promise<void> {
   }
 }
 
+/**
+ * ¿Esta tablet ya eligió una impresora alguna vez? (2026-09-25) Si sí, una
+ * etiqueta que no pudo salir espera a que la Zebra vuelva, en vez de abrir el
+ * diálogo de impresión de Android.
+ */
+export function hayImpresoraGuardada(): boolean {
+  if (!soportaBluetooth()) return false
+  try { return !!localStorage.getItem(KEY_DISPOSITIVO) } catch { return false }
+}
+
 /** Elegir la impresora (abre el selector de Chrome; necesita un toque del operario). */
 export async function conectarImpresora(): Promise<void> {
   if (!soportaBluetooth()) throw new Error('Este navegador no tiene Bluetooth web. Usá Chrome en la tablet.')
