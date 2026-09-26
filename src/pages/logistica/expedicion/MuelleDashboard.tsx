@@ -1,7 +1,8 @@
 import { claveDia } from '@/utils/diaReparto'
 import { resumenDescarga } from '@/utils/rotasCambios'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { CheckCircle2, Eye, Minus, MonitorPlay, PackageCheck, Plus, Truck, X } from 'lucide-react'
+import { BookOpen, CheckCircle2, Eye, Minus, MonitorPlay, PackageCheck, Plus, Truck, X } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import Navbar from '@/components/layout/Navbar'
 import PageHeader from '@/components/common/PageHeader'
 import Badge from '@/components/common/Badge'
@@ -565,7 +566,14 @@ export default function MuelleDashboard() {
           chips={pendientes.salidas + pendientes.ventanilla + pendientes.vuelta > 0
             ? <Badge tono="pendiente">{pendientes.salidas + pendientes.ventanilla + pendientes.vuelta} pendientes</Badge>
             : <Badge tono="entregado">Todo al día</Badge>}
-          acciones={
+          acciones={<>
+            {/* Manual del muelle (2026-09-26): a mano, al lado de la TV. */}
+            <Link
+              to="/muelle/manual"
+              className="inline-flex items-center gap-1.5 h-11 px-3 rounded-lg border border-[#D3D1C7] bg-white text-sm font-medium text-gray-900 hover:border-accent hover:text-accent transition-colors"
+            >
+              <BookOpen size={16} /> Manual
+            </Link>
             <a
               href="/muelle/tv"
               target="_blank"
@@ -574,7 +582,7 @@ export default function MuelleDashboard() {
             >
               <MonitorPlay size={16} /> Pantalla TV
             </a>
-          }
+          </>}
         />
 
         {/* Botonera de 56 px: se toca con guantes y se lee de parado. */}

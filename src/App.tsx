@@ -500,6 +500,7 @@ function AppContent() {
           <Route path="/muelle"    element={<MuelleDashboard />} />
           {/* TV en kiosco del muelle: solo lectura, tipografía gigante. */}
           <Route path="/muelle/tv" element={<MuelleTvPage />} />
+          <Route path="/muelle/manual" element={<ManualPage manual="muelle" />} />
         </Route>
 
         {/* Seguridad — celular/tablet en el portón: control de salidas. */}

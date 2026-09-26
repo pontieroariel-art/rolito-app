@@ -37,7 +37,7 @@ const faqTodo = entre('<h2 style="margin-top:22pt">4 · Preguntas frecuentes</h2
 const faqs = [...faqTodo.matchAll(/<p><b>[\s\S]*?<\/p>/g)].map((m) => m[0])
 const faqDe = (claves) => faqs.filter((f) => claves.some((k) => f.includes(k))).join('\n')
 
-const FAQ_CAJA = ['me equivoqué en un billete', 'no está para firmar', 'volvió tarde', 'alguien necesita plata', 'no me lo entregó', 'Falta mercadería', 'plata que sigue en la calle']
+const FAQ_CAJA = ['bolsa rota', 'depósito 98', 'me equivoqué en un billete', 'no está para firmar', 'volvió tarde', 'alguien necesita plata', 'no me lo entregó', 'Falta mercadería', 'plata que sigue en la calle']
 const FAQ_TESO = ['un solo total', 'no está para firmar', 'plata que sigue en la calle', 'me equivoqué en un billete']
 
 const manuales = {
@@ -73,7 +73,7 @@ for (const m of Object.values(manuales)) {
   <div class="marca">Rolito · Distribución de hielo</div>
   <h1>${m.titulo}</h1>
   <div class="sub">${m.sub}</div>
-  <div class="meta">Versión del 24 de septiembre de 2026 · corresponde a la app en producción desde esa fecha.</div>
+  <div class="meta">Versión del 26 de septiembre de 2026 · corresponde a la app en producción desde esa fecha.</div>
 </div>
 
 <h2>Contenido</h2>
@@ -85,7 +85,7 @@ ${m.parte}
 ${avisos}
 <h2 style="margin-top:22pt">4 · Preguntas frecuentes</h2>
 ${m.faq}
-<div class="pie">Rolito · app de gestión · ${m.titulo.toLowerCase()} · 24/09/2026. Las pantallas pueden cambiar de detalle; el circuito (cerrar → entregar en mano → contar y validar) es el que manda.</div>
+<div class="pie">Rolito · app de gestión · ${m.titulo.toLowerCase()} · 26/09/2026. Las pantallas pueden cambiar de detalle; el circuito (cerrar → entregar en mano → contar y validar) es el que manda.</div>
 </div>
 
 </body>
@@ -103,9 +103,10 @@ ${m.faq}
 }
 // ── Manuales con maestro propio (2026-09-26): producción (tablets, Zebra,
 // operario, maquinista y encargado; /produccion/manual) y chofer (una tarea por
-// página, /chofer/manual). Al tocar una pantalla de esos roles: actualizar su
+// página, /chofer/manual) y muelle (/muelle/manual, 2026-09-26: sana, rota, merma
+// y diferencia del chofer). Al tocar una pantalla de esos roles: actualizar su
 // maestro (texto y captura en public/manuales/img/<manual>-*.png) y correr esto.
-for (const nombre of ['produccion', 'chofer']) {
+for (const nombre of ['produccion', 'chofer', 'muelle']) {
   const maestro = fs.readFileSync(path.join(dir, `manual-${nombre}.html`), 'utf8')
   const html = maestro.replace('</style>', `  @media screen {
     html { font-size: 15px; }

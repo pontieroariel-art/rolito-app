@@ -10,6 +10,7 @@ const MANUALES = {
   caja:      { titulo: 'Manual de caja',      bajada: 'Tu turno, la liquidación de choferes y cobradores, y cómo cerrás y entregás tu Liquidación de caja.' },
   tesoreria: { titulo: 'Manual de tesorería', bajada: 'Dónde está la plata hoy, cómo recibís las liquidaciones en mano y cómo las contás y validás.' },
   produccion: { titulo: 'Manual de producción', bajada: 'Preparar las tablets, cargar pallets, el parte de máquinas y el panel del encargado.' },
+  muelle:    { titulo: 'Manual del muelle',   bajada: 'Entregar los camiones, llamar la ventanilla y contar la vuelta: sana, rota, merma y diferencia del chofer.' },
 } as const
 
 export default function ManualPage({ manual }: { manual: keyof typeof MANUALES }) {

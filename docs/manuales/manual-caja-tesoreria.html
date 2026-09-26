@@ -144,7 +144,27 @@
   <li>Al confirmar se guarda el cierre (no se edita más) y sale la liquidación en PDF con una hoja de fajo por empresa, para enrollar cada fajo.</li>
 </ol>
 <figure><img src="img/caja-liquidacion-chofer.png" alt="Liquidación de un chofer"><figcaption>Liquidación de un chofer: arriba el estado del viaje (plata y mercadería), en el medio el resumen por empresa y abajo las dos tablas de billetes para contar lo que entrega.</figcaption></figure>
-<div class="caja"><b>Mercadería.</b> Si muelle contó la descarga y falta mercadería, la pantalla lo muestra en rojo. Un tema de stock <b>nunca traba tu turno</b>: podés pedir autorización o "Cerrar con desvío observado" con motivo. Queda escrito con nombre y motivo.</div>
+<h3>La mercadería del chofer: sana, rota, merma y faltante</h3>
+<p>En la liquidación del chofer, el bloque <b>Mercadería</b> cruza lo que salió con lo que contó el muelle a la vuelta. Cada bolsa termina en uno de tres lugares:</p>
+<table>
+  <tr><th>Qué pasó con la bolsa</th><th>Dónde va</th><th>¿Se le cobra al chofer?</th></tr>
+  <tr><td>Volvió <b>sana</b></td><td>Vuelve a la planta</td><td>No</td></tr>
+  <tr><td>Volvió <b>rota</b>: de un cambio a un cliente o rota en el camión</td><td><b>Merma</b> (depósito 99)</td><td><b>No</b></td></tr>
+  <tr><td><b>No volvió</b>, ni sana ni rota</td><td><b>Diferencia del chofer</b> (depósito 98)</td><td>Es faltante: el chofer lo tiene que explicar</td></tr>
+</table>
+<figure><img src="img/caja-mercaderia.png" alt="Mercadería por producto"><figcaption>El bloque Mercadería: por producto, lo que salió, lo que vendió, los cambios, las rotas, lo que debía volver sano, lo que volvió sano y la diferencia. Abajo, lo mismo dicho en palabras.</figcaption></figure>
+<p><b>Cómo se lee cada columna:</b></p>
+<ul>
+  <li><b>Cambios</b>: bolsas que el chofer le dio a un cliente a cambio de una rota. Las registra el chofer en la venta.</li>
+  <li><b>Rotas</b>: las bolsas rotas que contó el muelle. Son las de los cambios más las que se rompieron en el camión. Todas van a merma.</li>
+  <li><b>Debía volver sano</b> = carga − vendido − rotas. Antes de que el muelle cuente, la cuenta usa los cambios.</li>
+  <li><b>Volvió sano</b>: lo que contó el muelle como sano.</li>
+  <li><b>Diferencia</b> = volvió sano − debía volver sano. <b>En rojo y negativo es faltante</b>: bolsas que no volvieron ni sanas ni rotas. Positivo es sobrante: volvió más de lo esperado, no se mueve nada en Tango y conviene revisarlo con el muelle.</li>
+</ul>
+<div class="caja regla"><b>Ejemplo.</b> Salen 100 bolsas, el chofer vende 90 y hace 5 cambios. Vuelve con 2 sanas y 7 rotas: 5 de los cambios y 2 que se rompieron en el camión. Debía volver sano: 100 − 90 − 7 = <b>3</b>. Volvieron 2 → <b>falta 1</b>. Las 7 rotas van a merma y no se cobran. Esa 1 bolsa no volvió de ninguna forma: va a la diferencia del chofer, y es la que le tenés que preguntar.</div>
+<div class="caja ojo"><b>Un cambio sin su bolsa rota es faltante.</b> Si el chofer registró 5 cambios pero volvieron 3 rotas, faltan 2: entregó 2 bolsas sanas y no trajo las rotas que le dieron a cambio. Debajo de la tabla lo vas a ver dicho así.</div>
+<p>Lo que va a la merma y a la diferencia del chofer <b>sale solo a Tango</b> cuando el muelle cuenta la descarga. Vos no tenés que cargar nada.</p>
+<div class="caja"><b>Un faltante nunca traba tu turno.</b> Si falta mercadería, la pantalla lo muestra en rojo y con la frase "Falta N bolsas que no volvieron ni sanas ni rotas". Podés pedir autorización o "Cerrar con desvío observado" con motivo. Queda escrito con nombre y motivo, en la pantalla y en el PDF.</div>
 <div class="caja"><b>Lo que recibiste de cada chofer entra a tu caja.</b> Ese efectivo y esos cheques pasan a formar parte de tu Liquidación de caja, en el bloque "Liquidaciones de choferes y cobradores".</div>
 
 <h3>1.3 · Leer tu Liquidación de caja</h3>
@@ -285,6 +305,8 @@
 <p><b>Tesorería no está y alguien necesita plata de la caja.</b> Es un vale de caja: lo registrás con "Vale de caja", la persona firma en la tablet, se imprime el vale y sale de tu efectivo. No hace falta autorización. Queda registrado en tu liquidación y el papel va en el sobre.</p>
 <p><b>Un cheque de un chofer no me lo entregó.</b> En el cierre de esa liquidación lo dejás sin tildar con el motivo. No aparece en tu sobre ni tesorería te lo va a pedir.</p>
 <p><b>¿Por qué tesorería cuenta un solo total si caja contó por empresa?</b> Porque caja juntó todo el efectivo en un solo sobre. El partido por empresa ya quedó escrito en la liquidación; tesorería solo necesita saber si el sobre tiene lo que dice.</p>
+<p><b>Una bolsa rota, ¿es faltante del chofer?</b> No. Toda bolsa que vuelve rota va a merma, sea de un cambio o rota en el camión, y no se le cobra. Faltante es solo lo que no volvió ni sano ni roto.</p>
+<p><b>¿Qué es lo que va al depósito 98?</b> La diferencia del chofer: las bolsas que faltan (la "Diferencia" en rojo). Sale sola a Tango cuando el muelle cuenta la descarga.</p>
 <p><b>Falta mercadería en la descarga de un chofer, ¿cierro igual?</b> Sí. Un tema de stock nunca traba el turno de caja: cerrás con el faltante autorizado o "con desvío observado" y motivo. Queda escrito en rojo en la liquidación y en el PDF.</p>
 <p><b>¿Dónde veo la plata que sigue en la calle?</b> Tesorería, en la tira de arriba ("En la calle") y en Liquidaciones abiertas. Caja, en Liquidaciones abiertas.</p>
 

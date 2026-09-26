@@ -153,6 +153,8 @@ export const CATALOGO: RutaConfig[] = [
   R('/caja/manual',                  'Manual de caja',       'tesoreria', CAJA, { icon: 'BookOpen', menuGroup: 'caja' }),
   R('/muelle',                       'Muelle',               'logistica', ['muelle', 'super_admin'], { icon: 'Warehouse', menuGroup: 'expedicion', rolesMenu: ['muelle'] }),
   R('/muelle/tv',                    'Muelle · pantalla',    'logistica', ['muelle', 'super_admin'], { icon: 'Tv' }),
+  // Manual del muelle (2026-09-26): sana, rota, merma y diferencia del chofer.
+  R('/muelle/manual',                'Manual del muelle',    'logistica', ['muelle', 'super_admin'], { icon: 'BookOpen', menuGroup: 'expedicion' }),
   // MAQUETA DESCARTABLE del TV del muelle (2026-09-13): pública, con datos
   // inventados, para verla en el televisor real. Se borra al aprobar el diseño.
   R('/mockup-muelle-tv',             'Maqueta del TV de muelle', 'logistica', [], { deepLink: true }),
@@ -280,7 +282,7 @@ export const SIDEBARS: Record<Sistema, GrupoSidebar[]> = {
     // seguridad controla la salida. Un cajero con el rol adicional muelle o
     // seguridad (2026-09-12: caja carga la descarga mientras muelle no tiene
     // tablet) llega a esos paneles desde acá.
-    { id: 'expedicion', label: 'Muelle & Expedición', entradas: ['/caja/remitos', '/muelle', '/seguridad', '/logistica/tiempos-muelle', '/logistica/merma-choferes'] },
+    { id: 'expedicion', label: 'Muelle & Expedición', entradas: ['/caja/remitos', '/muelle', '/muelle/manual', '/seguridad', '/logistica/tiempos-muelle', '/logistica/merma-choferes'] },
   ],
   // Producción & Stock: lo que se fabrica. Las líneas que vienen (agua,
   // plástico y bobinas) y el mantenimiento electromecánico de planta entran
@@ -356,7 +358,7 @@ export const NAVBAR: Record<UserRole, string[]> = {
   produccion_hielo:     ['/produccion'],
   produccion_encargado: [],
   caja:                 [],
-  muelle:               ['/muelle'],
+  muelle:               ['/muelle', '/muelle/manual'],
   seguridad:            ['/seguridad'],
   supervisor:           ['/supervisor'],
   tesoreria:            [],

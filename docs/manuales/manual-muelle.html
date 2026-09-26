@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Manual del muelle</title>
+<style>
+  @page { size: A4; margin: 18mm 16mm 18mm 16mm; }
+  * { box-sizing: border-box; }
+  html { font-family: Inter, "Segoe UI", Arial, sans-serif; color: #1f2937; font-size: 11pt; line-height: 1.45; }
+  body { margin: 0; }
+  h1 { font-size: 26pt; margin: 0 0 4pt; color: #111827; letter-spacing: -0.01em; }
+  h2 { font-size: 17pt; margin: 0 0 8pt; padding-bottom: 5pt; border-bottom: 2px solid #1D9E75; color: #111827; page-break-after: avoid; }
+  h3 { font-size: 12.5pt; margin: 16pt 0 5pt; color: #0F6B4E; page-break-after: avoid; }
+  p { margin: 0 0 7pt; }
+  ul, ol { margin: 0 0 8pt 18pt; padding: 0; }
+  li { margin-bottom: 3pt; }
+  li > ul, li > ol { margin-top: 3pt; }
+  .portada { height: 250mm; display: flex; flex-direction: column; justify-content: center; page-break-after: always; }
+  .portada .marca { color: #1D9E75; font-weight: 800; font-size: 13pt; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 18pt; }
+  .portada .sub { font-size: 14pt; color: #6B6A62; margin-top: 6pt; }
+  .portada .meta { margin-top: 40pt; color: #6B6A62; font-size: 10pt; }
+  .parte { page-break-before: always; }
+  .parte-titulo { background: #1D9E75; color: white; padding: 16pt 18pt; border-radius: 10pt; margin-bottom: 16pt; }
+  .parte-titulo .n { font-size: 10pt; text-transform: uppercase; letter-spacing: .1em; opacity: .85; }
+  .parte-titulo h2 { color: white; border: 0; margin: 2pt 0 0; font-size: 22pt; padding: 0; }
+  .seccion { page-break-inside: avoid; }
+  .caja { border: 1.5px solid #D3D1C7; border-radius: 8pt; padding: 9pt 12pt; margin: 8pt 0 10pt; background: #FBFAF6; page-break-inside: avoid; }
+  .caja.ojo { border-color: #EFDCB4; background: #FBF6EA; }
+  .caja.ojo b:first-child { color: #8A5203; }
+  .caja.regla { border-color: #B3DDD3; background: #F1F9F5; }
+  .caja.regla b:first-child { color: #0F6B4E; }
+  .pasos li { margin-bottom: 5pt; }
+  .pasos li b { color: #111827; }
+  figure { margin: 8pt 0 12pt; page-break-inside: avoid; }
+  figure img { width: 100%; border: 1px solid #D3D1C7; border-radius: 6pt; }
+  figcaption { font-size: 9pt; color: #6B6A62; margin-top: 3pt; }
+  table { border-collapse: collapse; width: 100%; margin: 6pt 0 10pt; font-size: 10pt; page-break-inside: avoid; }
+  th, td { border: 1px solid #D3D1C7; padding: 4pt 6pt; text-align: left; vertical-align: top; }
+  th { background: #F1F9F5; color: #0F6B4E; font-size: 9.5pt; text-transform: uppercase; letter-spacing: .04em; }
+  .flujo { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6pt; margin: 8pt 0 12pt; }
+  .flujo div { border-radius: 8pt; padding: 8pt 9pt; font-size: 9.5pt; border: 1.5px solid; }
+  .flujo .t { font-weight: 800; font-size: 10.5pt; display: block; margin-bottom: 2pt; }
+  .f1 { border-color: #F0C7C3; background: #FDF3F2; } .f1 .t { color: #97241F; }
+  .f2 { border-color: #EFDCB4; background: #FBF6EA; } .f2 .t { color: #8A5203; }
+  .f3 { border-color: #BFD8EE; background: #EEF4FA; } .f3 .t { color: #14538C; }
+  .f4 { border-color: #AFD9C6; background: #EEF7F2; } .f4 .t { color: #0F6B4E; }
+  .firmas { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6pt; margin: 6pt 0 10pt; }
+  .firmas div { border: 1.5px solid #D3D1C7; border-radius: 8pt; padding: 8pt 9pt; font-size: 9.5pt; background: white; }
+  .firmas .n { display: inline-block; width: 18pt; height: 18pt; border-radius: 50%; background: #1D9E75; color: white; text-align: center; font-weight: 800; line-height: 18pt; margin-right: 4pt; }
+  .boton { display: inline-block; border: 1px solid #1D9E75; color: #0F6B4E; border-radius: 4pt; padding: 0 4pt; font-weight: 700; font-size: 9.5pt; white-space: nowrap; }
+  .menu { display: inline-block; background: #F1F1EC; border-radius: 4pt; padding: 0 4pt; font-weight: 600; white-space: nowrap; }
+  .indice li { margin-bottom: 2pt; }
+  .indice ul { margin-top: 2pt; }
+  .pie { color: #6B6A62; font-size: 9pt; margin-top: 24pt; border-top: 1px solid #D3D1C7; padding-top: 6pt; }
+  /* Manual del chofer (2026-09-26): una tarea por página, captura del celular al lado de pocos pasos. */
+  .tarea { page-break-before: always; }
+  .tarea h2 { font-size: 19pt; }
+  .tarea .para { color: #6B6A62; font-size: 10.5pt; margin: -3pt 0 10pt; }
+  .pp { display: grid; grid-template-columns: 58mm 1fr; gap: 12pt; align-items: start; margin-bottom: 10pt; page-break-inside: avoid; }
+  .pp.dos { grid-template-columns: 58mm 58mm; justify-content: start; }
+  .pp.dos > div { grid-column: 1 / -1; }
+  .pp img { width: 100%; border: 1px solid #D3D1C7; border-radius: 8pt; display: block; }
+  .pp figcaption { font-size: 8.5pt; color: #6B6A62; margin-top: 3pt; text-align: center; }
+  .pp figure { margin: 0; }
+  ol.pasos { margin: 0 0 0 16pt; }
+  ol.pasos li { margin-bottom: 7pt; font-size: 11pt; }
+  .toca { display: inline-block; background: #1D9E75; color: white; border-radius: 4pt; padding: 0 5pt; font-weight: 700; font-size: 9.5pt; white-space: nowrap; }
+  .toca.claro { background: white; color: #0F6B4E; border: 1px solid #1D9E75; }
+  .toca.ambar { background: #FBF6EA; color: #8A5203; border: 1px solid #EFDCB4; }
+  table.si td:first-child { font-weight: 700; width: 38%; }
+  @media screen and (max-width: 640px) {
+    .pp, .pp.dos { grid-template-columns: 1fr; }
+    .pp figure { max-width: 300px; margin: 0 auto; }
+    .portada h1 { font-size: 24pt; }
+    .portada .marca { font-size: 9pt; margin-bottom: 6pt; }
+    .portada .sub { font-size: 11.5pt; }
+    .portada .meta { margin-top: 10pt; }
+  }
+</style>
+<style>
+  /* Manual del muelle (2026-09-26): capturas de la tablet (más anchas que las del celular). */
+  .tab { display: grid; grid-template-columns: 82mm 1fr; gap: 12pt; align-items: start; margin-bottom: 10pt; page-break-inside: avoid; }
+  .tab img { width: 100%; border: 1px solid #D3D1C7; border-radius: 8pt; display: block; }
+  .tab figure { margin: 0; }
+  .tab figcaption { font-size: 8.5pt; color: #6B6A62; margin-top: 3pt; text-align: center; }
+  .destino { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6pt; margin: 8pt 0 12pt; }
+  .destino div { border-radius: 8pt; padding: 8pt 9pt; font-size: 9.5pt; border: 1.5px solid; }
+  .destino .t { font-weight: 800; font-size: 10.5pt; display: block; margin-bottom: 2pt; }
+  .destino .d-sana { border-color: #AFD9C6; background: #EEF7F2; } .d-sana .t { color: #0F6B4E; }
+  .destino .d-rota { border-color: #EFDCB4; background: #FBF6EA; } .d-rota .t { color: #8A5203; }
+  .destino .d-falta { border-color: #F0C7C3; background: #FDF3F2; } .d-falta .t { color: #97241F; }
+  @media screen { .tab { grid-template-columns: 1fr; } .tab figure { max-width: 520px; margin: 0 auto; } .destino { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<div class="portada">
+  <div class="marca">Rolito · Distribución de hielo</div>
+  <h1>Manual del muelle</h1>
+  <div class="sub">Entregar los camiones, llamar la ventanilla y contar la vuelta: qué es sano, qué es roto y qué pasa después con cada bolsa.</div>
+  <div class="meta">Versión del 26 de septiembre de 2026 · corresponde a la app en producción desde esa fecha.<br>Para el personal del <b>muelle</b>, en la tablet.</div>
+</div>
+
+<h2>Contenido</h2>
+<ol class="indice">
+  <li>Tu trabajo en tres pestañas</li>
+  <li>Salidas: entregar el camión</li>
+  <li>Ventanilla: llamar el turno a una dársena</li>
+  <li>La vuelta: contar lo que volvió</li>
+  <li>¿Sana o rota? Ejemplos</li>
+  <li>Qué pasa después con cada bolsa</li>
+  <li>Me equivoqué: corregir un conteo</li>
+  <li>Si pasa esto, hacé esto</li>
+</ol>
+
+<div class="caja regla"><b>La regla del muelle.</b> Vos contás lo que tenés adelante: cuántas bolsas volvieron <b>sanas</b> y cuántas volvieron <b>rotas</b>. Nada más. La app no te muestra cuántas "tendrían que" volver, a propósito: así el conteo es honesto y es el control de todo el circuito.</div>
+
+<div class="tarea">
+<h2>1 · Tu trabajo en tres pestañas</h2>
+<p class="para">Arriba de la pantalla del muelle hay tres botones. El número al lado es lo que tenés pendiente.</p>
+<table>
+  <tr><th>Pestaña</th><th>Qué hacés ahí</th></tr>
+  <tr><td><b>Salidas</b></td><td>Cargás el camión contra la carga que armó caja, contás los envases y lo entregás. Ahí nace el remito.</td></tr>
+  <tr><td><b>Ventanilla</b></td><td>Los clientes que compraron en la ventanilla: preparás el pedido y los llamás a una dársena.</td></tr>
+  <tr><td><b>Vuelta</b></td><td>El camión volvió: contás cómo volvió cada producto (sano o roto) y los envases.</td></tr>
+</table>
+<p><span class="boton">Pantalla TV</span> abre la pantalla grande del muelle con las cinco dársenas.</p>
+</div>
+
+<div class="tarea">
+<h2>2 · Salidas: entregar el camión</h2>
+<div class="tab">
+  <figure><img src="img/muelle-salidas.png" alt="Pestaña Salidas"><figcaption>Salidas: las cargas que armó caja y el camión que se está cargando.</figcaption></figure>
+  <div>
+    <ol class="pasos">
+      <li><b>Cargas para entregar</b>: son las que armó caja. Tocá la del camión que tenés en la dársena.</li>
+      <li>Cargá la mercadería y <b>contá los envases</b>: pallets de madera y de metal, <b>armados</b> (con puntales y sombrero, y aro si es de madera) o <b>simples</b> (la base sola), y los racks.</li>
+      <li>Confirmá: ahí nace el <b>remito</b> con su número. Queda en <b>Cargando contra el remito</b>.</li>
+      <li>Cuando está todo arriba, tocá <span class="boton">Mercadería entregada</span>.</li>
+    </ol>
+    <div class="caja ojo"><b>Desde el muelle no se arma una carga.</b> Si el camión espera y no aparece en la lista, esperá a que abra caja (6 de la mañana) o llamala.</div>
+  </div>
+</div>
+</div>
+
+<div class="tarea">
+<h2>3 · Ventanilla: llamar el turno a una dársena</h2>
+<div class="tab">
+  <figure><img src="img/muelle-ventanilla.png" alt="Pestaña Ventanilla"><figcaption>Ventanilla: los turnos, con lo que lleva cada cliente.</figcaption></figure>
+  <div>
+    <ol class="pasos">
+      <li>Prepará lo que dice el turno y marcalo <b>Preparado</b>.</li>
+      <li>Tocá <span class="boton">Llamar a D…</span> en la dársena donde lo vas a atender. La pantalla grande lo llama.</li>
+      <li>La <b>dársena 1 es solo para camiones</b>. De la 2 a la 5 entra camión o cliente, la que esté libre. La app no te deja llamar un cliente a una boca con camión.</li>
+    </ol>
+  </div>
+</div>
+</div>
+
+<div class="tarea">
+<h2>4 · La vuelta: contar lo que volvió</h2>
+<div class="tab">
+  <figure><img src="img/muelle-vuelta.png" alt="Pestaña Vuelta"><figcaption>Una tarjeta por producto del remito: cuántas volvieron sanas y cuántas rotas.</figcaption></figure>
+  <div>
+    <ol class="pasos">
+      <li>En <span class="menu">Vuelta</span> elegí el <b>camión que volvió</b> (dice el remito, la patente y el chofer).</li>
+      <li>En cada producto anotá:
+        <ul>
+          <li><b>Sana · a planta</b>: las bolsas que volvieron bien y se pueden vender. Los botones + y − mueven un pallet entero; también podés escribir el número.</li>
+          <li><b>Rota · a merma</b>: las que se tiran. <b>Todas</b>: las que el chofer cambió a un cliente y las que se rompieron en el camión.</li>
+        </ul>
+      </li>
+      <li>Si volvió algo que no salió en ese remito, agregalo con <span class="menu">+ Otro producto…</span>.</li>
+      <li>Contá los <b>envases</b> (página siguiente).</li>
+      <li>Tocá <span class="boton">Revisar y registrar descarga</span>, revisá y <span class="boton">Registrar</span>.</li>
+    </ol>
+  </div>
+</div>
+<div class="caja ojo"><b>"A este chofer ya se le contó una descarga hoy".</b> Si es su segunda vuelta, seguí. Si no, no registres otra: avisá a caja.</div>
+</div>
+
+<div class="tarea">
+<h2>4 · La vuelta (sigue): envases y confirmación</h2>
+<figure style="max-width:120mm"><img src="img/muelle-envases.png" alt="Envases que volvieron"><figcaption>Arriba dice lo que salió. Contá lo que volvió igual que en la carga: armados y simples por tipo.</figcaption></figure>
+<p>Un pallet vuelve como salió: si salió armado, vuelve armado. Los puntales, aros y sombreros la app los calcula sola de los armados. Si volvió algo suelto, sin su pallet, usá <span class="boton">Corregir sueltos</span>.</p>
+<div class="tab">
+  <figure><img src="img/muelle-confirmar.png" alt="Confirmar descarga"><figcaption>La confirmación: lo que vuelve a la planta, lo que va a merma, y un aviso cuando algo no cierra.</figcaption></figure>
+  <div>
+    <p>Antes de registrar, la app te muestra en dos bloques:</p>
+    <ul>
+      <li><b>Vuelve a la planta (sana)</b></li>
+      <li><b>Va a merma (rota)</b></li>
+    </ul>
+    <div class="caja ojo"><b>"¿Seguro que ninguna volvió sana?"</b> Aparece cuando marcaste varias rotas de un producto y ninguna sana. Casi siempre es mercadería sana anotada en el casillero equivocado. Si volvieron sanas, tocá <span class="boton">Cancelar</span> y pasalas a <b>Sana</b>. Si de verdad volvieron todas rotas, registrá.</div>
+    <p>Al registrar sale el <b>código de la descarga</b> (DC-…), grande. Ese código va escrito en el sobre si el chofer deja plata.</p>
+  </div>
+</div>
+</div>
+
+<div class="tarea">
+<h2>5 · ¿Sana o rota? Ejemplos</h2>
+<p class="para">La pregunta es una sola: <b>¿esta bolsa se puede volver a vender?</b></p>
+<table>
+  <tr><th>Qué volvió</th><th>Dónde va</th></tr>
+  <tr><td>Bolsa que el chofer no vendió y está bien</td><td><b>Sana</b></td></tr>
+  <tr><td>Bolsa rota que el chofer le cambió a un cliente</td><td><b>Rota</b></td></tr>
+  <tr><td>Bolsa que se rompió o se pinchó en el camión</td><td><b>Rota</b></td></tr>
+  <tr><td>Bolsa derretida o que no se puede vender</td><td><b>Rota</b></td></tr>
+  <tr><td>Pack de agua, bidón o anticorrosivo que volvió cerrado y sano</td><td><b>Sana</b>. Nunca rota si se puede vender: todo lo que va a rota sale del stock.</td></tr>
+  <tr><td>Bidón o pack roto, abierto o perdiendo</td><td><b>Rota</b></td></tr>
+</table>
+<div class="caja regla"><b>Si dudás, es sana.</b> Una bolsa sana anotada como rota es mercadería que se pierde del stock. Una rota anotada como sana la ve el encargado cuando la va a vender.</div>
+</div>
+
+<div class="tarea">
+<h2>6 · Qué pasa después con cada bolsa</h2>
+<p class="para">Para que sepas por qué importa contar bien. Esto lo hace la app sola: vos no tenés que hacer nada.</p>
+<div class="destino">
+  <div class="d-sana"><span class="t">Sana → planta</span>Vuelve al stock de la planta y se vende de nuevo.</div>
+  <div class="d-rota"><span class="t">Rota → merma</span>Sale del stock a merma (depósito 99). <b>No se le cobra al chofer</b>: sea de un cambio o rota en el camión.</div>
+  <div class="d-falta"><span class="t">No volvió → diferencia del chofer</span>Lo que no volvió ni sano ni roto es <b>faltante</b>: va a la diferencia del chofer (depósito 98) y lo ve caja al liquidarlo.</div>
+</div>
+<p><b>Ejemplo.</b> Salen 100 bolsas. El chofer vende 90 y hace 5 cambios. Vuelve con <b>2 sanas y 7 rotas</b> (5 de los cambios y 2 que se rompieron en el camión). Vos anotás 2 en <b>Sana</b> y 7 en <b>Rota</b>, y listo. Después la app calcula: 2 a la planta, 7 a merma, y 1 bolsa que no volvió ni sana ni rota va a la diferencia del chofer.</p>
+<div class="caja"><b>Vos no ves el faltante.</b> Ni cuántas tenían que volver ni cuántas faltan: eso lo ve caja. Si vieras el número, el conteo dejaría de ser un control.</div>
+</div>
+
+<div class="tarea">
+<h2>7 · Me equivoqué: corregir un conteo</h2>
+<ol class="pasos">
+  <li>En <span class="menu">Vuelta</span>, abajo, en <b>Descargas de hoy</b>, buscá la descarga que contaste mal.</li>
+  <li>Tocá <span class="boton">Corregir este conteo</span>. Se abre el conteo con tus números.</li>
+  <li>Corregí lo que estaba mal, escribí el <b>motivo</b> y guardá.</li>
+</ol>
+<p>El conteo original no se borra: queda la corrección en su lugar, con tu nombre y el motivo, y la oficina recibe el aviso para ajustar el stock.</p>
+</div>
+
+<div class="tarea">
+<h2>8 · Si pasa esto, hacé esto</h2>
+<table>
+  <tr><th>Si pasa esto…</th><th>…hacé esto</th></tr>
+  <tr><td>El camión llegó y no hay carga para entregar</td><td>Esperá a que caja la arme (abre a las 6) o llamala. Desde el muelle no se arma.</td></tr>
+  <tr><td>El camión que volvió no aparece en la lista</td><td>Buscalo por el depósito del chofer al final de la lista, o avisá a caja.</td></tr>
+  <tr><td>"Ya se le contó una descarga hoy"</td><td>Si es la segunda vuelta, seguí. Si no, avisá a caja antes de registrar otra.</td></tr>
+  <tr><td>"¿Seguro que ninguna volvió sana?"</td><td>Revisá. Si volvieron sanas, Cancelar y pasalas a Sana.</td></tr>
+  <tr><td>Una bolsa se rompió en el camión</td><td>Va en <b>Rota</b>, igual que las de los cambios. No es faltante del chofer.</td></tr>
+  <tr><td>Volvió un producto que no salió en ese remito</td><td>Agregalo con <span class="menu">+ Otro producto…</span>.</td></tr>
+  <tr><td>Volvió un pallet sin sus puntales, o puntales sueltos</td><td>En envases, <span class="boton">Corregir sueltos</span> y cargalos a mano.</td></tr>
+  <tr><td>Me equivoqué en el conteo</td><td><span class="boton">Corregir este conteo</span> con el motivo. Nunca registres otra descarga para "arreglarla".</td></tr>
+  <tr><td>No hay señal</td><td>Registrá igual: se guarda y sube sola cuando vuelve la señal. El código DC aparece recién entonces: no escribas un número inventado en el sobre.</td></tr>
+</table>
+<div class="pie">Rolito · app de gestión · manual del muelle · 26/09/2026. Las pantallas pueden cambiar de detalle; la regla es siempre la misma: vos contás sanas y rotas, la app hace el resto.</div>
+</div>
+
+</body>
+</html>
