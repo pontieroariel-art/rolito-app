@@ -40,12 +40,12 @@ export default function ListasTangoPanel() {
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
-        <div className="flex gap-1 bg-white border border-[#D3D1C7] rounded-xl p-1">
+        <div className="flex max-w-full gap-1 bg-white border border-[#D3D1C7] rounded-xl p-1">
           {EMPRESAS.map((e) => (
             <button
               key={e.id}
               onClick={() => setEmpresa(e.id)}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors sm:whitespace-nowrap ${
                 empresa === e.id ? 'bg-accent text-white' : 'text-secundario hover:text-gray-900'
               }`}
             >

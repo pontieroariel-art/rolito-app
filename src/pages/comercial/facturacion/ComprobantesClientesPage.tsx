@@ -61,7 +61,7 @@ export default function ComprobantesClientesPage() {
       <RemitosPendientesTango />
       {/* Recibos anulados en la app que la oficina tiene que anular en Tango (2026-09-15). */}
       <RecibosPendientesTango />
-      <div className="grid gap-4 lg:grid-cols-[320px_minmax(0,1fr)] items-start">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[320px_minmax(0,1fr)] items-start">
         <BuscadorClientes seleccionado={clienteUid} onElegir={elegirCliente} />
         {clienteUid
           ? <PanelCliente key={clienteUid} uid={clienteUid} onCerrar={() => elegirCliente('')} />
@@ -79,7 +79,7 @@ export default function ComprobantesClientesPage() {
 
 function BuscadorClientes({ seleccionado, onElegir }: { seleccionado: string; onElegir: (uid: string) => void }) {
   return (
-    <aside className="bg-white rounded-2xl border border-[#D3D1C7] shadow-sm p-3 lg:sticky lg:top-4">
+    <aside className="min-w-0 bg-white rounded-2xl border border-[#D3D1C7] shadow-sm p-3 lg:sticky lg:top-4">
       <ClienteCombobox
         modo="busqueda"
         listaSiempre

@@ -154,7 +154,7 @@ export function UserRow({ user, currentUser, onRoleChange, onSubrolChange, onRol
         </button>
 
         {/* Acciones */}
-        <div className="flex flex-wrap gap-2 items-center shrink-0">
+        <div className="flex flex-wrap gap-2 items-center min-w-0 sm:shrink-0">
           {user.rol === 'cliente' ? (
             <span className="bg-gray-100 border border-[#D3D1C7] rounded-lg px-2 py-1.5 text-sm text-secundario">
               Cliente

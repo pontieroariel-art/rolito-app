@@ -19,7 +19,7 @@ export default function DondeEstaLaPlata({ datos, cargando }: { datos: Datos; ca
   return (
     <section aria-label="Dónde está la plata">
       <h2 className="text-xs font-semibold uppercase tracking-wide text-secundario mb-1.5">¿Dónde está la plata hoy?</h2>
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {LUGARES.map((l) => <Lugar key={l.clave} {...l} lugar={datos[l.clave]} diferencia={l.clave === 'contada' ? datos.contada.diferencia : undefined} cargando={cargando} />)}
       </div>
     </section>
@@ -31,7 +31,7 @@ function Lugar({ titulo, bajada, icono, texto, borde, fondo, lugar, diferencia, 
 }) {
   const vacio = lugar.efectivo === 0 && lugar.cheques.cantidad === 0 && lugar.personas.length === 0
   return (
-    <article className={`rounded-2xl border ${vacio ? 'border-[#D3D1C7] bg-white' : `${borde} ${fondo}`} p-4 flex flex-col gap-2`}>
+    <article className={`rounded-2xl border ${vacio ? 'border-[#D3D1C7] bg-white' : `${borde} ${fondo}`} p-4 flex flex-col gap-2 min-w-0`}>
       <div className={`flex items-center gap-2 ${vacio ? 'text-secundario' : texto}`}>
         <span className="shrink-0">{icono}</span>
         <h3 className="text-base font-bold leading-tight">{titulo}</h3>

@@ -50,7 +50,8 @@ export default function PageHeader({
         {contexto && <p className="text-sm text-secundario leading-tight mt-0.5">{contexto}</p>}
       </div>
 
-      {acciones && <div className="flex items-center gap-2 shrink-0">{acciones}</div>}
+      {/* En el celular las acciones (a veces filtros) ocupan su renglón y bajan si no entran (relevamiento de responsividad). */}
+      {acciones && <div className="flex flex-wrap items-center gap-2 w-full min-w-0 sm:w-auto sm:shrink-0">{acciones}</div>}
     </div>
   )
 }
