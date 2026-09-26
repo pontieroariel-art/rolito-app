@@ -3,6 +3,7 @@ import { useAuth } from '@/context/AuthContext'
 import { useDriverOrders } from '@/hooks/useOrders'
 import { updateDriverLocation, deactivateDriverLocation } from '@/services/locationService'
 import { reportError } from '@/services/observability'
+import { hayQueEnviarGps, type EnvioGps } from '@/utils/envioGps'
 
 // GPS del chofer para TODAS sus pantallas (2026-09-26, auditoría del chofer, A6).
 // Antes vivía en el inicio y en el mapa por separado: al ir a Vender, Entregar o
@@ -11,6 +12,7 @@ import { reportError } from '@/services/observability'
 // contenedor de las rutas /chofer/*, y se apaga al terminar las entregas o al
 // salir del módulo. Mismo envío que antes: cada 10 s, solo con la app al frente,
 // una posición en vuelo a la vez (sin señal no se acumulan escrituras).
+// Parado no se reescribe la misma coordenada: solo con 40 m o un minuto (R5).
 
 export type EstadoGps = 'idle' | 'ok' | 'error'
 interface ValorGps { estado: EstadoGps; posicion: { lat: number; lng: number } | null; hayPendientes: boolean }
@@ -32,12 +34,15 @@ export function GpsChoferProvider({ children }: { children: ReactNode }) {
   })
   const enVueloRef = useRef(false)
   const genRef = useRef(0)
+  const ultimoEnvioRef = useRef<EnvioGps | null>(null)
 
   useEffect(() => {
     // En una sesión "Ver como" (super_admin mirando, solo lectura) no se manda GPS.
     if (!hayPendientes || !user?.email || !navigator.geolocation || verComo) return
     const email = user.email
     const gen = ++genRef.current
+    // Al (re)activarse el primer envío sale siempre: vuelve a poner activo:true.
+    ultimoEnvioRef.current = null
 
     const send = () => {
       if (document.visibilityState === 'hidden') return
@@ -46,8 +51,12 @@ export function GpsChoferProvider({ children }: { children: ReactNode }) {
           setEstado('ok')
           setPosicion({ lat: pos.coords.latitude, lng: pos.coords.longitude })
           if (enVueloRef.current) return
+          const { latitude: lat, longitude: lng } = pos.coords
+          const ahora = Date.now()
+          if (!hayQueEnviarGps(ultimoEnvioRef.current, lat, lng, ahora)) return
           enVueloRef.current = true
-          updateDriverLocation(email, pos.coords.latitude, pos.coords.longitude, nombreRef.current, telefonoRef.current)
+          updateDriverLocation(email, lat, lng, nombreRef.current, telefonoRef.current)
+            .then(() => { if (genRef.current === gen) ultimoEnvioRef.current = { lat, lng, en: ahora } })
             .catch(() => {})
             .finally(() => { enVueloRef.current = false })
         },
