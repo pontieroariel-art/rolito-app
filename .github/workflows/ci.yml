@@ -70,6 +70,10 @@ jobs:
       - name: Tests de reglas Firestore (emulador)
         run: npm run test:rules
 
+      # Reglas de Storage (2026-09-26, auditoría del chofer): antes no había suite.
+      - name: Tests de reglas Storage (emulador)
+        run: npm run test:storage-rules
+
   # Login por rol de punta a punta (auditoría 2026-09-22: los tests existían y
   # nunca corrían). El dev server apunta solo a los emuladores, así que las
   # claves de Firebase son de relleno.

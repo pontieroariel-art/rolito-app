@@ -93,8 +93,13 @@ service firebase.storage {
     // no adjunta archivos a un chat elegido por número, así que el PDF se sube
     // acá y el chat lleva el link de descarga (con su token, el cliente lo abre
     // sin usuario). Escribe solo el staff, y solo en su propia carpeta.
+    // Lectura solo del dueño de la carpeta (2026-09-26, auditoría del chofer,
+    // C3): con `noAnonimo()` cualquier usuario logueado, incluso un cliente,
+    // podía listar y bajar facturas, recibos y liquidaciones compartidos por
+    // otros. El dueño necesita leer para sacar el link; el destinatario de
+    // WhatsApp entra con el link con token, que no pasa por estas reglas.
     match /compartidos/{uid}/{archivo} {
-      allow read: if noAnonimo();
+      allow read: if request.auth != null && request.auth.uid == uid;
       allow write: if request.auth != null && !esImpersonado()
         && request.auth.uid == uid
         && miRol() != 'cliente'
