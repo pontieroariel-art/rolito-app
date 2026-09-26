@@ -129,7 +129,7 @@ export default function VentaCamion({ volverA = '/chofer' }: { volverA?: string 
   // cuando la factura fue anulada. Se precarga cliente, canal, productos, forma
   // de pago y OC de la venta anulada; el chofer corrige lo que estaba mal y la
   // venta nueva queda vinculada (`reemiteDe`).
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const reemitirId = searchParams.get('reemitir')
   // ?cliente=<uid> llega desde Buscar cliente ("Vender a este cliente", 2026-09-26).
   const clienteParam = searchParams.get('cliente')
@@ -265,6 +265,11 @@ export default function VentaCamion({ volverA = '/chofer' }: { volverA?: string 
     setOrdenCompra('')
     setFirmaPreview(null)
     firmaRef.current?.clear()
+    // La venta siguiente ya no es la reemisión ni la visita de la que se vino
+    // (M1, auditoría del chofer): antes salía marcada reemiteDe aunque fuera a
+    // otro cliente.
+    setReemision(null)
+    if (searchParams.size > 0) setSearchParams({}, { replace: true })
   }
 
   const abrirResumen = () => {
