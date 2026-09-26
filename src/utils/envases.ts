@@ -26,6 +26,21 @@ export const conteoVacio = (): ConteoEnvases => ({ tarimasMadera: 0, palletsMeta
 export const envasesCargaVacio = (): EnvasesCarga => ({ tarimasMadera: 0, palletsMetal: 0, racks: [] })
 
 /**
+ * Los envases tal como se guardan en el remito de carga, CON los simples
+ * (2026-09-26, muelle: "cuando ponen madera simple les cuenta puntales,
+ * sombrero y aro"). Antes el remito copiaba solo madera, metal y racks: el
+ * simple se perdía, el remito lo tomaba como armado y al volver el camión el
+ * cuadre marcaba 4 puntales, 1 sombrero y 1 aro faltantes por cada simple.
+ */
+export const envasesParaRemito = (e: EnvasesCarga): EnvasesCarga => ({
+  tarimasMadera: e.tarimasMadera,
+  palletsMetal: e.palletsMetal,
+  ...(e.tarimasMaderaSimples ? { tarimasMaderaSimples: e.tarimasMaderaSimples } : {}),
+  ...(e.palletsMetalSimples ? { palletsMetalSimples: e.palletsMetalSimples } : {}),
+  racks: [...e.racks],
+})
+
+/**
  * Implícitos: 4 puntales y 1 sombrero por pallet ARMADO (madera o metal), 1 aro
  * solo por tarima de madera armada. Los simples (solo la base, 2026-09-21) no
  * suman nada: `tarimasMadera`/`palletsMetal` son totales y `simples` la parte

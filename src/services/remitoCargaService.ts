@@ -6,6 +6,7 @@ import { onSnapshotError, esperarOEncolar } from './observability'
 import { BorradorCarga, CotSolicitud, EnvasesCarga, RemitoCarga, RemitoCargaItem, PlantaId } from '../types'
 import { PLANTA_INFO } from '../utils/constants'
 import { claveDia } from '../utils/diaReparto'
+import { envasesParaRemito } from '../utils/envases'
 
 const REMITOS = 'remitosCarga'
 
@@ -86,7 +87,7 @@ export async function crearRemitoCarga(args: CrearRemitoCargaArgs, actor: ActorC
       ...(args.depositoTango ? { depositoTango: args.depositoTango, depositoTangoNombre: args.depositoTangoNombre ?? '' } : {}),
       items:        args.items,
       palletsCarga: args.envases.tarimasMadera + args.envases.palletsMetal,
-      envases:      { tarimasMadera: args.envases.tarimasMadera, palletsMetal: args.envases.palletsMetal, racks: [...args.envases.racks] },
+      envases:      envasesParaRemito(args.envases),
       estado:       'emitido',
       creadoPor:    { uid: actor.uid, nombre: actor.nombre },
       fecha:        Timestamp.now(),
@@ -202,7 +203,7 @@ export async function emitirRemitoDesdeBorrador(
       ...(borrador.depositoTango ? { depositoTango: borrador.depositoTango, depositoTangoNombre: borrador.depositoTangoNombre ?? '' } : {}),
       items,
       palletsCarga: envases.tarimasMadera + envases.palletsMetal,
-      envases:      { tarimasMadera: envases.tarimasMadera, palletsMetal: envases.palletsMetal, racks: [...envases.racks] },
+      envases:      envasesParaRemito(envases),
       // Nace EMITIDO: confeccionar el remito y entregar el camión son dos actos
       // distintos (corrección de Ariel, 18/09). Este papel es contra el que se
       // carga y el que mira seguridad; la entrega se marca después, con la

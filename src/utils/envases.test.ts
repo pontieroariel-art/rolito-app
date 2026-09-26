@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  cuadrarEnvases, describirEnvases, describirRacks, envasesDeDescarga, envasesDeRemito, filasDeEnvases, parseRacks,
+  cuadrarEnvases, describirEnvases, envasesParaRemito, describirRacks, envasesDeDescarga, envasesDeRemito, filasDeEnvases, parseRacks,
 } from './envases'
 
 describe('envasesDeRemito / envasesDeDescarga', () => {
@@ -98,5 +98,23 @@ describe('parseRacks / describir', () => {
     expect(filasDeEnvases(envasesDeRemito({ palletsCarga: 2 }))).toEqual([{ nombre: 'Pallets (sin composición)', q: 2 }])
     expect(filasDeEnvases(envasesDeRemito({ palletsCarga: 1, envases: { tarimasMadera: 1, palletsMetal: 0, racks: [3] } })).map((f) => f.nombre))
       .toEqual(['Pallets de madera', 'Puntales', 'Aros', 'Sombreros', 'Racks de agua Nº 3'])
+  })
+})
+
+// Muelle 26/09: "cuando ponen madera simple les cuenta puntales, sombrero y aro".
+// El remito perdía los simples al guardarse y el cuadre daba faltantes falsos.
+describe('envasesParaRemito (simples en el remito)', () => {
+  const muelle = { tarimasMadera: 1, palletsMetal: 3, tarimasMaderaSimples: 1, racks: [44, 18] }
+
+  it('conserva los simples que cuenta el muelle', () => {
+    expect(envasesParaRemito(muelle)).toEqual({ tarimasMadera: 1, palletsMetal: 3, tarimasMaderaSimples: 1, racks: [44, 18] })
+    expect(envasesParaRemito({ tarimasMadera: 2, palletsMetal: 0, racks: [] })).toEqual({ tarimasMadera: 2, palletsMetal: 0, racks: [] })
+  })
+
+  it('caso DC-DT-000117: con la madera simple en el remito, la vuelta cuadra sin faltantes', () => {
+    const remito = { palletsCarga: 4, envases: envasesParaRemito(muelle) }
+    const descarga = { envases: { tarimasMadera: 1, palletsMetal: 3, tarimasMaderaSimples: 1, puntales: 12, aros: 0, sombreros: 3, racks: [44, 18] } }
+    const c = cuadrarEnvases([remito], [descarga])
+    expect(c.diferencia).toMatchObject({ tarimasMadera: 0, palletsMetal: 0, puntales: 0, aros: 0, sombreros: 0 })
   })
 })
