@@ -3,10 +3,14 @@ import App from './App'
 import './index.css'
 import { initObservability } from './services/observability'
 import { recargarPorChunkViejo } from '@/utils/chunkViejo'
+import { instalarAyudaTeclado } from '@/utils/tecladoMovil'
 
 // Captura de errores en producción (gateada por VITE_SENTRY_DSN). Se inicializa
 // lo antes posible para no perder errores tempranos de arranque.
 initObservability()
+
+// Celular: el campo que se escribe no queda abajo del teclado (utils/tecladoMovil.ts).
+instalarAyudaTeclado()
 
 // Un chunk que ya no existe en el hosting (deploy nuevo con la pestaña vieja
 // abierta): Vite avisa acá antes de que el error llegue a React y se recarga.
