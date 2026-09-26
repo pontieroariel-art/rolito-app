@@ -1216,7 +1216,9 @@ service cloud.firestore {
         // Y un chofer dado de baja (estado inactivo) no vende: la baja también
         // deshabilita la cuenta en Auth (claims.ts); esto cubre el token vivo.
         && myEstado() == 'activo'
-        && !request.resource.data.keys().hasAny(['factura', 'anulacion', 'envioMail'])
+        // `control` también lo escribe solo el server (2026-09-26, C5).
+        && !request.resource.data.keys().hasAny(['factura', 'anulacion', 'envioMail', 'control'])
+        && viajePropio(request.resource.data.get('remitoId', null))
         && tangoInicial(request.resource.data)
         && fechaReciente(request.resource.data.fecha);
 
@@ -1726,7 +1728,9 @@ service cloud.firestore {
         && request.resource.data.medios is map
         // La anulación la escribe solo el server; un cobrador dado de baja no cobra (auditoría 2026-09-22).
         && myEstado() == 'activo'
-        && !('anulacion' in request.resource.data)
+        && !request.resource.data.keys().hasAny(['anulacion', 'control'])
+        // La cobranza de calle va a SU viaje (2026-09-26, auditoría del chofer, C5).
+        && viajePropio(request.resource.data.get('remitoId', null))
         && tangoInicial(request.resource.data)
         && fechaReciente(request.resource.data.fecha);
 

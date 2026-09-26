@@ -1,6 +1,7 @@
 import { productosFabricaTopeados } from '../services/entregaFabricaTope'
 import { onDocumentCreated, onDocumentUpdated } from 'firebase-functions/v2/firestore'
 import { controlarRecibo } from '../services/cobranzasControl'
+import { depositoLegitimo } from '../services/ventasControl'
 import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore'
 import { destinoTango, movimientoStockDeVenta } from '../services/arca/circuito'
 import { codigoTangoDe, esEmpresa, idGva14De, tangoIdsDe, type Empresa } from '../services/tango/empresas'
@@ -119,7 +120,37 @@ async function payloadDeVentaEn(venta: Record<string, unknown>, empresa: string 
  *     2026-09-05). Item propio (`<col>_<id>_stock`), entidad 'movimientoStock',
  *     lo atiende el bridge SQL con su propio interruptor (stockSqlEnabled).
  */
-async function encolarVenta(coleccion: 'ventasCamion' | 'ventasVentanilla', ventaId: string, venta: Record<string, unknown>): Promise<void> {
+/**
+ * Depósito de Tango de la venta del camión, validado (2026-09-26, auditoría del
+ * chofer, C5). El bridge descuenta el stock del `depositoTango` que trae la
+ * venta y ese dato lo pone el teléfono: uno ajeno descontaba de otro camión.
+ * Si no es el del chofer (asignado en la app o el de su remito de carga), se usa
+ * el depósito asignado al chofer; si no hay ninguno, se saca, y el writer cae al
+ * mapa de config o falla con el ítem en error a la vista, nunca en otro depósito.
+ * La corrección queda anotada en la venta (control.depositoCorregido).
+ */
+async function conDepositoValidado(ventaId: string, venta: Record<string, unknown>): Promise<Record<string, unknown>> {
+  const declarado = typeof venta.depositoTango === 'string' ? venta.depositoTango.trim() : ''
+  const choferId = typeof venta.choferId === 'string' ? venta.choferId : ''
+  if (!declarado || !choferId) return venta
+  const db = getFirestore()
+  const [dep, remito] = await Promise.all([
+    db.doc(`depositosTango/${declarado}`).get(),
+    typeof venta.remitoId === 'string' && venta.remitoId ? db.doc(`remitosCarga/${venta.remitoId}`).get() : Promise.resolve(null),
+  ])
+  if (depositoLegitimo({ declarado, choferId, uidDelDeposito: (dep.data()?.uid as string | undefined) ?? null, remito: remito?.data() ?? null })) return venta
+  const propio = await db.collection('depositosTango').where('uid', '==', choferId).limit(1).get()
+  const usado = propio.empty ? null : propio.docs[0]!.id
+  console.warn(`[tango] ventasCamion/${ventaId}: depósito ${declarado} no es del chofer ${choferId}; se usa ${usado ?? 'ninguno'}`)
+  if (!(venta.control as { depositoCorregido?: unknown } | undefined)?.depositoCorregido) {
+    await db.doc(`ventasCamion/${ventaId}`).set({ control: { depositoCorregido: { declarado, usado, en: FieldValue.serverTimestamp() } } }, { merge: true })
+  }
+  const { depositoTango: _d, depositoTangoNombre: _n, ...resto } = venta
+  return usado ? { ...resto, depositoTango: usado, depositoTangoNombre: (propio.docs[0]!.data().nombre as string | undefined) ?? '' } : resto
+}
+
+async function encolarVenta(coleccion: 'ventasCamion' | 'ventasVentanilla', ventaId: string, ventaOriginal: Record<string, unknown>): Promise<void> {
+  const venta = coleccion === 'ventasCamion' ? await conDepositoValidado(ventaId, ventaOriginal) : ventaOriginal
   const destino = destinoTango(venta.canal, venta.formaPago, venta.total)
   if (!destino) {
     // Mismo criterio que la facturación: ante la duda, no mandar. Un
@@ -222,7 +253,7 @@ export const onVentaCamionFacturada = onDocumentUpdated(
       conCaePropio: true,
       origenColeccion: 'ventasCamion',
       origenId: event.params.ventaId,
-      payload: await payloadDeVentaEn(ahora, destino.empresa),
+      payload: await payloadDeVentaEn(await conDepositoValidado(event.params.ventaId, ahora), destino.empresa),
     })
   },
 )

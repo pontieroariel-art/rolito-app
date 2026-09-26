@@ -15,6 +15,9 @@ exports.redondear2 = void 0;
 exports.totalDeItems = totalDeItems;
 exports.controlarTotal = controlarTotal;
 exports.avisoTotalDistinto = avisoTotalDistinto;
+exports.controlarPrecios = controlarPrecios;
+exports.avisoPrecioDistinto = avisoPrecioDistinto;
+exports.depositoLegitimo = depositoLegitimo;
 const n = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
 const redondear2 = (x) => Math.round(x * 100) / 100;
 exports.redondear2 = redondear2;
@@ -44,5 +47,38 @@ function avisoTotalDistinto(coleccion, venta, d) {
         titulo: 'Venta con total que no cuadra',
         cuerpo: `Venta ${donde}${quien ? ` de ${quien}` : ''} a ${String(venta.clienteNombre ?? '')}: declara ${pesos(d.declarado)} y los renglones suman ${pesos(d.esperado)}. Revisar antes de liquidar.`,
     };
+}
+function controlarPrecios(items, preciosCliente, tolerancia = 1) {
+    if (!Array.isArray(items) || !preciosCliente)
+        return [];
+    const out = [];
+    for (const it of items) {
+        const id = typeof it?.productoId === 'string' ? it.productoId : '';
+        const lista = preciosCliente[id];
+        if (!id || typeof lista !== 'number' || !Number.isFinite(lista) || lista <= 0)
+            continue;
+        const declarado = n(it.precioUnitario);
+        if (Math.abs(declarado - lista) > tolerancia)
+            out.push({ productoId: id, nombre: String(it.nombre ?? id), declarado, lista });
+    }
+    return out;
+}
+function avisoPrecioDistinto(venta, d) {
+    const quien = String(venta.choferNombre ?? '').trim();
+    const detalle = d.slice(0, 3).map((x) => `${x.nombre}: ${pesos(x.declarado)} (lista ${pesos(x.lista)})`).join('; ');
+    return {
+        titulo: 'Venta con precio distinto de la lista',
+        cuerpo: `Venta del camión${quien ? ` de ${quien}` : ''} a ${String(venta.clienteNombre ?? '')}: ${detalle}${d.length > 3 ? ` y ${d.length - 3} más` : ''}. Revisar antes de liquidar.`,
+    };
+}
+// ── Depósito de Tango de la venta del camión (2026-09-26, auditoría del chofer, C5) ──
+// El bridge descuenta el stock del `depositoTango` que trae la venta, y ese dato
+// lo pone el teléfono. Es legítimo si el depósito está asignado al chofer en la
+// app (depositosTango.uid) o si es el depósito de SU remito de carga del viaje.
+function depositoLegitimo(p) {
+    if (p.uidDelDeposito && p.uidDelDeposito === p.choferId)
+        return true;
+    const r = p.remito;
+    return !!r && r.choferId === p.choferId && typeof r.depositoTango === 'string' && r.depositoTango.trim() === p.declarado;
 }
 //# sourceMappingURL=ventasControl.js.map

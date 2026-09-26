@@ -2,8 +2,10 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.onOutboxConfirmado = exports.onCobranzaCreada = exports.onDescargaCamionCreada = exports.codigoDescarga = exports.onRemitoCargaRegreso = exports.onRemitoCargaCreado = exports.onAnulacionEmitida = exports.onVentaVentanillaFacturada = exports.onVentaVentanillaCreada = exports.onVentaCamionFacturada = exports.onVentaCamionCreada = exports.onProduccionPalletCreado = void 0;
 exports.numerarDescarga = numerarDescarga;
+const entregaFabricaTope_1 = require("../services/entregaFabricaTope");
 const firestore_1 = require("firebase-functions/v2/firestore");
 const cobranzasControl_1 = require("../services/cobranzasControl");
+const ventasControl_1 = require("../services/ventasControl");
 const firestore_2 = require("firebase-admin/firestore");
 const circuito_1 = require("../services/arca/circuito");
 const empresas_1 = require("../services/tango/empresas");
@@ -105,7 +107,38 @@ async function payloadDeVentaEn(venta, empresa) {
  *     2026-09-05). Item propio (`<col>_<id>_stock`), entidad 'movimientoStock',
  *     lo atiende el bridge SQL con su propio interruptor (stockSqlEnabled).
  */
-async function encolarVenta(coleccion, ventaId, venta) {
+/**
+ * Depósito de Tango de la venta del camión, validado (2026-09-26, auditoría del
+ * chofer, C5). El bridge descuenta el stock del `depositoTango` que trae la
+ * venta y ese dato lo pone el teléfono: uno ajeno descontaba de otro camión.
+ * Si no es el del chofer (asignado en la app o el de su remito de carga), se usa
+ * el depósito asignado al chofer; si no hay ninguno, se saca, y el writer cae al
+ * mapa de config o falla con el ítem en error a la vista, nunca en otro depósito.
+ * La corrección queda anotada en la venta (control.depositoCorregido).
+ */
+async function conDepositoValidado(ventaId, venta) {
+    const declarado = typeof venta.depositoTango === 'string' ? venta.depositoTango.trim() : '';
+    const choferId = typeof venta.choferId === 'string' ? venta.choferId : '';
+    if (!declarado || !choferId)
+        return venta;
+    const db = (0, firestore_2.getFirestore)();
+    const [dep, remito] = await Promise.all([
+        db.doc(`depositosTango/${declarado}`).get(),
+        typeof venta.remitoId === 'string' && venta.remitoId ? db.doc(`remitosCarga/${venta.remitoId}`).get() : Promise.resolve(null),
+    ]);
+    if ((0, ventasControl_1.depositoLegitimo)({ declarado, choferId, uidDelDeposito: dep.data()?.uid ?? null, remito: remito?.data() ?? null }))
+        return venta;
+    const propio = await db.collection('depositosTango').where('uid', '==', choferId).limit(1).get();
+    const usado = propio.empty ? null : propio.docs[0].id;
+    console.warn(`[tango] ventasCamion/${ventaId}: depósito ${declarado} no es del chofer ${choferId}; se usa ${usado ?? 'ninguno'}`);
+    if (!venta.control?.depositoCorregido) {
+        await db.doc(`ventasCamion/${ventaId}`).set({ control: { depositoCorregido: { declarado, usado, en: firestore_2.FieldValue.serverTimestamp() } } }, { merge: true });
+    }
+    const { depositoTango: _d, depositoTangoNombre: _n, ...resto } = venta;
+    return usado ? { ...resto, depositoTango: usado, depositoTangoNombre: propio.docs[0].data().nombre ?? '' } : resto;
+}
+async function encolarVenta(coleccion, ventaId, ventaOriginal) {
+    const venta = coleccion === 'ventasCamion' ? await conDepositoValidado(ventaId, ventaOriginal) : ventaOriginal;
     const destino = (0, circuito_1.destinoTango)(venta.canal, venta.formaPago, venta.total);
     if (!destino) {
         // Mismo criterio que la facturación: ante la duda, no mandar. Un
@@ -195,7 +228,7 @@ exports.onVentaCamionFacturada = (0, firestore_1.onDocumentUpdated)('ventasCamio
         conCaePropio: true,
         origenColeccion: 'ventasCamion',
         origenId: event.params.ventaId,
-        payload: await payloadDeVentaEn(ahora, destino.empresa),
+        payload: await payloadDeVentaEn(await conDepositoValidado(event.params.ventaId, ahora), destino.empresa),
     });
 });
 // ── Ventanilla (mostrador): mismo circuito que el camión ─────────────────────
@@ -457,7 +490,8 @@ async function escribirCierreMercaderia(descargaId, descarga) {
         ventas,
         cambios: cambios.docs.map((d) => d.data()),
         descargas: descargas.docs.map((d) => ({ id: d.id, ...d.data() })),
-        entregasFabrica: pedidosFabrica.docs.map((d) => ({ productos: (d.data().entregaFabrica?.productos ?? []) })),
+        // Topeado a lo pedido (2026-09-26, auditoría del chofer, C4).
+        entregasFabrica: pedidosFabrica.docs.map((d) => ({ productos: (0, entregaFabricaTope_1.productosFabricaTopeados)(d.data().products, d.data().entregaFabrica?.productos).productos })),
         umbral: (0, revisionDescarga_1.normalizarUmbralFaltantes)(configLiq.data()?.faltantes),
         // El cierre pertenece al día del VIAJE, no al del conteo (2026-09-17).
         diaReparto: typeof descarga.diaReparto === 'string' ? descarga.diaReparto : dia,

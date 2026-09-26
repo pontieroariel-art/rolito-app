@@ -6217,6 +6217,72 @@ describe('auditoría chofer — C4: entrega con remito de fábrica', () => {
   })
 })
 
+describe('auditoría chofer — C5: la venta y la cobranza van a SU viaje', () => {
+  const seedBase = () => seed(async (d) => {
+    await setDoc(doc(d, 'users/chof1'), { rol: 'chofer', estado: 'activo' })
+    await setDoc(doc(d, 'users/sup1'), { rol: 'supervisor', estado: 'activo' })
+    await setDoc(doc(d, 'remitosCarga/rem1'), { choferId: 'chof1', camionId: 'cam1', estado: 'salido', fecha: new Date() })
+    await setDoc(doc(d, 'remitosCarga/remSup'), { choferId: 'sup1', camionId: 'cam9', estado: 'salido', fecha: new Date() })
+    await setDoc(doc(d, 'remitosCarga/remOtro'), { choferId: 'otro', camionId: 'cam2', estado: 'salido', fecha: new Date() })
+  })
+  const venta = (extra = {}) => ({
+    canal: 'contado', camionId: 'cam1', choferId: 'chof1', choferNombre: 'Chofer Uno',
+    clienteId: 'cli', clienteNombre: 'Cliente SA',
+    items: [{ productoId: 'bolsa_10kg', nombre: 'Hielo 10kg', cantidad: 5, precioUnitario: 100 }],
+    total: 500, formaPago: 'contado_efectivo', fecha: new Date(),
+    pedidoId: null, tango: { estado: 'pendiente' }, ...extra,
+  })
+  const cobranza = (extra = {}) => ({
+    origen: 'cobrador', registradoPor: { uid: 'chof1', nombre: 'Chofer Uno' },
+    clienteId: 'cli', clienteNombre: 'Cliente SA', importe: 45000.5,
+    formaPago: 'mixto', fecha: new Date(), numeroRecibo: 'RS-000124', empresa: 'redonhielo',
+    imputaciones: [{ comprobanteTipo: 'FAC', comprobanteNumero: 'A-0001-00000001', saldoAlMomento: 60000, importeImputado: 45000.5 }],
+    medios: { efectivo: 45000.5, transferencia: 0, cheques: [], retenciones: [] },
+    tango: { estado: 'pendiente' }, ...extra,
+  })
+
+  test('venta en su viaje, o sin viaje: pasa', async () => {
+    await seedBase()
+    await assertSucceeds(setDoc(doc(db('chof1'), 'ventasCamion/v1'), venta({ remitoId: 'rem1' })))
+    await assertSucceeds(setDoc(doc(db('chof1'), 'ventasCamion/v2'), venta({ remitoId: null })))
+    await assertSucceeds(setDoc(doc(db('chof1'), 'ventasCamion/v3'), venta()))
+  })
+  test('el supervisor vende en SU viaje', async () => {
+    await seedBase()
+    await assertSucceeds(setDoc(doc(db('sup1'), 'ventasCamion/v1'), venta({ choferId: 'sup1', remitoId: 'remSup', camionId: 'cam9' })))
+  })
+  test('venta NO va al viaje de otro chofer', async () => {
+    await seedBase()
+    await assertFails(setDoc(doc(db('chof1'), 'ventasCamion/v1'), venta({ remitoId: 'remOtro' })))
+  })
+  test('venta NO nace con el control del server', async () => {
+    await seedBase()
+    await assertFails(setDoc(doc(db('chof1'), 'ventasCamion/v1'), venta({ control: {} })))
+  })
+  test('cobranza en su viaje pasa; en el de otro no; sin control del server', async () => {
+    await seedBase()
+    await assertSucceeds(setDoc(doc(db('chof1'), 'cobranzas/c1'), cobranza({ remitoId: 'rem1' })))
+    await assertFails(setDoc(doc(db('chof1'), 'cobranzas/c2'), cobranza({ remitoId: 'remOtro', numeroRecibo: 'RS-000125' })))
+    await assertFails(setDoc(doc(db('chof1'), 'cobranzas/c3'), cobranza({ control: {}, numeroRecibo: 'RS-000126' })))
+  })
+  test('los demás roles siguen leyendo las ventas y las cobranzas igual', async () => {
+    await seedBase()
+    await seed(async (d) => {
+      for (const [uid, rol, extra] of [['caja1', 'caja', { planta: 'torcuato' }], ['tes1', 'tesoreria', {}], ['fact1', 'facturacion', {}], ['log1', 'logistica', {}], ['ger1', 'gerente_general', {}], ['gc1', 'gerente_comercial', {}]]) {
+        await setDoc(doc(d, `users/${uid}`), { rol, estado: 'activo', ...extra })
+      }
+      await setDoc(doc(d, 'ventasCamion/v1'), venta({ remitoId: 'rem1' }))
+      await setDoc(doc(d, 'cobranzas/c1'), cobranza({ remitoId: 'rem1' }))
+    })
+    for (const uid of ['caja1', 'tes1', 'fact1', 'log1', 'ger1', 'gc1', 'sup1']) {
+      await assertSucceeds(getDoc(doc(db(uid), 'ventasCamion/v1')))
+    }
+    for (const uid of ['caja1', 'tes1', 'log1', 'sup1']) {
+      await assertSucceeds(getDoc(doc(db(uid), 'cobranzas/c1')))
+    }
+  })
+})
+
 describe('auditoría chofer — C2: la entrega de un pedido no sale dos veces', () => {
   test('la segunda venta con el id fijo del pedido es una actualización y se rechaza', async () => {
     await seed((d) => setDoc(doc(d, 'users/chof1'), { rol: 'chofer', estado: 'activo' }))
