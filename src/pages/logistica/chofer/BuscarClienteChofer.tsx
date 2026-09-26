@@ -4,6 +4,8 @@ import { ChevronDown, Clock, MapPin, Navigation, Package, Phone, User } from 'lu
 import ChoferHeader from '@/components/chofer/ChoferHeader'
 import ClienteCombobox, { type ComboItem } from '@/components/common/ClienteCombobox'
 import { useClientesIndex } from '@/hooks/useClientesIndex'
+import { useAuth } from '@/context/AuthContext'
+import { esAyudante } from '@/utils/ayudante'
 import { useClienteSeleccionado } from '@/hooks/useClienteSeleccionado'
 import { normalizarBusqueda } from '@/utils/busqueda'
 import {
@@ -112,6 +114,8 @@ const Domicilio = memo(function Domicilio({ d, abierto, onToggle, vender }: { d:
 })
 
 export default function BuscarClienteChofer() {
+  // El ayudante busca y llega, pero no vende (C1).
+  const puedeVender = !esAyudante(useAuth().user)
   const { clientes, loading } = useClientesIndex()
   const items = useMemo(() => itemsConDomicilios(clientes), [clientes])
   const [uid, setUid] = useState('')
@@ -168,14 +172,14 @@ export default function BuscarClienteChofer() {
               <p className="text-sm text-secundario">{cargandoFicha ? 'Buscando los domicilios…' : 'Este cliente no tiene domicilios cargados. Avisale a logística.'}</p>
             ) : (
               <ul className="flex flex-col gap-3">
-                {visibles.map((d) => <Domicilio key={d.id} d={d} abierto={abierto === d.id} onToggle={toggle} vender={varias ? urlVender(uid, d) : undefined} />)}
+                {visibles.map((d) => <Domicilio key={d.id} d={d} abierto={abierto === d.id} onToggle={toggle} vender={varias && puedeVender ? urlVender(uid, d) : undefined} />)}
                 {visibles.length === 0 && <li className="text-sm text-secundario">Ninguna sucursal coincide con "{filtro}".</li>}
               </ul>
             )}
 
             {/* Con varias sucursales se vende desde la tarjeta de cada una, así la
                 venta sale al código de Tango de ESA sucursal y no a casa central. */}
-            {!varias && (
+            {!varias && puedeVender && (
               <Link to={urlVender(uid, domicilios[0])} className={`${BOTON} h-14 bg-white border-2 border-accent text-accent text-lg`}>
                 <Package size={22} /> Vender a este cliente
               </Link>

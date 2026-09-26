@@ -5,7 +5,7 @@ import {
   assertFails,
   assertSucceeds,
 } from '@firebase/rules-unit-testing'
-import { doc, getDoc, getDocs, collection, setDoc, updateDoc, deleteDoc, arrayUnion, deleteField, writeBatch, runTransaction, serverTimestamp } from 'firebase/firestore'
+import { doc, getDoc, getDocs, collection, query, where, setDoc, updateDoc, deleteDoc, arrayUnion, deleteField, writeBatch, runTransaction, serverTimestamp } from 'firebase/firestore'
 
 // Tests de las reglas de Firestore contra el emulador. Verifican de forma
 // automática y repetible los invariantes de seguridad que antes se validaban a
@@ -714,6 +714,37 @@ describe('despachos', () => {
   test('el chofer NO puede escribir (ni actualizar) su propio despacho', async () => {
     await seedDespacho()
     await assertFails(updateDoc(doc(db('ch', 'ch@x.com'), 'despachos/2026-01-01_ch'), { status: 'confirmado' }))
+  })
+
+  // Auditoría del chofer C1 (2026-09-26): el ayudante solo acompaña y ve su turno.
+  describe('ayudante (C1)', () => {
+    const seedConAyudante = () => seed((d) => setDoc(doc(d, 'despachos/2026-01-01_ch'), {
+      fecha: '2026-01-01', driverId: 'ch@x.com', ayudanteEmail: 'ay@x.com', status: 'confirmado', orderIds: ['o1'],
+    }))
+
+    test('SÍ lee el despacho donde figura como ayudante, también por consulta', async () => {
+      await seedConAyudante()
+      await assertSucceeds(getDoc(doc(db('ay', 'ay@x.com'), 'despachos/2026-01-01_ch')))
+      await assertSucceeds(getDocs(query(collection(db('ay', 'ay@x.com'), 'despachos'),
+        where('fecha', '==', '2026-01-01'), where('ayudanteEmail', '==', 'ay@x.com'))))
+    })
+
+    test('NO lee un despacho donde no es el ayudante', async () => {
+      await seedConAyudante()
+      await assertFails(getDoc(doc(db('ay2', 'ay2@x.com'), 'despachos/2026-01-01_ch')))
+      await seedDespacho() // sin ayudanteEmail
+      await assertFails(getDoc(doc(db('ay', 'ay@x.com'), 'despachos/2026-01-01_ch')))
+    })
+
+    test('NO escribe el despacho', async () => {
+      await seedConAyudante()
+      await assertFails(updateDoc(doc(db('ay', 'ay@x.com'), 'despachos/2026-01-01_ch'), { status: 'borrador' }))
+    })
+
+    test('NO lee los pedidos del chofer al que acompaña', async () => {
+      await seed((d) => setDoc(doc(d, 'orders/o1'), { clientId: 'cli', driverId: 'ch@x.com', status: 'confirmado' }))
+      await assertFails(getDoc(doc(db('ay', 'ay@x.com'), 'orders/o1')))
+    })
   })
 })
 
@@ -6408,7 +6439,7 @@ describe('auditoría chofer — A7: el chofer lista sus últimas rendiciones', (
   })
   test('lista las suyas por chofer y días (con la clave por viaje)', async () => {
     await seedBase()
-    const { query, where } = await import('firebase/firestore')
+    // query y where vienen del import de arriba
     const snap = await assertSucceeds(getDocs(query(collection(db('ch', 'ch@x.com'), 'liquidaciones'), where('choferId', '==', 'ch'), where('fecha', 'in', ['2026-09-24', '2026-09-25']))))
     if (snap.size !== 2) throw new Error('esperaba 2 y vinieron ' + snap.size)
   })

@@ -2770,7 +2770,11 @@ service cloud.firestore {
         isOperator() ||
         isGerenteComercial() ||
         isGerenteGeneral() ||
-        request.auth.token.email == resource.data.driverId
+        request.auth.token.email == resource.data.driverId ||
+        // El ayudante ve su turno (chofer, camión, planta, paradas) en modo
+        // lectura (2026-09-26, auditoría del chofer C1): solo el despacho donde
+        // figura como ayudante. Antes su inicio decía siempre "Sin turno".
+        request.auth.token.email == resource.data.get('ayudanteEmail', null)
       );
       allow write: if request.auth != null && (isOperator() || isGerenteComercial());
     }

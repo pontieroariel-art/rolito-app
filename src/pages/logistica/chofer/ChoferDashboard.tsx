@@ -67,10 +67,11 @@ export default function ChoferDashboard() {
 
   const pairedDespacho = pickActiveDespacho(pairedDespachos)
 
-  // Email para cargar pedidos: ayudante usa el del chofer principal; null mientras espera
-  const ordersEmail = isAyudante
-    ? (pairedDespachoLoading ? null : (pairedDespachos[0]?.driverId ?? null))
-    : undefined
+  // El ayudante no carga pedidos (C1, 2026-09-26): las reglas no le dejan leer
+  // los del chofer y las entregas las marca el chofer. Ve su turno y cuántas
+  // paradas tiene el reparto.
+  const ordersEmail = isAyudante ? null : undefined
+  const paradasAyudante = pairedDespachos.reduce((n, d) => n + (d.orderIds?.length ?? 0), 0)
 
   const { orders, loading, error } = useDriverOrders(ordersEmail)
   const [sinContactoVisita,  setSinContactoVisita]  = useState<VisitaPuntual | null>(null)
@@ -209,6 +210,8 @@ export default function ChoferDashboard() {
       <div className="max-w-2xl mx-auto px-4 pt-4 grid grid-cols-2 sm:grid-cols-3 gap-3">
         {/* Los cambios dejaron de ser una pantalla aparte: son renglones de la
             venta, para que salgan en el mismo comprobante que firma el cliente. */}
+        {/* El ayudante solo acompaña (C1, 2026-09-26): de acá le queda Buscar cliente. */}
+        {!isAyudante && <>
         <Link to="/chofer/venta"
           className="col-span-2 sm:col-span-3 flex items-center justify-center gap-2.5 rounded-2xl bg-accent text-white py-5 shadow-sm active:scale-[0.99] transition-transform">
           <Package size={26} />
@@ -227,10 +230,11 @@ export default function ChoferDashboard() {
           <FileText size={22} className="text-accent shrink-0" />
           <span className="text-base font-bold">Facturas</span>
         </Link>
+        </>}
         {/* Buscar cliente (2026-09-26, pedido de los choferes): dónde queda cada
             domicilio, con Cómo llegar y Llamar. */}
         <Link to="/chofer/clientes"
-          className="col-span-2 sm:col-span-1 flex items-center whitespace-nowrap justify-center gap-2 rounded-2xl bg-white border border-[#D3D1C7] text-gray-700 py-4 sm:py-5 shadow-sm active:scale-[0.99] transition-transform">
+          className={`col-span-2 ${isAyudante ? 'sm:col-span-3' : 'sm:col-span-1'} flex items-center whitespace-nowrap justify-center gap-2 rounded-2xl bg-white border border-[#D3D1C7] text-gray-700 py-4 sm:py-5 shadow-sm active:scale-[0.99] transition-transform`}>
           <MapPin size={22} className="text-accent shrink-0" />
           <span className="text-base font-bold">Buscar cliente</span>
         </Link>
@@ -340,7 +344,16 @@ export default function ChoferDashboard() {
           )
         )}
 
+        {isAyudante && (
+          <div className="bg-white border border-[#D3D1C7] rounded-2xl p-5 shadow-sm space-y-1">
+            <p className="text-xs font-semibold text-secundario uppercase tracking-wide">Reparto de hoy</p>
+            <p className="text-gray-900"><span className="text-3xl font-bold tabular-nums">{paradasAyudante}</span> {paradasAyudante === 1 ? 'parada' : 'paradas'}</p>
+            <p className="text-secundario text-sm">Las entregas, las ventas y los cobros los marca {despachoHoy?.driverName?.split(' ')[0] ?? 'el chofer'} desde su teléfono.</p>
+          </div>
+        )}
+
         {/* Contadores */}
+        {!isAyudante && (
         <div className="grid grid-cols-2 gap-3">
           <div className="bg-white border border-[#D3D1C7] rounded-2xl p-5 text-center shadow-sm">
             <p className="text-secundario text-xs font-medium uppercase tracking-wide">Por entregar</p>
@@ -353,6 +366,7 @@ export default function ChoferDashboard() {
             <p className={`text-5xl font-bold mt-2 leading-none tabular-nums ${delivered.length === 0 ? 'text-secundario' : 'text-accent'}`}>{delivered.length}</p>
           </div>
         </div>
+        )}
 
         {/* Carga despachada por caja (remito de carga del módulo expedición) —
             lo que realmente subió al camión, contra lo que se liquida el día. */}
@@ -400,9 +414,9 @@ export default function ChoferDashboard() {
         {/* El remito y el COT del viaje, para mostrarlos en un control de ruta. */}
         {!isAyudante && <MisPapelesCard />}
         {user && !isAyudante && <MiCamionHoyCard uid={user.uid} hoy={diaHoy} />}
-        {user && <MiRendicionCard uid={user.uid} hoy={diaHoy} />}
+        {user && !isAyudante && <MiRendicionCard uid={user.uid} hoy={diaHoy} />}
 
-        {orders.length === 0 && (
+        {orders.length === 0 && !isAyudante && (
           <div className="bg-white border border-[#D3D1C7] rounded-2xl p-10 text-center shadow-sm">
             <p className="text-4xl mb-3">📦</p>
             <p className="text-secundario">No tenés entregas asignadas para hoy</p>
@@ -414,7 +428,7 @@ export default function ChoferDashboard() {
             <h2 className="text-sm font-semibold text-secundario uppercase tracking-wide mb-3">Por entregar</h2>
             <div className="space-y-3">
               {pendingOrdenado.map((o, i) => (
-                <DeliveryCard key={o.id} order={o} index={i + 1} isFirst={i === 0} chofer={user} />
+                <DeliveryCard key={o.id} order={o} index={i + 1} isFirst={i === 0} chofer={user} soloLectura={isAyudante} />
               ))}
             </div>
           </section>
@@ -438,7 +452,7 @@ export default function ChoferDashboard() {
                       {p.clientPhone && <a href={`tel:${p.clientPhone}`} className="text-accent text-xs hover:underline">{p.clientPhone}</a>}
                       {p.notas && <p className="text-xs text-secundario italic mt-1">"{p.notas}"</p>}
                     </div>
-                    {!yaEntregado && (
+                    {!yaEntregado && !isAyudante && (
                       <Button onClick={() => { void navigate(`/chofer/venta?cliente=${encodeURIComponent(p.clientId)}`) }} className="text-xs py-2 px-4 shrink-0">
                         Registrar
                       </Button>
@@ -460,7 +474,7 @@ export default function ChoferDashboard() {
                     {v.clientPhone && <a href={`tel:${v.clientPhone}`} className="text-accent text-xs hover:underline">{v.clientPhone}</a>}
                     {v.notas && <p className="text-xs text-secundario italic mt-1">"{v.notas}"</p>}
                   </div>
-                  {v.status === 'pendiente' && (
+                  {v.status === 'pendiente' && !isAyudante && (
                     <div className="flex flex-col gap-1.5 shrink-0">
                       <Button onClick={() => { void navigate(`/chofer/venta?cliente=${encodeURIComponent(v.clientId)}&visita=${encodeURIComponent(v.id)}`) }} className="text-xs py-2 px-4">
                         Registrar
@@ -526,6 +540,7 @@ export default function ChoferDashboard() {
 
       <ChoferBottomNav
         activePage="entregas"
+        ayudante={isAyudante}
         hasPending={pending.length > 0}
         pdfLoading={pdfLoading}
         onPdf={async () => {
@@ -648,7 +663,7 @@ export default function ChoferDashboard() {
   )
 }
 
-const DeliveryCard = memo(function DeliveryCard({ order, index, isFirst, chofer }: { order: Order; index: number; isFirst?: boolean; chofer: import('@/types').UserProfile | null }) {
+const DeliveryCard = memo(function DeliveryCard({ order, index, isFirst, chofer, soloLectura = false }: { order: Order; index: number; isFirst?: boolean; chofer: import('@/types').UserProfile | null; soloLectura?: boolean }) {
   const [modal,           setModal]           = useState(false)
   const [noEntregadoModal, setNoEntregadoModal] = useState(false)
   const [geoLoading,      setGeoLoading]       = useState(false)
@@ -727,64 +742,72 @@ const DeliveryCard = memo(function DeliveryCard({ order, index, isFirst, chofer 
           <p className="pl-10"><span className="inline-block text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200">Orden de compra {order.numeroOC}</span></p>
         )}
 
-        {/* Cliente registrado: ENTREGAR arma la venta con el pedido (cantidades,
-            canal, pago, firma) y saca el remito o la factura en el mismo paso
-            (2026-09-11). Sin cliente en la app queda el "Entregado" de siempre. */}
-        {order.clientId && order.clientId !== 'externo' ? (
-          <>
-            {/* Remito de fábrica (Coto/Carrefour, 2026-09-23): la misma pantalla,
-                pero un solo paso y sin comprobante de la app. */}
-            {order.entregaSinComprobante && (
-              <p className="pl-10"><span className="inline-block text-[11px] font-bold px-2 py-0.5 rounded-full bg-sky-50 text-sky-800 border border-sky-200">Remito de fábrica · sin comprobante de la app</span></p>
-            )}
-            <Link to={`/chofer/entregar/${order.id}`}
-              className="block w-full rounded-2xl bg-[#1D9E75] px-4 py-4 text-center text-lg font-black text-white shadow-sm active:scale-[.99] hover:bg-[#178760]">
-              {order.entregaSinComprobante ? 'ENTREGADO' : 'ENTREGAR'}
-            </Link>
-            <Button variant="outline" onClick={openInMaps} className="w-full text-sm py-3">
-              📍 Abrir en Maps
-            </Button>
-          </>
-        ) : (
-          <div className="flex gap-2 pt-1">
-            <Button variant="outline" onClick={openInMaps} className="flex-1 text-sm py-3">
-              📍 Abrir en Maps
-            </Button>
-            <Button onClick={() => setModal(true)} className="flex-1 text-sm py-3">
-              ✓ Entregado
-            </Button>
-          </div>
-        )}
+        {/* El ayudante solo acompaña (C1): ve la parada y la abre en Maps; entregar
+            o marcar "no entregado" lo hace el chofer. */}
+        {soloLectura ? (
+          <Button variant="outline" onClick={openInMaps} className="w-full text-sm py-3">
+            📍 Abrir en Maps
+          </Button>
+        ) : (<>
+          {/* Cliente registrado: ENTREGAR arma la venta con el pedido (cantidades,
+              canal, pago, firma) y saca el remito o la factura en el mismo paso
+              (2026-09-11). Sin cliente en la app queda el "Entregado" de siempre. */}
+          {order.clientId && order.clientId !== 'externo' ? (
+            <>
+              {/* Remito de fábrica (Coto/Carrefour, 2026-09-23): la misma pantalla,
+                  pero un solo paso y sin comprobante de la app. */}
+              {order.entregaSinComprobante && (
+                <p className="pl-10"><span className="inline-block text-[11px] font-bold px-2 py-0.5 rounded-full bg-sky-50 text-sky-800 border border-sky-200">Remito de fábrica · sin comprobante de la app</span></p>
+              )}
+              <Link to={`/chofer/entregar/${order.id}`}
+                className="block w-full rounded-2xl bg-[#1D9E75] px-4 py-4 text-center text-lg font-black text-white shadow-sm active:scale-[.99] hover:bg-[#178760]">
+                {order.entregaSinComprobante ? 'ENTREGADO' : 'ENTREGAR'}
+              </Link>
+              <Button variant="outline" onClick={openInMaps} className="w-full text-sm py-3">
+                📍 Abrir en Maps
+              </Button>
+            </>
+          ) : (
+            <div className="flex gap-2 pt-1">
+              <Button variant="outline" onClick={openInMaps} className="flex-1 text-sm py-3">
+                📍 Abrir en Maps
+              </Button>
+              <Button onClick={() => setModal(true)} className="flex-1 text-sm py-3">
+                ✓ Entregado
+              </Button>
+            </div>
+          )}
 
-        <button
-          onClick={() => setNoEntregadoModal(true)}
-          className="w-full text-sm py-3 rounded-xl border border-amber-300 text-amber-700 bg-amber-50 hover:bg-amber-100 transition-colors font-medium"
-        >
-          ✕ No entregado
-        </button>
-
-        {/* Marcar punto de entrega */}
-        {order.clientId && order.clientId !== 'externo' && (
           <button
-            onClick={handleMarcarPunto}
-            disabled={geoLoading || geoStatus === 'ok'}
-            className={`w-full text-xs py-2.5 rounded-xl border transition-colors flex items-center justify-center gap-2 ${
-              geoStatus === 'ok'
-                ? 'bg-green-50 border-green-200 text-green-700'
-                : geoStatus === 'error'
-                ? 'bg-red-50 border-red-200 text-red-600'
-                : 'bg-orange-50 border-orange-200 text-orange-700 hover:bg-orange-100'
-            }`}
+            onClick={() => setNoEntregadoModal(true)}
+            className="w-full text-sm py-3 rounded-xl border border-amber-300 text-amber-700 bg-amber-50 hover:bg-amber-100 transition-colors font-medium"
           >
-            {geoLoading
-              ? <><span className="w-3 h-3 border-2 border-orange-400 border-t-transparent rounded-full animate-spin" /> Obteniendo ubicación...</>
-              : geoStatus === 'ok'
-              ? '✓ Punto de entrega marcado — pendiente de confirmación'
-              : geoStatus === 'error'
-              ? '⚠ Error al obtener ubicación. Intentá de nuevo.'
-              : '📍 Marcar punto de entrega real'}
+            ✕ No entregado
           </button>
-        )}
+
+          {/* Marcar punto de entrega */}
+          {order.clientId && order.clientId !== 'externo' && (
+            <button
+              onClick={handleMarcarPunto}
+              disabled={geoLoading || geoStatus === 'ok'}
+              className={`w-full text-xs py-2.5 rounded-xl border transition-colors flex items-center justify-center gap-2 ${
+                geoStatus === 'ok'
+                  ? 'bg-green-50 border-green-200 text-green-700'
+                  : geoStatus === 'error'
+                  ? 'bg-red-50 border-red-200 text-red-600'
+                  : 'bg-orange-50 border-orange-200 text-orange-700 hover:bg-orange-100'
+              }`}
+            >
+              {geoLoading
+                ? <><span className="w-3 h-3 border-2 border-orange-400 border-t-transparent rounded-full animate-spin" /> Obteniendo ubicación...</>
+                : geoStatus === 'ok'
+                ? '✓ Punto de entrega marcado — pendiente de confirmación'
+                : geoStatus === 'error'
+                ? '⚠ Error al obtener ubicación. Intentá de nuevo.'
+                : '📍 Marcar punto de entrega real'}
+            </button>
+          )}
+        </>)}
       </div>
 
       {modal && chofer && (
@@ -879,8 +902,10 @@ function ChoferBottomNav({
   onPdf,
   pdfLoading,
   hasPending,
+  ayudante = false,
 }: {
   activePage: 'entregas' | 'ruta'
+  ayudante?: boolean
   onPdf?: () => void
   pdfLoading?: boolean
   hasPending?: boolean
@@ -899,7 +924,7 @@ function ChoferBottomNav({
         <span>Entregas</span>
       </Link>
 
-      <Link
+      {!ayudante && <Link
         to="/chofer/map"
         className={`flex-1 flex flex-col items-center justify-center py-3 gap-1 text-xs font-medium transition-colors ${
           activePage === 'ruta' ? 'text-accent' : 'text-secundario hover:text-gray-700'
@@ -909,7 +934,7 @@ function ChoferBottomNav({
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
         </svg>
         <span>Ruta</span>
-      </Link>
+      </Link>}
 
       <Link
         to="/chofer/clientes"
@@ -919,7 +944,7 @@ function ChoferBottomNav({
         <span>Clientes</span>
       </Link>
 
-      <button
+      {!ayudante && <button
         onClick={onPdf}
         disabled={!hasPending || pdfLoading}
         className="flex-1 flex flex-col items-center justify-center py-3 gap-1 text-xs font-medium text-secundario hover:text-gray-700 disabled:opacity-40 transition-colors"
@@ -932,7 +957,7 @@ function ChoferBottomNav({
           </svg>
         )}
         <span>PDF</span>
-      </button>
+      </button>}
     </nav>
   )
 }
