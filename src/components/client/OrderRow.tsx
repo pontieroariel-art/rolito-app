@@ -36,28 +36,33 @@ export function OrderRow({ order }: { order: Order }) {
 
   return (
     <>
-      <div className="bg-white border border-gray-200 rounded-2xl p-4 flex justify-between items-start gap-3">
+      {/* Celular: productos y estado arriba, Modificar / Cancelar en su renglón. */}
+      <div className="bg-white border border-gray-200 rounded-2xl p-4 flex flex-wrap sm:flex-nowrap justify-between items-start gap-3">
         <div className="min-w-0 flex-1">
-          <p className="font-medium text-sm text-gray-900 truncate">{summarizeProducts(order.products)}</p>
+          <p className="font-medium text-sm text-gray-900 line-clamp-2 sm:truncate" title={summarizeProducts(order.products)}>{summarizeProducts(order.products)}</p>
           <p className="text-secundario text-xs mt-1">Entrega: {formatShortDate(order.date)}</p>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
-          {canModify && (
-            <button
-              onClick={() => navigate('/nuevo-pedido', { state: { modifyOrder: order } })}
-              className="text-xs text-accent hover:text-accent/80 border border-accent/30 hover:border-accent/50 px-2.5 py-1 rounded-lg transition-colors"
-            >
-              Modificar
-            </button>
-          )}
-          {canCancel && (
-            <button
-              onClick={() => { setMotivo(''); setModal(true) }}
-              className="text-xs text-red-500 hover:text-red-600 border border-red-200 hover:border-red-300 px-2.5 py-1 rounded-lg transition-colors"
-            >
-              Cancelar
-            </button>
-          )}
+        {(canModify || canCancel) && (
+          <div className="order-3 sm:order-2 w-full sm:w-auto flex items-center justify-end gap-2 sm:shrink-0">
+            {canModify && (
+              <button
+                onClick={() => navigate('/nuevo-pedido', { state: { modifyOrder: order } })}
+                className="flex-1 sm:flex-none text-sm sm:text-xs text-accent hover:text-accent/80 border border-accent/30 hover:border-accent/50 px-2.5 py-1 rounded-lg transition-colors"
+              >
+                Modificar
+              </button>
+            )}
+            {canCancel && (
+              <button
+                onClick={() => { setMotivo(''); setModal(true) }}
+                className="flex-1 sm:flex-none text-sm sm:text-xs text-red-500 hover:text-red-600 border border-red-200 hover:border-red-300 px-2.5 py-1 rounded-lg transition-colors"
+              >
+                Cancelar
+              </button>
+            )}
+          </div>
+        )}
+        <div className="order-2 sm:order-3 shrink-0">
           <Badge status={order.status} variant="light" />
         </div>
       </div>
