@@ -1,0 +1,414 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Manual del chofer</title>
+<style>
+  @page { size: A4; margin: 18mm 16mm 18mm 16mm; }
+  * { box-sizing: border-box; }
+  html { font-family: Inter, "Segoe UI", Arial, sans-serif; color: #1f2937; font-size: 11pt; line-height: 1.45; }
+  body { margin: 0; }
+  h1 { font-size: 26pt; margin: 0 0 4pt; color: #111827; letter-spacing: -0.01em; }
+  h2 { font-size: 17pt; margin: 0 0 8pt; padding-bottom: 5pt; border-bottom: 2px solid #1D9E75; color: #111827; page-break-after: avoid; }
+  h3 { font-size: 12.5pt; margin: 16pt 0 5pt; color: #0F6B4E; page-break-after: avoid; }
+  p { margin: 0 0 7pt; }
+  ul, ol { margin: 0 0 8pt 18pt; padding: 0; }
+  li { margin-bottom: 3pt; }
+  li > ul, li > ol { margin-top: 3pt; }
+  .portada { height: 250mm; display: flex; flex-direction: column; justify-content: center; page-break-after: always; }
+  .portada .marca { color: #1D9E75; font-weight: 800; font-size: 13pt; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 18pt; }
+  .portada .sub { font-size: 14pt; color: #6B6A62; margin-top: 6pt; }
+  .portada .meta { margin-top: 40pt; color: #6B6A62; font-size: 10pt; }
+  .parte { page-break-before: always; }
+  .parte-titulo { background: #1D9E75; color: white; padding: 16pt 18pt; border-radius: 10pt; margin-bottom: 16pt; }
+  .parte-titulo .n { font-size: 10pt; text-transform: uppercase; letter-spacing: .1em; opacity: .85; }
+  .parte-titulo h2 { color: white; border: 0; margin: 2pt 0 0; font-size: 22pt; padding: 0; }
+  .seccion { page-break-inside: avoid; }
+  .caja { border: 1.5px solid #D3D1C7; border-radius: 8pt; padding: 9pt 12pt; margin: 8pt 0 10pt; background: #FBFAF6; page-break-inside: avoid; }
+  .caja.ojo { border-color: #EFDCB4; background: #FBF6EA; }
+  .caja.ojo b:first-child { color: #8A5203; }
+  .caja.regla { border-color: #B3DDD3; background: #F1F9F5; }
+  .caja.regla b:first-child { color: #0F6B4E; }
+  .pasos li { margin-bottom: 5pt; }
+  .pasos li b { color: #111827; }
+  figure { margin: 8pt 0 12pt; page-break-inside: avoid; }
+  figure img { width: 100%; border: 1px solid #D3D1C7; border-radius: 6pt; }
+  figcaption { font-size: 9pt; color: #6B6A62; margin-top: 3pt; }
+  table { border-collapse: collapse; width: 100%; margin: 6pt 0 10pt; font-size: 10pt; page-break-inside: avoid; }
+  th, td { border: 1px solid #D3D1C7; padding: 4pt 6pt; text-align: left; vertical-align: top; }
+  th { background: #F1F9F5; color: #0F6B4E; font-size: 9.5pt; text-transform: uppercase; letter-spacing: .04em; }
+  .flujo { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6pt; margin: 8pt 0 12pt; }
+  .flujo div { border-radius: 8pt; padding: 8pt 9pt; font-size: 9.5pt; border: 1.5px solid; }
+  .flujo .t { font-weight: 800; font-size: 10.5pt; display: block; margin-bottom: 2pt; }
+  .f1 { border-color: #F0C7C3; background: #FDF3F2; } .f1 .t { color: #97241F; }
+  .f2 { border-color: #EFDCB4; background: #FBF6EA; } .f2 .t { color: #8A5203; }
+  .f3 { border-color: #BFD8EE; background: #EEF4FA; } .f3 .t { color: #14538C; }
+  .f4 { border-color: #AFD9C6; background: #EEF7F2; } .f4 .t { color: #0F6B4E; }
+  .firmas { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6pt; margin: 6pt 0 10pt; }
+  .firmas div { border: 1.5px solid #D3D1C7; border-radius: 8pt; padding: 8pt 9pt; font-size: 9.5pt; background: white; }
+  .firmas .n { display: inline-block; width: 18pt; height: 18pt; border-radius: 50%; background: #1D9E75; color: white; text-align: center; font-weight: 800; line-height: 18pt; margin-right: 4pt; }
+  .boton { display: inline-block; border: 1px solid #1D9E75; color: #0F6B4E; border-radius: 4pt; padding: 0 4pt; font-weight: 700; font-size: 9.5pt; white-space: nowrap; }
+  .menu { display: inline-block; background: #F1F1EC; border-radius: 4pt; padding: 0 4pt; font-weight: 600; white-space: nowrap; }
+  .indice li { margin-bottom: 2pt; }
+  .indice ul { margin-top: 2pt; }
+  .pie { color: #6B6A62; font-size: 9pt; margin-top: 24pt; border-top: 1px solid #D3D1C7; padding-top: 6pt; }
+  /* Manual del chofer (2026-09-26): una tarea por página, captura del celular al lado de pocos pasos. */
+  .tarea { page-break-before: always; }
+  .tarea h2 { font-size: 19pt; }
+  .tarea .para { color: #6B6A62; font-size: 10.5pt; margin: -3pt 0 10pt; }
+  .pp { display: grid; grid-template-columns: 58mm 1fr; gap: 12pt; align-items: start; margin-bottom: 10pt; page-break-inside: avoid; }
+  .pp.dos { grid-template-columns: 58mm 58mm; justify-content: start; }
+  .pp.dos > div { grid-column: 1 / -1; }
+  .pp img { width: 100%; border: 1px solid #D3D1C7; border-radius: 8pt; display: block; }
+  .pp figcaption { font-size: 8.5pt; color: #6B6A62; margin-top: 3pt; text-align: center; }
+  .pp figure { margin: 0; }
+  ol.pasos { margin: 0 0 0 16pt; }
+  ol.pasos li { margin-bottom: 7pt; font-size: 11pt; }
+  .toca { display: inline-block; background: #1D9E75; color: white; border-radius: 4pt; padding: 0 5pt; font-weight: 700; font-size: 9.5pt; white-space: nowrap; }
+  .toca.claro { background: white; color: #0F6B4E; border: 1px solid #1D9E75; }
+  .toca.ambar { background: #FBF6EA; color: #8A5203; border: 1px solid #EFDCB4; }
+  table.si td:first-child { font-weight: 700; width: 38%; }
+  @media screen and (max-width: 640px) {
+    .pp, .pp.dos { grid-template-columns: 1fr; }
+    .pp figure { max-width: 300px; margin: 0 auto; }
+    .portada h1 { font-size: 24pt; }
+    .portada .marca { font-size: 9pt; margin-bottom: 6pt; }
+    .portada .sub { font-size: 11.5pt; }
+    .portada .meta { margin-top: 10pt; }
+  }
+</style>
+</head>
+<body>
+
+<div class="portada">
+  <div class="marca">Rolito · Distribución de hielo</div>
+  <h1>Manual del chofer</h1>
+  <div class="sub">Lo que hacés en la calle, pantalla por pantalla: entregar, vender, cobrar y dar el comprobante.</div>
+  <div class="meta">Versión del 26 de septiembre de 2026. Si algo no coincide con lo que ves, avisale a logística.</div>
+</div>
+
+<h2>¿Qué querés hacer?</h2>
+<ol class="indice">
+  <li>Entrar a la app</li>
+  <li>Ver mis entregas del día</li>
+  <li>Entregar un pedido</li>
+  <li>Marcar que no pude entregar</li>
+  <li>Vender sin pedido</li>
+  <li>Darle el comprobante al cliente</li>
+  <li>Corregir una venta mal hecha</li>
+  <li>Cobrar una cuenta corriente</li>
+  <li>Encontrar un cliente y llegar</li>
+  <li>Ver la ruta del día</li>
+  <li>Volver a planta y rendir</li>
+  <li>Si pasa esto, hacé esto</li>
+</ol>
+
+<div class="caja regla"><b>Las cinco reglas de oro.</b>
+<ol style="margin-top:4pt">
+  <li><b>Siempre firma y nombre</b> de quien recibe. Sin firma no sale el comprobante.</li>
+  <li><b>La cantidad es la que bajaste,</b> no la del pedido. Si bajaste menos, escribí por qué.</li>
+  <li><b>Sin señal se trabaja igual.</b> Todo se guarda en el teléfono y se sube solo.</li>
+  <li><b>No rindas en caja</b> si en <span class="menu">Mis ventas</span> dice que hay ventas sin subir.</li>
+  <li><b>Guardá las bolsas rotas</b> de los cambios: se entregan en el muelle al volver.</li>
+</ol></div>
+
+<p>¿Dudas en la calle? Tocá el <b>signo de pregunta</b> arriba a la derecha de cualquier pantalla y se abre este manual.</p>
+
+<!-- ─────────────────────────── 1 · ENTRAR ─────────────────────────── -->
+<div class="tarea">
+<h2>1 · ¿Cómo entro a la app?</h2>
+<div class="pp">
+  <figure><img src="img/chofer-login.png" alt="Ingreso de choferes"><figcaption>Ingreso Choferes</figcaption></figure>
+  <div>
+    <ol class="pasos">
+      <li>Abrí la app de Rolito y tocá <b>Ingreso Choferes</b>.</li>
+      <li>Escribí tu <b>DNI</b> (solo números) y tu <b>PIN</b> de 4 números.</li>
+      <li>Tocá <span class="toca">Ingresar</span>.</li>
+    </ol>
+    <div class="caja ojo"><b>Para entrar hace falta señal.</b> Una vez adentro, la app sigue funcionando aunque te quedes sin señal.</div>
+    <h3>Cambiar el PIN</h3>
+    <ol class="pasos">
+      <li>En el inicio tocá <span class="toca claro">Cambiar PIN</span>, al lado de "Mis entregas de hoy".</li>
+      <li>Escribí el PIN actual y dos veces el nuevo. Tocá <span class="toca">Guardar</span>.</li>
+    </ol>
+    <p>¿Te olvidaste el PIN? Pedile al administrador que te lo resetee.</p>
+  </div>
+</div>
+</div>
+
+<!-- ─────────────────────────── 2 · INICIO ─────────────────────────── -->
+<div class="tarea">
+<h2>2 · ¿Qué veo al entrar?</h2>
+<div class="pp dos">
+  <figure><img src="img/chofer-inicio.png" alt="Inicio del chofer"><figcaption>Arriba: los botones</figcaption></figure>
+  <figure><img src="img/chofer-parada.png" alt="Una parada"><figcaption>Abajo: tus paradas en orden</figcaption></figure>
+  <div>
+    <p><b>Arriba</b> están los botones grandes:</p>
+    <ul>
+      <li><span class="toca">Vender</span> una venta sin pedido.</li>
+      <li><span class="toca claro">Cobrar</span> una deuda de cuenta corriente.</li>
+      <li><span class="toca claro">Facturas</span> para darle el comprobante al cliente.</li>
+      <li><span class="toca claro">Buscar cliente</span> para ver dónde queda.</li>
+    </ul>
+    <p><b>Abajo</b> van tus paradas, en el orden que armó logística. Cada una tiene:</p>
+    <ul>
+      <li><span class="toca">ENTREGAR</span> para registrar la entrega y sacar el comprobante.</li>
+      <li><span class="toca claro">Abrir en Maps</span> para ir.</li>
+      <li><span class="toca ambar">No entregado</span> si no pudiste.</li>
+    </ul>
+    <p>La barra de abajo tiene <b>Entregas</b>, <b>Ruta</b>, <b>Clientes</b> y <b>PDF</b> (la hoja de ruta para imprimir).</p>
+    <div class="caja"><b>Activá las notificaciones</b> la primera vez: te avisan cuando te asignan un pedido nuevo.</div>
+  </div>
+</div>
+</div>
+
+<!-- ─────────────────────────── 3 · ENTREGAR ─────────────────────────── -->
+<div class="tarea">
+<h2>3 · ¿Cómo entrego un pedido?</h2>
+<p class="para">Tocá <span class="toca">ENTREGAR</span> en la parada. Son tres pasos y al final sale el comprobante solo.</p>
+<div class="pp dos">
+  <figure><img src="img/chofer-entregar-1.png" alt="Paso 1"><figcaption>Paso 1: lo que entregaste</figcaption></figure>
+  <figure><img src="img/chofer-teclado.png" alt="Teclado"><figcaption>Tocá el número para escribirlo</figcaption></figure>
+  <div>
+    <h3 style="margin-top:0">Paso 1 · Cantidades</h3>
+    <ol class="pasos">
+      <li>Vienen las cantidades del pedido. Si entregaste otra cantidad, <b>tocá el número</b> y escribila (por ejemplo 30). Con <b>−</b> y <b>+</b> ajustás de a uno.</li>
+      <li>Si entregaste menos, escribí el <b>motivo</b> ("no le entraba en el freezer").</li>
+      <li>Tocá <span class="toca">SEGUIR</span>.</li>
+    </ol>
+    <div class="caja"><b>El número en amarillo</b> avisa que es distinto de lo pedido. Está bien si es lo que bajaste.</div>
+  </div>
+</div>
+<div class="pp dos">
+  <figure><img src="img/chofer-entregar-2.png" alt="Paso 2"><figcaption>Paso 2: cómo paga</figcaption></figure>
+  <figure><img src="img/chofer-entregar-3.png" alt="Paso 3"><figcaption>Paso 3: nombre y firma</figcaption></figure>
+  <div>
+    <h3 style="margin-top:0">Paso 2 · Venta y pago</h3>
+    <ol class="pasos">
+      <li><b>VENTA CONTADO</b> (con factura) o <b>PROMO</b>. Viene marcado contado.</li>
+      <li>Si el cliente tiene varias sucursales, elegí <b>a cuál</b> fue.</li>
+      <li><b>¿Cómo paga?</b> Viene marcada la forma habitual del cliente.</li>
+      <li><b>Orden de compra:</b> viene la del pedido. Si el cliente te da otra, cambiala.</li>
+    </ol>
+    <h3>Paso 3 · Firma</h3>
+    <ol class="pasos">
+      <li>Escribí el <b>nombre de quien firma</b>.</li>
+      <li>Que firme con el dedo en el recuadro.</li>
+      <li>Tocá <span class="toca">CONFIRMAR ENTREGA</span>.</li>
+    </ol>
+  </div>
+</div>
+</div>
+
+<div class="tarea">
+<h2>3 · Entregar: qué sale y qué pasa después</h2>
+<div class="pp">
+  <figure><img src="img/chofer-entregar-ok.png" alt="Entrega registrada"><figcaption>¡Entrega registrada!</figcaption></figure>
+  <div>
+    <table>
+      <tr><th>Elegiste</th><th>Sale</th></tr>
+      <tr><td>Venta contado · efectivo o transferencia</td><td><b>Factura</b> electrónica (llega en unos segundos con señal)</td></tr>
+      <tr><td>Venta contado · cuenta corriente</td><td><b>Remito</b>, sin precios. La factura la hace la oficina</td></tr>
+      <tr><td>Promo · cualquier forma de pago</td><td><b>Factura X</b></td></tr>
+    </table>
+    <ul>
+      <li><b>El comprobante se manda solo</b> al mail del cliente. Si no tiene mail, dáselo desde <span class="menu">Facturas</span> (ver la tarea 6).</li>
+      <li><b>En cuenta corriente no vas a ver importes:</b> solo las unidades. Es a propósito: esa plata no la cobrás vos.</li>
+      <li>Tocá <span class="toca">Ver el comprobante</span> para mostrarlo o mandarlo en el momento.</li>
+    </ul>
+    <div class="caja ojo"><b>Remito de fábrica (Coto, Carrefour y otros).</b> La tarjeta dice "Remito de fábrica" y el botón es <span class="toca">ENTREGADO</span>. El remito lo imprimió la oficina: solo cargás <b>lo que bajaste</b> y confirmás. No hay firma ni comprobante de la app.</div>
+  </div>
+</div>
+</div>
+
+<!-- ─────────────────────────── 4 · NO ENTREGADO ─────────────────────────── -->
+<div class="tarea">
+<h2>4 · ¿Y si no pude entregar?</h2>
+<div class="pp">
+  <figure><img src="img/chofer-no-entregado.png" alt="No entregado"><figcaption>No entregado</figcaption></figure>
+  <div>
+    <ol class="pasos">
+      <li>En la parada tocá <span class="toca ambar">No entregado</span>.</li>
+      <li>Elegí el motivo: <i>cliente ausente, tiempo insuficiente, problema mecánico, dirección incorrecta, clima, zona de riesgo</i> u <i>Otro</i> (con "Otro" escribí qué pasó).</li>
+      <li>Tocá <span class="toca">Confirmar</span>.</li>
+    </ol>
+    <p>El pedido <b>pasa solo a mañana</b> y logística lo puede reasignar. Si el cliente tiene mail, le llega el aviso.</p>
+    <p><b>¿Encontraste el lugar exacto de entrega?</b> Tocá <span class="toca claro">Marcar punto de entrega real</span> parado en la puerta: la próxima vez el mapa te lleva ahí.</p>
+  </div>
+</div>
+</div>
+
+<!-- ─────────────────────────── 5 · VENDER ─────────────────────────── -->
+<div class="tarea">
+<h2>5 · ¿Cómo vendo sin pedido?</h2>
+<p class="para">Para un cliente que te para en la calle o te pide más de lo que tenía el pedido.</p>
+<div class="pp dos">
+  <figure><img src="img/chofer-vender-tipo.png" alt="Tipo de venta"><figcaption>Venta Contado o Promo</figcaption></figure>
+  <figure><img src="img/chofer-vender-productos.png" alt="Productos"><figcaption>Cliente y productos</figcaption></figure>
+  <div>
+    <ol class="pasos">
+      <li>Tocá <span class="toca">Vender</span> y elegí <b>Venta Contado</b> o <b>Promo</b>.</li>
+      <li>En <b>CLIENTE</b> buscalo por nombre, código o CUIT. Si tiene sucursales, elegí cuál.</li>
+      <li><b>Tocá cada producto</b> y escribí la cantidad en el teclado. Para sacarlo, poné 0.</li>
+      <li>¿Una bolsa rota para cambiar? Abrí <b>CAMBIOS</b> y cargala ahí: sale en el mismo comprobante sin cargo.</li>
+    </ol>
+  </div>
+</div>
+<div class="pp dos">
+  <figure><img src="img/chofer-vender-pago.png" alt="Forma de pago y firma"><figcaption>Forma de pago y firma</figcaption></figure>
+  <figure><img src="img/chofer-vender-resumen.png" alt="Resumen"><figcaption>Revisá antes de registrar</figcaption></figure>
+  <div>
+    <ol class="pasos" start="5">
+      <li>Elegí la <b>forma de pago</b>. El cartel verde te dice qué comprobante sale.</li>
+      <li>Si el cliente la pide, cargá la <b>orden de compra</b>.</li>
+      <li>Nombre y <b>firma</b> de quien recibe.</li>
+      <li>Tocá <span class="toca">Revisar y confirmar</span>, mirá el resumen y tocá <span class="toca">Aceptar y registrar</span>.</li>
+    </ol>
+    <div class="caja ojo"><b>Si la app no te deja vender contado</b> (el cliente no tiene CUIT o condición de IVA), hacé la venta en <b>cuenta corriente</b> o como <b>Promo</b>, y avisá a la oficina.</div>
+  </div>
+</div>
+</div>
+
+<!-- ─────────────────────────── 6 · COMPROBANTE ─────────────────────────── -->
+<div class="tarea">
+<h2>6 · ¿Cómo le doy el comprobante al cliente?</h2>
+<div class="pp dos">
+  <figure><img src="img/chofer-ventas.png" alt="Mis ventas"><figcaption>Facturas (Mis ventas)</figcaption></figure>
+  <figure><img src="img/chofer-ventas-menu.png" alt="Enviar o descargar"><figcaption>Enviar o descargar</figcaption></figure>
+  <div>
+    <ol class="pasos">
+      <li>En el inicio tocá <span class="toca claro">Facturas</span>.</li>
+      <li>En la venta, tocá <span class="toca">Enviar o descargar</span>.</li>
+      <li>Elegí:
+        <ul>
+          <li><b>Ver en pantalla</b> para mostrarlo o imprimirlo.</li>
+          <li><b>WhatsApp u otra app</b> para mandarlo con el PDF.</li>
+          <li><b>Mail al cliente:</b> viene el mail de la sucursal. <b>Podés borrarlo y escribir otro</b>, por ejemplo el de casa central.</li>
+          <li><b>Descargar</b> lo guarda en el teléfono.</li>
+        </ul>
+      </li>
+    </ol>
+    <p>Debajo de cada venta ves qué pasó con el mail automático:</p>
+    <table>
+      <tr><th>Dice</th><th>Qué hacés</th></tr>
+      <tr><td>Mail entregado</td><td>Nada, le llegó.</td></tr>
+      <tr><td>Mail al cliente pendiente (sale con señal)</td><td>Nada, sale solo cuando haya señal.</td></tr>
+      <tr><td>Cliente sin mail en Tango</td><td>Mandalo por WhatsApp o escribí el mail a mano.</td></tr>
+      <tr><td>El mail rebotó</td><td>Avisá a facturación: el mail del cliente está mal en Tango.</td></tr>
+    </table>
+  </div>
+</div>
+</div>
+
+<!-- ─────────────────────────── 7 · CORREGIR ─────────────────────────── -->
+<div class="tarea">
+<h2>7 · ¿Me equivoqué en una venta?</h2>
+<table>
+  <tr><th>Qué salió</th><th>Qué hacés</th></tr>
+  <tr><td><b>Remito</b> (cuenta corriente), hace menos de 1 hora</td><td>En <span class="menu">Facturas</span>, tocá <b>Anular remito</b>, elegí qué pasó y confirmá. No necesitás autorización.</td></tr>
+  <tr><td><b>Remito</b>, hace más de 1 hora</td><td>Pedile la anulación a la oficina.</td></tr>
+  <tr><td><b>Factura</b> o <b>Factura X</b></td><td>No la anulás vos: la pide caja cuando liquidás. En <span class="menu">Facturas</span> ves el estado.</td></tr>
+</table>
+<p>Cuando la venta queda anulada aparece <span class="toca">Hacer la venta correcta</span>: abre Vender con todo cargado. Corregí lo que estaba mal y confirmá.</p>
+<div class="caja ojo"><b>Si el cliente se quedó con el hielo</b>, hacé la venta correcta en el momento. Si no, la mercadería vuelve a tu camión y cuenta en la descarga.</div>
+</div>
+
+<!-- ─────────────────────────── 8 · COBRAR ─────────────────────────── -->
+<div class="tarea">
+<h2>8 · ¿Cómo cobro una cuenta corriente?</h2>
+<div class="pp dos">
+  <figure><img src="img/chofer-cobrar.png" alt="Cobrar"><figcaption>Facturas y valores</figcaption></figure>
+  <figure><img src="img/chofer-cobrar-ok.png" alt="Cobranza registrada"><figcaption>Recibo emitido</figcaption></figure>
+  <div>
+    <ol class="pasos">
+      <li>Tocá <span class="toca claro">Cobrar</span> y buscá el cliente.</li>
+      <li><b>Tildá las facturas</b> que paga. Si paga parte de una, cambiá el importe.</li>
+      <li>En <b>VALORES RECIBIDOS</b> cargá el efectivo, la transferencia, o tocá <b>+ Cheque</b> o <b>+ Retención</b>.</li>
+      <li>Abajo tiene que cuadrar: si dice <b>"Faltan $…"</b>, falta cargar plata.</li>
+      <li>Tocá <span class="toca">Emitir recibo</span> y <span class="toca">Confirmar</span>.</li>
+      <li>Tocá <b>Enviar recibo</b> para mandárselo por WhatsApp o mail.</li>
+    </ol>
+    <div class="caja"><b>Un recibo es de una sola empresa.</b> Si debe en Redonhielo y en Rolito, hacés dos recibos.</div>
+    <div class="caja ojo"><b>Guardá los cheques y los certificados de retención</b> en papel: se entregan en caja al liquidar.</div>
+    <p>¿Te adelanta plata sin factura? Usá <b>Cobrar a cuenta</b>: queda como saldo a favor.</p>
+  </div>
+</div>
+</div>
+
+<!-- ─────────────────────────── 9 · BUSCAR ─────────────────────────── -->
+<div class="tarea">
+<h2>9 · ¿Cómo encuentro un cliente y llego?</h2>
+<div class="pp">
+  <figure><img src="img/chofer-buscar.png" alt="Buscar cliente"><figcaption>Buscar cliente</figcaption></figure>
+  <div>
+    <ol class="pasos">
+      <li>Tocá <span class="toca claro">Buscar cliente</span> (o <b>Clientes</b> en la barra de abajo).</li>
+      <li>Escribí parte del <b>nombre</b>, el <b>código</b>, la <b>sucursal</b> o la <b>calle</b>. Anda sin señal.</li>
+      <li>Tocá el domicilio: ves el mapa, el <b>horario en que recibe</b> y el contacto.</li>
+      <li><span class="toca">Cómo llegar</span> abre Google Maps, <b>Waze</b> abre Waze y <b>Llamar</b> llama.</li>
+      <li>Si le vas a vender, tocá <span class="toca claro">Vender en esta sucursal</span>: la venta sale a esa sucursal.</li>
+    </ol>
+    <p>Si no aparece la dirección o está mal, avisale a logística.</p>
+  </div>
+</div>
+</div>
+
+<!-- ─────────────────────────── 10 · RUTA ─────────────────────────── -->
+<div class="tarea">
+<h2>10 · ¿Cómo veo la ruta del día?</h2>
+<div class="pp">
+  <figure><img src="img/chofer-ruta.png" alt="Ruta"><figcaption>Ruta</figcaption></figure>
+  <div>
+    <ol class="pasos">
+      <li>Tocá <b>Ruta</b> en la barra de abajo.</li>
+      <li><span class="toca">Calcular ruta</span> la dibuja en el mapa saliendo de la planta.</li>
+      <li><span class="toca claro">Abrir en Google Maps</span> te lleva parada por parada.</li>
+    </ol>
+    <p>El orden es el que armó logística. Para entregar volvé a <b>Entregas</b>: desde el mapa no se entrega.</p>
+    <div class="caja"><b>Dejá la app abierta</b> mientras tenés entregas: así la oficina ve dónde estás.</div>
+  </div>
+</div>
+</div>
+
+<!-- ─────────────────────────── 11 · VOLVER ─────────────────────────── -->
+<div class="tarea">
+<h2>11 · ¿Qué hago al volver a planta?</h2>
+<ol class="pasos">
+  <li>En el inicio tocá <span class="toca">Llegué a planta</span> (si seguridad ya te marcó en el portón, no hace falta).</li>
+  <li>Elegí la <b>dársena</b> donde estacionaste: solo aparecen las libres. Si no hay ninguna, esperá: aparece cuando se libere.</li>
+  <li>El muelle cuenta lo que devolvés. Entregá las <b>bolsas rotas</b> de los cambios.</li>
+  <li>Pasá por caja con la plata, los cheques y las retenciones. <b>Antes, mirá que en Facturas no haya ventas sin subir.</b></li>
+</ol>
+<p>En el inicio tenés dos tarjetas para controlar tu día:</p>
+<ul>
+  <li><b>Mi camión hoy:</b> lo que cargaste, lo que vendiste, lo que te queda para devolver y el <b>efectivo a rendir</b>.</li>
+  <li><b>Mi rendición de hoy:</b> cuando caja cierra tu liquidación, ves lo que entregaste, quién lo recibió y la diferencia. Desde ahí mandás el PDF.</li>
+</ul>
+<div class="caja"><b>Mis papeles</b> tiene el remito de carga y el <b>COT</b> de ARBA, y anda sin señal: mostralo si te paran en un control. Si dice que el COT no salió, <b>no arranques</b>: pedíselo al muelle.</div>
+</div>
+
+<!-- ─────────────────────────── 12 · SI PASA ─────────────────────────── -->
+<div class="tarea">
+<h2>12 · Si pasa esto, hacé esto</h2>
+<table class="si">
+  <tr><th>Si pasa esto</th><th>Hacé esto</th></tr>
+  <tr><td>Me quedé sin señal</td><td>Seguí trabajando. Entregas, ventas y cobranzas se guardan en el teléfono y se suben solas.</td></tr>
+  <tr><td>"Ventas todavía no subieron al servidor"</td><td>Buscá señal y esperá que desaparezca el aviso. No rindas en caja antes.</td></tr>
+  <tr><td>"Facturando…" hace rato</td><td>Necesita señal. Sale sola cuando vuelve.</td></tr>
+  <tr><td>"ARCA rechazó la factura"</td><td>Avisá a la oficina.</td></tr>
+  <tr><td>El cliente quiere el comprobante en otro mail</td><td>Facturas → Enviar o descargar → Mail al cliente, borrá el mail y escribí el nuevo.</td></tr>
+  <tr><td>"El mail rebotó"</td><td>Mandalo por WhatsApp y avisá a facturación para que corrijan el mail en Tango.</td></tr>
+  <tr><td>"Sin precio en Tango"</td><td>Ese producto no se puede vender a ese cliente. Avisá a la oficina.</td></tr>
+  <tr><td>"Cliente inhabilitado en Tango"</td><td>No le podés vender. Avisá a la oficina.</td></tr>
+  <tr><td>"No se le puede hacer una venta contado"</td><td>Hacela en cuenta corriente o Promo y avisá a la oficina que le faltan datos.</td></tr>
+  <tr><td>La cuenta corriente aparece apagada</td><td>El cliente es de contado en Tango: cobrale en efectivo o transferencia.</td></tr>
+  <tr><td>Un producto dice "no está en el catálogo"</td><td>No va a salir en el comprobante. Avisá a la oficina.</td></tr>
+  <tr><td>"El COT todavía no salió"</td><td>No salgas: pedíselo al muelle.</td></tr>
+  <tr><td>No hay dársena libre</td><td>Esperá: aparece cuando se libere una. El muelle ya sabe que volviste.</td></tr>
+  <tr><td>Me olvidé el PIN</td><td>Pedile al administrador que te lo resetee.</td></tr>
+</table>
+<div class="pie">Rolito · manual del chofer · 26/09/2026. Si una pantalla cambió y el manual no, avisale a logística.</div>
+</div>
+
+</body>
+</html>

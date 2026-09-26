@@ -1,5 +1,5 @@
-import { Link } from 'react-router-dom'
-import { ArrowLeft, LogOut } from 'lucide-react'
+import { Link, useLocation } from 'react-router-dom'
+import { ArrowLeft, CircleHelp, LogOut } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { logoutUser } from '../../services/authService'
 
@@ -10,6 +10,8 @@ import { logoutUser } from '../../services/authService'
 // el mapa descuenta los mismos 56px + env(safe-area-inset-top).
 export default function ChoferHeader({ title, back = false }: { title?: string; back?: boolean }) {
   const { user } = useAuth()
+  // Ayuda (2026-09-26): el manual del chofer a un toque desde cualquier pantalla.
+  const enManual = useLocation().pathname === '/chofer/manual'
   return (
     <header className="min-h-14 pt-[env(safe-area-inset-top)] bg-white border-b border-[#D3D1C7] flex items-center gap-3 px-3 sticky top-0 z-30">
       {back ? (
@@ -28,6 +30,12 @@ export default function ChoferHeader({ title, back = false }: { title?: string; 
           <p className="text-xs text-secundario leading-tight">Camión {user.camionPatente}</p>
         )}
       </div>
+      {!enManual && (
+        <Link to="/chofer/manual" aria-label="Manual del chofer" title="Manual del chofer"
+          className="w-10 h-10 rounded-xl flex items-center justify-center text-secundario hover:text-gray-700 active:scale-90 transition-transform">
+          <CircleHelp size={21} />
+        </Link>
+      )}
       <button onClick={() => logoutUser()} aria-label="Cerrar sesión"
         className="w-10 h-10 rounded-xl flex items-center justify-center text-secundario hover:text-gray-700 active:scale-90 transition-transform">
         <LogOut size={20} />

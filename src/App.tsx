@@ -68,6 +68,7 @@ const VentaCamion       = lazy(() => import('@/pages/logistica/chofer/VentaCamio
 const EntregarPedidoPage = lazy(() => import('@/pages/logistica/chofer/EntregarPedidoPage'))
 const VentasChofer      = lazy(() => import('@/pages/logistica/chofer/VentasChofer'))
 const BuscarClienteChofer = lazy(() => import('@/pages/logistica/chofer/BuscarClienteChofer'))
+const ManualChofer = lazy(() => import('@/pages/logistica/chofer/ManualChofer'))
 const GerenteDashboard  = lazy(() => import('@/pages/admin/GerenteDashboard'))
 
 const HeladerasPage        = lazy(() => import('./pages/heladeras/HeladerasPage'))
@@ -446,6 +447,7 @@ function AppContent() {
           <Route path="/chofer/entregar/:orderId" element={<EntregarPedidoPage />} />
           <Route path="/chofer/ventas" element={<VentasChofer />} />
           <Route path="/chofer/clientes" element={<BuscarClienteChofer />} />
+          <Route path="/chofer/manual" element={<ManualChofer />} />
           <Route path="/chofer/cobrar" element={<CobranzaCalle />} />
         </Route>
 
