@@ -1,3 +1,4 @@
+import { integrarLote, unSoloPedido } from '@/utils/reservaNumeros'
 import { doc, getDoc, runTransaction, setDoc } from 'firebase/firestore'
 import { db } from './firebase'
 import { TipoComprobanteInterno } from '../types'
@@ -152,13 +153,20 @@ export async function asegurarReserva(
   const r = leerReserva(tipo, uid)
   if (margenRestante(r) > 0 || r.siguiente) return true
   if (!online) return false
-  try {
-    const rango = await reservarLote(tipo)
-    guardarReserva(tipo, uid, { ...r, activo: { ...rango, usedUpTo: rango.from - 1 } })
-    return true
-  } catch {
-    return false
-  }
+  // Un solo pedido en vuelo y el lote se integra sobre la reserva RELEÍDA
+  // (2026-09-26, auditoría del chofer, M2): antes el último pedido pisaba al
+  // primero y ese lote se perdía (huecos en el talonario con CAI).
+  return unSoloPedido(`${tipo}:${uid}`, async () => {
+    try {
+      const rango = await reservarLote(tipo)
+      const { reserva, sobrante } = integrarLote(leerReserva(tipo, uid), rango)
+      guardarReserva(tipo, uid, reserva)
+      if (sobrante) console.warn(`[numeración] lote ${tipo} ${sobrante.from}-${sobrante.to} reservado de más; no se usa`)
+      return true
+    } catch {
+      return false
+    }
+  })
 }
 
 // Fire-and-forget después de cada venta: recarga el próximo lote en background
@@ -173,8 +181,9 @@ export function precargarSiSeAcerca(tipo: TipoComprobanteInterno, uid: string, o
   guardarReserva(tipo, uid, { ...r, reservaEnCurso: Date.now() })
   reservarLote(tipo)
     .then((rango) => {
-      const actual = leerReserva(tipo, uid)
-      guardarReserva(tipo, uid, { ...actual, siguiente: rango, reservaEnCurso: null })
+      const { reserva, sobrante } = integrarLote(leerReserva(tipo, uid), rango)
+      guardarReserva(tipo, uid, reserva)
+      if (sobrante) console.warn(`[numeración] lote ${tipo} ${sobrante.from}-${sobrante.to} reservado de más; no se usa`)
     })
     .catch(() => {
       const actual = leerReserva(tipo, uid)

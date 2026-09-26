@@ -109,11 +109,13 @@ export default function CobranzaCompleta({ origen, plantaId, cajaSesionId, clien
   // Reserva de números de recibo para poder emitir sin señal (chofer y
   // supervisor). Si el contador no está inicializado, los recibos salen sin
   // número y el cobro no se bloquea nunca.
+  // Depende del uid, no del objeto usuario (auditoría del chofer, M2).
+  const uidReserva = user?.uid
   useEffect(() => {
-    if (!user) return
-    asegurarReserva(user.uid, online).then(setNumeracionActiva).catch((err) => reportError(err, { origen: 'CobranzaCompleta', accion: 'reservar numeración de recibos' }))
+    if (!uidReserva) return
+    asegurarReserva(uidReserva, online).then(setNumeracionActiva).catch((err) => reportError(err, { origen: 'CobranzaCompleta', accion: 'reservar numeración de recibos' }))
     // online a propósito: si vuelve la señal, reintenta la reserva.
-  }, [user, online])
+  }, [uidReserva, online])
 
   // Al cambiar de cliente se resetea todo el armado del recibo.
   useEffect(() => {

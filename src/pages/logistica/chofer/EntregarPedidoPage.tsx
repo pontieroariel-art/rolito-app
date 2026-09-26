@@ -118,14 +118,17 @@ export default function EntregarPedidoPage() {
 
   // Numeración propia (remito / factura X) reservada al entrar, para numerar sin señal.
   const [numeracionActiva, setNumeracionActiva] = useState<Record<TipoComprobanteInterno, boolean>>({ remito: false, remitoPromo: false, facturaX: false })
+  // Depende del uid, no del objeto usuario (que cambia con cada snapshot del perfil
+  // y volvía a pedir lotes en paralelo; auditoría del chofer, M2).
+  const uidReserva = user?.uid
   useEffect(() => {
-    if (!user) return
+    if (!uidReserva) return
     ;(['remito', 'remitoPromo', 'facturaX'] as const).forEach((tipo) => {
-      asegurarReserva(tipo, user.uid, online)
+      asegurarReserva(tipo, uidReserva, online)
         .then((activa) => setNumeracionActiva((prev) => (prev[tipo] === activa ? prev : { ...prev, [tipo]: activa })))
         .catch((err) => reportError(err, { origen: 'EntregarPedidoPage', accion: 'reservar numeración', tipo }))
     })
-  }, [user, online])
+  }, [uidReserva, online])
 
   const depositoVenta = depositoUsuario
     ? { depositoTango: depositoUsuario.codigo, depositoTangoNombre: depositoUsuario.nombre }

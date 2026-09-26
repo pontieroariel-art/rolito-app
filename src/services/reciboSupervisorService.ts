@@ -1,3 +1,4 @@
+import { integrarLote, unSoloPedido } from '@/utils/reservaNumeros'
 import { doc, getDoc, runTransaction, setDoc } from 'firebase/firestore'
 import { db } from './firebase'
 
@@ -115,15 +116,20 @@ export async function asegurarReserva(uid: string, online: boolean): Promise<boo
 
   if (!online) return false
 
-  try {
-    const rango = await reservarLote()
-    guardarReserva(uid, { ...r, activo: { ...rango, usedUpTo: rango.from - 1 } })
-    return true
-  } catch {
-    // Contador no inicializado (modo "sin numeración") o error de red — el
-    // cobro sigue sin número.
-    return false
-  }
+  // Un solo pedido en vuelo y el lote se integra sobre la reserva RELEÍDA (M2).
+  return unSoloPedido(`recibo:${uid}`, async () => {
+    try {
+      const rango = await reservarLote()
+      const { reserva, sobrante } = integrarLote(leerReserva(uid), rango)
+      guardarReserva(uid, reserva)
+      if (sobrante) console.warn(`[recibos] lote ${sobrante.from}-${sobrante.to} reservado de más; no se usa`)
+      return true
+    } catch {
+      // Contador no inicializado (modo "sin numeración") o error de red — el
+      // cobro sigue sin número.
+      return false
+    }
+  })
 }
 
 // Fire-and-forget después de cada cobranza: recarga el próximo lote en
@@ -139,7 +145,9 @@ export function precargarSiSeAcerca(uid: string, online: boolean): void {
   reservarLote()
     .then((rango) => {
       const actual = leerReserva(uid)
-      guardarReserva(uid, { ...actual, siguiente: rango, reservaEnCurso: null })
+      const { reserva, sobrante } = integrarLote(actual, rango)
+      guardarReserva(uid, reserva)
+      if (sobrante) console.warn(`[recibos] lote ${sobrante.from}-${sobrante.to} reservado de más; no se usa`)
     })
     .catch(() => {
       const actual = leerReserva(uid)

@@ -155,14 +155,16 @@ export default function VentaCamion({ volverA = '/chofer' }: { volverA?: string 
   // Opcional: sin contador inicializado la venta sale igual, sin número.
   const online = useOnline()
   const [numeracionActiva, setNumeracionActiva] = useState<Record<TipoComprobanteInterno, boolean>>({ remito: false, remitoPromo: false, facturaX: false })
+  // Depende del uid, no del objeto usuario (M2, ver EntregarPedidoPage).
+  const uidReserva = user?.uid
   useEffect(() => {
-    if (!user) return
+    if (!uidReserva) return
     ;(['remito', 'remitoPromo', 'facturaX'] as const).forEach((tipo) => {
-      asegurarReserva(tipo, user.uid, online).then((activa) =>
+      asegurarReserva(tipo, uidReserva, online).then((activa) =>
         setNumeracionActiva((prev) => (prev[tipo] === activa ? prev : { ...prev, [tipo]: activa })),
       ).catch((err) => reportError(err, { origen: 'VentaCamion', accion: 'reservar numeración', tipo }))
     })
-  }, [user, online])
+  }, [uidReserva, online])
 
   const { cliente, loading: cargandoCliente } = useClienteSeleccionado(clienteId || null)
   // Cuenta corriente solo si Tango la tiene habilitada para el cliente (su
