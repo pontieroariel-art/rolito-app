@@ -465,6 +465,10 @@ export default function ChoferMap() {
             const name = user?.nombreContacto || user?.nombre || 'Chofer'
             try {
               abrir({ blob: await generateHojaDeRuta(pending, name), nombre: `hoja-de-ruta-${new Date().toISOString().slice(0, 10)}.pdf`, titulo: 'Hoja de ruta', subtitulo: `${name} · ${pending.length} entregas` })
+            } catch (err) {
+              // Sin esto la promesa rechazaba sin aviso y el botón no decía nada (auditoría del chofer, bajas).
+              reportError(err, { origen: 'ChoferMap', accion: 'hoja de ruta' })
+              alert('No se pudo armar la hoja de ruta. Intentá de nuevo.')
             } finally { setPdfLoading(false) }
           }}
           disabled={!pending.length || pdfLoading}

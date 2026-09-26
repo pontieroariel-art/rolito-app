@@ -23,12 +23,15 @@ export default function CobranzaCalle() {
   const [cobranzasHoy, setCobranzasHoy] = useState<Cobranza[]>([])
   const [pendientes, setPendientes] = useState(0)
 
+  // Por uid y no por el perfil: cualquier cambio del documento del usuario
+  // cerraba y reabría la suscripción (auditoría del chofer, bajas).
+  const uid = user?.uid
   useEffect(() => {
-    if (!user) return
+    if (!uid) return
     const desde = new Date(fecha); desde.setHours(0, 0, 0, 0)
     const hasta = new Date(desde); hasta.setDate(hasta.getDate() + 1)
-    return subscribeCobranzasChoferEnRango(user.uid, desde, hasta, setCobranzasHoy, setPendientes)
-  }, [user, fecha])
+    return subscribeCobranzasChoferEnRango(uid, desde, hasta, setCobranzasHoy, setPendientes)
+  }, [uid, fecha])
 
   const reemitirDe = useReemitirRecibo()
   // El viaje en curso (2026-09-18): la plata que el chofer cobra en la calle se

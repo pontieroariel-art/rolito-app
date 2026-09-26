@@ -548,6 +548,10 @@ export default function ChoferDashboard() {
           const name = user?.nombreContacto || user?.nombre || 'Chofer'
           try {
             abrir({ blob: await generateHojaDeRuta(pending, name), nombre: `hoja-de-ruta-${todayString()}.pdf`, titulo: 'Hoja de ruta', subtitulo: `${name} · ${pending.length} entregas` })
+          } catch (err) {
+            // Sin esto la promesa rechazaba sin aviso y el botón no decía nada (auditoría del chofer, bajas).
+            reportError(err, { origen: 'ChoferDashboard', accion: 'hoja de ruta' })
+            alert('No se pudo armar la hoja de ruta. Intentá de nuevo.')
           } finally { setPdfLoading(false) }
         }}
       />

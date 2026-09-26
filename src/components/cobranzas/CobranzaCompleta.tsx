@@ -100,9 +100,13 @@ export default function CobranzaCompleta({ origen, plantaId, cajaSesionId, clien
   const { cliente: clienteCargado, loading: cargandoCliente, error: errorCliente, reintentar: reintentarCliente } = useClienteSeleccionado(clienteId || null)
   const cliente = useMemo(() => (clienteCargado && estaVinculadoATango(clienteCargado) ? clienteCargado : null), [clienteCargado])
 
+  // Por uid y nombre, no por el perfil entero: un cambio del documento del
+  // usuario no rehace el actor ni vuelve a consultar el saldo (auditoría del chofer).
+  const actorUid = user?.uid
+  const actorNombre = user?.nombre
   const actor = useMemo(
-    () => (user ? { uid: user.uid, nombre: user.nombre } : null),
-    [user],
+    () => (actorUid ? { uid: actorUid, nombre: actorNombre ?? '' } : null),
+    [actorUid, actorNombre],
   )
   const { deposito: depositoUsuario } = useDepositoDelUsuario(user?.uid)
   const { saldo, cargando: cargandoSaldo, refrescando, esCache, frescas } = useSaldoClienteEnVivo(cliente, actor)

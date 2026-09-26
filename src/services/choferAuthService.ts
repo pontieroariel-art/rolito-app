@@ -1,5 +1,6 @@
 import { doc, setDoc, getDoc } from 'firebase/firestore'
 import { db } from './firebase'
+import { claveDniChofer } from '@/utils/dniChofer'
 
 export function padPin(pin: string): string {
   return `${pin}__ch`
@@ -16,8 +17,9 @@ export async function setDniIndex(cuit: string, email: string): Promise<void> {
 }
 
 export async function getEmailByDni(dni: string): Promise<string | null> {
-  const key = dni.replace(/\D/g, '')
-  if (!key || key.length !== 8) return null
+  // Un DNI de 7 dígitos se busca con el 0 que trae el CUIT (utils/dniChofer).
+  const key = claveDniChofer(dni)
+  if (!key) return null
   const snap = await getDoc(doc(db, 'dniIndex', key))
   if (!snap.exists()) return null
   return (snap.data() as { email: string }).email
