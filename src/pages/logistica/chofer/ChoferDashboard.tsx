@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, memo } from 'react'
+import { useState, useMemo, memo } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { HandCoins, Package, FileText, MapPin } from 'lucide-react'
 import ChoferHeader from '@/components/chofer/ChoferHeader'
@@ -12,8 +12,8 @@ import { usePushNotification } from '@/hooks/usePushNotification'
 import { savePushSubscription, proposeCoord } from '@/services/userService'
 import { markDelivered } from '@/services/orderService'
 import { useGpsChofer } from '@/hooks/useGpsChofer'
-import { subscribeDespachosForDriver, subscribeDespachosForAyudante, pickActiveDespacho, ordenarPorRutaDespacho } from '@/services/despachoService'
-import { Despacho } from '@/types'
+import { pickActiveDespacho, ordenarPorRutaDespacho } from '@/services/despachoService'
+import { useDespachosDelDia } from '@/hooks/useSuscripcionesChofer'
 import { reauthenticateWithCredential, EmailAuthProvider, updatePassword } from 'firebase/auth'
 import { auth } from '@/services/firebase'
 import { padPin } from '@/services/choferAuthService'
@@ -60,16 +60,10 @@ export default function ChoferDashboard() {
 
   // Ayudante: buscar el/los despacho(s) del día donde ayudanteEmail === user.email
   // (puede haber más de uno — varias vueltas del mismo chofer principal).
-  const [pairedDespachos,       setPairedDespachos]       = useState<Despacho[]>([])
-  const [pairedDespachoLoading, setPairedDespachoLoading] = useState(isAyudante)
-
-  useEffect(() => {
-    if (!user?.email || !isAyudante) return
-    return subscribeDespachosForAyudante(diaHoy, user.email, (ds) => {
-      setPairedDespachos(ds)
-      setPairedDespachoLoading(false)
-    })
-  }, [user?.email, isAyudante, diaHoy])
+  // Suscripciones compartidas con la ruta (R6).
+  const ayudanteSub = useDespachosDelDia(user?.email, 'ayudante', isAyudante)
+  const pairedDespachos = ayudanteSub.data
+  const pairedDespachoLoading = isAyudante && ayudanteSub.loading
 
   const pairedDespacho = pickActiveDespacho(pairedDespachos)
 
@@ -137,11 +131,7 @@ export default function ChoferDashboard() {
 
   // El despacho "activo" del día: para el chofer el suyo (puede tener más de
   // uno — varias vueltas); para el ayudante el del chofer asignado.
-  const [misDespachos, setMisDespachos] = useState<Despacho[]>([])
-  useEffect(() => {
-    if (!user?.email || isAyudante) return
-    return subscribeDespachosForDriver(diaHoy, user.email, setMisDespachos)
-  }, [user?.email, isAyudante, diaHoy])
+  const { data: misDespachos } = useDespachosDelDia(user?.email, 'chofer', !isAyudante)
 
   const despachoHoy = isAyudante ? pairedDespacho : pickActiveDespacho(misDespachos)
 

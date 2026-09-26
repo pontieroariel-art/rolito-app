@@ -9,7 +9,7 @@ import { Link } from 'react-router-dom'
 import { ArrowLeft, FileText, Clock, AlertTriangle, Mail, Ban } from 'lucide-react'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
 import { useAuth } from '@/context/AuthContext'
-import { subscribeVentasRecientesChofer } from '@/services/ventaCamionService'
+import { useVentasRecientesCompartidas } from '@/hooks/useSuscripcionesChofer'
 import { tipoComprobanteInterno, ETIQUETA_COMPROBANTE, type CaiRemito } from '@/utils/comprobanteInterno'
 import { codigoComprobanteInterno } from '@/services/numeracionInternaService'
 import { caiRemitoOficialCacheado, getCaiRemitoOficial } from '@/services/remitoOficialConfigService'
@@ -37,9 +37,8 @@ const nroFactura = (v: VentaCamion) =>
 
 export default function VentasChofer({ volverA = '/chofer' }: { volverA?: string } = {}) {
   const { user, verComo } = useAuth()
-  const [ventas, setVentas] = useState<VentaCamion[] | null>(null)
-  const [fallo, setFallo] = useState(false)
-  const [pendientes, setPendientes] = useState(0)
+  // Compartida con el hub del chofer (R6).
+  const { data: { ventas, pendientes }, error: fallo } = useVentasRecientesCompartidas(user?.uid)
   // CAI del talonario de remitos oficiales (Redonhielo). Arranca con el último
   // cacheado para que sirva sin señal; se refresca al montar.
   const [caiRemito, setCaiRemito] = useState<CaiRemito | null>(() => caiRemitoOficialCacheado())
@@ -49,11 +48,6 @@ export default function VentasChofer({ volverA = '/chofer' }: { volverA?: string
   useEffect(() => { const t = setInterval(() => setAhora(Date.now()), 60_000); return () => clearInterval(t) }, [])
   useEffect(() => { getCaiRemitoOficial().then(setCaiRemito).catch((err) => reportError(err, { origen: 'VentasChofer', accion: 'leer CAI del remito oficial' })) }, [])
 
-  useEffect(() => {
-    if (!user) return
-    setFallo(false)
-    return subscribeVentasRecientesChofer(user.uid, setVentas, () => setFallo(true), setPendientes)
-  }, [user])
   // Mail automático al cliente de cada venta que todavía no salió (también
   // corre desde el hub). En "Ver como" no se manda nada. Cada envío hecho
   // re-renderiza la lista, así los chips de estado se refrescan.

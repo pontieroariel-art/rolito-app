@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import type { CierreMercaderia, Liquidacion, RemitoCarga } from '@/types'
 import { subscribeLiquidacionDeViaje } from '@/services/liquidacionService'
 import { subscribeCierreMercaderia } from '@/services/cierreMercaderiaService'
-import { subscribeRemitosCargaChoferHoy } from '@/services/remitoCargaService'
+import { useRemitosChoferHoy } from '@/hooks/useSuscripcionesChofer'
 import { estadoDelViaje, type EstadoLiquidacion } from '@/utils/estadoLiquidacion'
 
 /**
@@ -18,23 +18,24 @@ export function useMiViajeHoy(uid: string | undefined): {
   mercaderia: CierreMercaderia | null
   estado:     EstadoLiquidacion
 } {
-  const [viaje, setViaje] = useState<RemitoCarga | null>(null)
   const [plata, setPlata] = useState<Liquidacion | null>(null)
   const [mercaderia, setMercaderia] = useState<CierreMercaderia | null>(null)
 
-  useEffect(() => {
-    if (!uid) { setViaje(null); return }
-    // El último remito del día es el viaje en curso (vienen ordenados por número
-    // descendente): con doble viaje, el que importa es el de ahora.
-    return subscribeRemitosCargaChoferHoy(uid, (rs) => setViaje(rs[0] ?? null))
-  }, [uid])
+  // El último remito del día es el viaje en curso (vienen ordenados por número
+  // descendente): con doble viaje, el que importa es el de ahora. Suscripción
+  // compartida con las otras pantallas del chofer (R6).
+  const { data: remitos } = useRemitosChoferHoy(uid)
+  const viaje: RemitoCarga | null = remitos[0] ?? null
+  const viajeId = viaje?.id
 
+  // Por id y no por el objeto: cada cambio del remito (regreso, dársena) traía
+  // uno nuevo y cerraba y reabría las dos suscripciones de abajo.
   useEffect(() => {
-    if (!viaje) { setPlata(null); setMercaderia(null); return }
-    const offPlata = subscribeLiquidacionDeViaje(viaje.id, setPlata)
-    const offMercaderia = subscribeCierreMercaderia(viaje.id, setMercaderia)
+    if (!viajeId) { setPlata(null); setMercaderia(null); return }
+    const offPlata = subscribeLiquidacionDeViaje(viajeId, setPlata)
+    const offMercaderia = subscribeCierreMercaderia(viajeId, setMercaderia)
     return () => { offPlata(); offMercaderia() }
-  }, [viaje])
+  }, [viajeId])
 
   return { viaje, plata, mercaderia, estado: estadoDelViaje(plata, mercaderia) }
 }

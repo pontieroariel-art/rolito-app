@@ -72,13 +72,13 @@ export function useDriverOrders(overrideEmail?: string | null): { orders: Order[
   const { user } = useAuth()
   const email = overrideEmail === undefined ? user?.email : overrideEmail
 
-  const { data: orders, loading, error } = useFirestoreSubscription<Order[]>(
-    (cb, onErr) => {
-      if (!email) { cb([]); return () => {} }
-      return subscribeDriverOrders(email, cb, onErr)
-    },
-    [email],
-    [],
+  // Compartida (auditoría del chofer, R6): la usan el GPS del shell, el inicio,
+  // la ruta y Entregar; una sola suscripción que sobrevive al cambio de pantalla.
+  const { data: orders, loading, error } = useSharedSubscription<Order[]>(
+    `driverOrders:${email ?? ''}`,
+    (cb, onErr) => subscribeDriverOrders(email ?? '', cb, onErr),
+    SIN_PEDIDOS,
+    { enabled: !!email },
   )
   return { orders, loading, error }
 }

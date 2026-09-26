@@ -16,14 +16,15 @@ import Button from '@/components/ui/Button'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
 import { useDriverOrders } from '@/hooks/useOrders'
 import { useGpsChofer } from '@/hooks/useGpsChofer'
-import { subscribeDespachosForDriver, subscribeDespachosForAyudante, pickActiveDespacho, todayStr, ordenarPorRutaDespacho } from '@/services/despachoService'
+import { pickActiveDespacho, ordenarPorRutaDespacho } from '@/services/despachoService'
+import { useDespachosDelDia } from '@/hooks/useSuscripcionesChofer'
 import { useAuth } from '@/context/AuthContext'
 import { useGoogleMapsLoader } from '@/hooks/useGoogleMapsLoader'
 import MapaBase from '@/components/common/map/MapaBase'
 import { summarizeProducts } from '@/utils/helpers'
 import { generateHojaDeRuta } from '@/utils/pdf'
 import { useVisorComprobante } from '@/components/ui/VisorComprobante'
-import type { Despacho, Order } from '@/types'
+import type { Order } from '@/types'
 import { PLANTAS } from '@/types'
 import { reportError } from '@/services/observability'
 
@@ -89,23 +90,12 @@ export default function ChoferMap() {
   const isAyudante = user?.subrol === 'ayudante'
   // Puede haber más de un despacho el mismo día (varias vueltas del mismo
   // chofer) — vienen ordenados por vuelta ascendente.
-  const [misDespachos,          setMisDespachos]          = useState<Despacho[]>([])
-  const [pairedDespachos,       setPairedDespachos]       = useState<Despacho[]>([])
-  const [pairedDespachoLoading, setPairedDespachoLoading] = useState(isAyudante)
-
-  // Suscribirse al despacho: chofer propio o del chofer asignado (ayudante)
-  useEffect(() => {
-    if (!user?.email || isAyudante) return
-    return subscribeDespachosForDriver(todayStr(), user.email, setMisDespachos)
-  }, [user?.email, isAyudante])
-
-  useEffect(() => {
-    if (!user?.email || !isAyudante) return
-    return subscribeDespachosForAyudante(todayStr(), user.email, (ds) => {
-      setPairedDespachos(ds)
-      setPairedDespachoLoading(false)
-    })
-  }, [user?.email, isAyudante])
+  // Despacho propio o del chofer asignado (ayudante): suscripciones
+  // compartidas con el inicio (R6).
+  const { data: misDespachos } = useDespachosDelDia(user?.email, 'chofer', !isAyudante)
+  const ayudanteSub = useDespachosDelDia(user?.email, 'ayudante', isAyudante)
+  const pairedDespachos = ayudanteSub.data
+  const pairedDespachoLoading = isAyudante && ayudanteSub.loading
 
   const despachosHoy = isAyudante ? pairedDespachos : misDespachos
   // El despacho "activo" — el confirmado de vuelta más alta (o el primero si

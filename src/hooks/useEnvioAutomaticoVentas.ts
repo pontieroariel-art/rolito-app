@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useOnline } from './useOnline'
-import { subscribeVentasRecientesChofer } from '@/services/ventaCamionService'
+import { useVentasRecientesCompartidas } from '@/hooks/useSuscripcionesChofer'
 import { procesarEnviosAutomaticos } from '@/services/envioAutomaticoVentasService'
 import type { VentaCamion } from '@/types'
 
@@ -25,10 +25,6 @@ export function useEnvioAutomaticoVentas(ventas: VentaCamion[] | null): number {
 
 /** Ventas recientes del chofer (las 50 últimas), para el hub: alimenta el envío automático. */
 export function useVentasRecientesChofer(uid: string | null | undefined): VentaCamion[] | null {
-  const [ventas, setVentas] = useState<VentaCamion[] | null>(null)
-  useEffect(() => {
-    if (!uid) { setVentas(null); return }
-    return subscribeVentasRecientesChofer(uid, setVentas)
-  }, [uid])
-  return ventas
+  // Compartida con Mis ventas (R6): una sola suscripción entre las dos pantallas.
+  return useVentasRecientesCompartidas(uid).data.ventas
 }
