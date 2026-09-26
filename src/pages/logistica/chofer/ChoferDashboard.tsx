@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo, memo } from 'react'
 import { Link } from 'react-router-dom'
-import { HandCoins, Package, FileText } from 'lucide-react'
+import { HandCoins, Package, FileText, MapPin } from 'lucide-react'
 import ChoferHeader from '@/components/chofer/ChoferHeader'
 import Badge from '@/components/ui/Badge'
 import Button from '@/components/ui/Button'
@@ -279,6 +279,13 @@ export default function ChoferDashboard() {
           className="sm:flex-1 flex items-center justify-center gap-2 rounded-2xl bg-white border border-[#D3D1C7] text-gray-700 py-4 sm:py-5 shadow-sm active:scale-[0.99] transition-transform">
           <FileText size={22} className="text-accent shrink-0" />
           <span className="text-base font-bold">Facturas</span>
+        </Link>
+        {/* Buscar cliente (2026-09-26, pedido de los choferes): dónde queda cada
+            domicilio, con Cómo llegar y Llamar. */}
+        <Link to="/chofer/clientes"
+          className="col-span-2 sm:flex-1 flex items-center justify-center gap-2 rounded-2xl bg-white border border-[#D3D1C7] text-gray-700 py-4 sm:py-5 shadow-sm active:scale-[0.99] transition-transform">
+          <MapPin size={22} className="text-accent shrink-0" />
+          <span className="text-base font-bold">Buscar cliente</span>
         </Link>
       </div>
 
@@ -1051,6 +1058,14 @@ function ChoferBottomNav({
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
         </svg>
         <span>Ruta</span>
+      </Link>
+
+      <Link
+        to="/chofer/clientes"
+        className="flex-1 flex flex-col items-center justify-center py-3 gap-1 text-xs font-medium transition-colors text-secundario hover:text-gray-700"
+      >
+        <MapPin size={20} />
+        <span>Clientes</span>
       </Link>
 
       <button

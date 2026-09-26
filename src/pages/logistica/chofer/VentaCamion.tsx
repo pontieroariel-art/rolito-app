@@ -10,7 +10,7 @@ import Modal from '@/components/ui/Modal'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
 import ClienteCombobox from '@/components/common/ClienteCombobox'
 import SelectorSucursal from '@/components/ventas/SelectorSucursal'
-import { clienteEnSucursal, MOTIVO_SUCURSAL_INHABILITADA, necesitaSucursal, sucursalInhabilitada } from '@/utils/sucursalesTango'
+import { clienteEnSucursal, MOTIVO_SUCURSAL_INHABILITADA, necesitaSucursal, sucursalesDe, sucursalInhabilitada } from '@/utils/sucursalesTango'
 import SignaturePad, { SignaturePadHandle } from '@/components/heladeras/SignaturePad'
 import { useAuth } from '@/context/AuthContext'
 import { useClienteSeleccionado } from '@/hooks/useClienteSeleccionado'
@@ -130,6 +130,9 @@ export default function VentaCamion({ volverA = '/chofer' }: { volverA?: string 
   // venta nueva queda vinculada (`reemiteDe`).
   const [searchParams] = useSearchParams()
   const reemitirId = searchParams.get('reemitir')
+  // ?cliente=<uid> llega desde Buscar cliente ("Vender a este cliente", 2026-09-26).
+  const clienteParam = searchParams.get('cliente')
+  useEffect(() => { if (clienteParam && !reemitirId) setClienteId(clienteParam) }, [clienteParam, reemitirId])
   const [reemision, setReemision] = useState<VentaCamionDoc | null>(null)
   useEffect(() => {
     if (!reemitirId) return
@@ -175,6 +178,14 @@ export default function VentaCamion({ volverA = '/chofer' }: { volverA?: string 
   useEffect(() => {
     if (reemision && cliente && cliente.uid === reemision.clienteId && reemision.clienteCodigoTango) setSucursal(reemision.clienteCodigoTango)
   }, [cliente, reemision])
+  // Desde Buscar cliente llega ?sucursal=<código de Tango> (2026-09-26): se marca
+  // sola si existe y está habilitada en la empresa del canal; si no, el chofer la elige.
+  const sucursalParam = searchParams.get('sucursal')
+  useEffect(() => {
+    if (!sucursalParam || !cliente || cliente.uid !== clienteParam) return
+    if (sucursalesDe(cliente, empresa).some((s) => s.codigo === sucursalParam && s.habilitada)) setSucursal(sucursalParam)
+    // `canal` también: al elegir el tipo de venta el efecto de arriba borra la sucursal.
+  }, [cliente, clienteParam, sucursalParam, empresa, canal])
   const faltaSucursal = necesitaSucursal(cliente, empresa) && !sucursal
   const { precios: preciosTango } = usePreciosTango(empresa)
   const sinPrecioMotivo = useMemo(

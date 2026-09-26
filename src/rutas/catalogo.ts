@@ -192,6 +192,7 @@ export const CATALOGO: RutaConfig[] = [
   // ── Chofer (calle) ────────────────────────────────────────────────────────
   R('/chofer',                   'Inicio',          'logistica', ['chofer'], { icon: 'Home' }),
   R('/chofer/venta',             'Vender',          'logistica', ['chofer'], { icon: 'Package' }),
+  R('/chofer/clientes',          'Buscar cliente',  'logistica', ['chofer'], { icon: 'Search' }),
   R('/chofer/ventas',            'Facturas',        'logistica', ['chofer'], { icon: 'FileText', externa: true }),
   R('/chofer/map',               'Ruta',            'logistica', ['chofer'], { icon: 'Navigation' }),
   R('/chofer/cobrar',            'Cobrar',          'logistica', ['chofer'], { deepLink: true }),
@@ -345,7 +346,7 @@ export const NAVBAR: Record<UserRole, string[]> = {
   comercial:            ['/comercial', '/usuarios', '/admin/mapa-clientes', '/movimientos', '/admin/precios', '/comercial/reporte-precios', '/comercial/mapa'],
   facturacion:          ['/movimientos', '/admin/comprobantes', '/comercial/ventas', '/comercial/reporte-precios', '/usuarios', '/admin/mapa-clientes'],
   cliente:              ['/dashboard', '/nuevo-pedido', '/historial', '/mis-heladeras', '/perfil'],
-  chofer:               ['/chofer', '/chofer/venta', '/chofer/ventas', '/chofer/map'],
+  chofer:               ['/chofer', '/chofer/venta', '/chofer/clientes', '/chofer/ventas', '/chofer/map'],
   heladeras:            ['/heladeras'],
   heladeras_encargado:  ['/heladeras'],
   tecnico:              ['/tecnico'],
