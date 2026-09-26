@@ -2098,6 +2098,16 @@ export type ProductoHieloId =
   | 'barras_hielo'
   | 'rembolsado_cementera_10kg'
 
+export interface PersonaTurno { uid: string; nombre: string }
+
+export interface FotoTurnoPallet {
+  nombre:    string
+  /** YYYY-MM-DD del día en que empezó el turno. */
+  dia:       string
+  capitan:   PersonaTurno | null
+  dotacion:  PersonaTurno[]
+}
+
 export interface AnulacionPallet {
   motivo: string
   por:    { uid: string; nombre: string }
@@ -2119,6 +2129,16 @@ export interface PalletProduccion {
    * No se borra (la etiqueta ya está pegada) y deja de contar en todos lados.
    */
   anulacion?:       AnulacionPallet
+  /**
+   * Foto del turno al cargarse (2026-09-25, trazabilidad): nombre, día en que
+   * EMPEZÓ el turno (la noche de 22 a 6 es del día que arrancó), capitán y
+   * dotación asignada. Queda fija aunque después cambie la configuración.
+   */
+  turno?:           FotoTurnoPallet
+  /** Si al confirmarlo la ventana avisó "¿Otro pallet de…?": hace cuántos segundos fue el anterior. */
+  avisoRepetidoSeg?: number
+  /** Estado en Tango (lo escribe el server al volver el PDT/PRO). Sin campo = todavía no salió. */
+  tango?:           { estado?: 'confirmado' | 'error'; numero?: string; ultimoError?: string }
   createdAt:        Timestamp   // serverTimestamp(), solo para orden/sincronización
 }
 

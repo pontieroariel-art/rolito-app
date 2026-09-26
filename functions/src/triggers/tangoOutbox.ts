@@ -848,6 +848,17 @@ const WRITE_BACKS: Record<string, {
     },
     buildError: (ultimoError) => ({ 'tango.estado': 'error', 'tango.ultimoError': ultimoError }),
   },
+  // Pallet de producción (2026-09-25): el número del PDT/PRO vuelve al pallet
+  // para que el panel del encargado vea qué entró a Tango y qué no.
+  produccionPallet: {
+    colecciones: ['produccionPallets'],
+    buildUpdate: (resultado) => {
+      const numero = resultado?.produccionNumero
+      if (!numero) return null
+      return { 'tango.estado': 'confirmado', 'tango.numero': String(numero).trim(), 'tango.ultimoError': FieldValue.delete() }
+    },
+    buildError: (ultimoError) => ({ 'tango.estado': 'error', 'tango.ultimoError': ultimoError }),
+  },
   // Anulación del remito en Tango (2026-09-20). El bridge no falla por los casos
   // previstos: los informa en `resultado`, y cada uno tiene su destino.
   //   anulado / ya_anulado → listo, la fila se va de la lista de pendientes

@@ -1,6 +1,6 @@
 import { collection, doc, getDoc, getDocs, onSnapshot, query, where, orderBy, limit, setDoc, updateDoc, serverTimestamp, Timestamp } from 'firebase/firestore'
 import { db } from './firebase'
-import { PalletProduccion, PlantaId, ProductoHieloId } from '../types'
+import { FotoTurnoPallet, PalletProduccion, PlantaId, ProductoHieloId } from '../types'
 import { PLANTA_INFO } from '../utils/constants'
 import { PRODUCTOS_HIELO } from '../utils/produccionCatalogo'
 import { consumirNumero, precargarSiSeAcerca } from './produccionReservaService'
@@ -15,7 +15,7 @@ export interface ActorProduccion { uid: string; nombre: string }
 // documento y se hace setDoc, que queda encolado por persistentLocalCache si
 // no hay red — no hay ningún await bloqueante antes de poder imprimir.
 export function crearPallet(
-  data:    { plantaId: PlantaId; productoId: ProductoHieloId },
+  data:    { plantaId: PlantaId; productoId: ProductoHieloId; turno?: FotoTurnoPallet; avisoRepetidoSeg?: number | null },
   actor:   ActorProduccion,
   online:  boolean,
 ): { pallet: PalletProduccion; codigo: string } {
@@ -36,6 +36,9 @@ export function crearPallet(
     operador:       actor,
     fechaFabricacion,
     createdAt:      serverTimestamp() as unknown as Timestamp,
+    // Trazabilidad (2026-09-25): la foto del turno y el aviso de repetido quedan en el pallet.
+    ...(data.turno ? { turno: data.turno } : {}),
+    ...(data.avisoRepetidoSeg != null ? { avisoRepetidoSeg: data.avisoRepetidoSeg } : {}),
   }
   // fire-and-forget (offline-first); el .catch reporta un rechazo en vez de
   // perder el pallet en silencio.

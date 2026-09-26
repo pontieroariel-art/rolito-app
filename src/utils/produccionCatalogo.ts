@@ -31,6 +31,8 @@ export interface ProductoHieloDef {
   // en Merlo, no en Torcuato). Sin el campo = las dos. La tablet de cada
   // planta muestra solo lo suyo, así nadie toca un producto que ahí no se hace.
   plantas?:          PlantaId[]
+  /** Kilos de hielo por unidad, para el KPI de kilos producidos. Sin dato (barras), no suma. */
+  kgPorUnidad?:      number
 }
 
 /** Patrón de la banda de la etiqueta: cada producto el suyo, bien distinto de lejos. */
@@ -40,31 +42,31 @@ export const PRODUCTOS_HIELO: Record<ProductoHieloId, ProductoHieloDef> = {
   bolsas_10kg_rolito: {
     id: 'bolsas_10kg_rolito', nombre: 'Bolsas 10kg Rolito',
     descripcionTicket: 'HIELO EN BOLSA ROLITO 10KG', tamanioTicket: '10KG', etiquetaGrilla: '10KG',
-    unidadesPorPallet: 88, unidadLabel: 'bolsas', color: '#2a78d6',
+    unidadesPorPallet: 88, unidadLabel: 'bolsas', color: '#2a78d6', kgPorUnidad: 10,
     codigoCorto: '10', nombreEtiqueta: 'BOLSA 10 KG', patron: 'liso',
   },
   bolsas_3kg_rolito: {
     id: 'bolsas_3kg_rolito', nombre: 'Bolsas 3kg Rolito',
     descripcionTicket: 'HIELO EN BOLSA ROLITO 3KG', tamanioTicket: '3KG', etiquetaGrilla: '3KG',
-    unidadesPorPallet: 315, unidadLabel: 'bolsas', color: '#eb6834',
+    unidadesPorPallet: 315, unidadLabel: 'bolsas', color: '#eb6834', kgPorUnidad: 3,
     codigoCorto: '3', nombreEtiqueta: 'BOLSA 3 KG', patron: 'verticales',
   },
   bolsas_2kg_rolito: {
     id: 'bolsas_2kg_rolito', nombre: 'Bolsas 2kg Rolito',
     descripcionTicket: 'HIELO EN BOLSA ROLITO 2KG', tamanioTicket: '2KG', etiquetaGrilla: '2KG',
-    unidadesPorPallet: 460, unidadLabel: 'bolsas', color: '#1baf7a',
+    unidadesPorPallet: 460, unidadLabel: 'bolsas', color: '#1baf7a', kgPorUnidad: 2,
     codigoCorto: '2', nombreEtiqueta: 'BOLSA 2 KG', patron: 'horizontales',
   },
   picado_10kg: {
     id: 'picado_10kg', nombre: 'Hielo picado bolsa 10kg',
     descripcionTicket: 'HIELO PICADO BOLSA 10KG', tamanioTicket: '10KG', etiquetaGrilla: 'PICADO',
-    unidadesPorPallet: 80, unidadLabel: 'bolsas', color: '#eda100',
+    unidadesPorPallet: 80, unidadLabel: 'bolsas', color: '#eda100', kgPorUnidad: 10,
     codigoCorto: 'PIC', nombreEtiqueta: 'PICADO 10 KG', patron: 'cuadros',
   },
   escama_10kg: {
     id: 'escama_10kg', nombre: 'Escama bolsa 10kg',
     descripcionTicket: 'HIELO EN ESCAMA BOLSA 10KG', tamanioTicket: '10KG', etiquetaGrilla: 'ESCAMA',
-    unidadesPorPallet: 70, unidadLabel: 'bolsas', color: '#e87ba4',
+    unidadesPorPallet: 70, unidadLabel: 'bolsas', color: '#e87ba4', kgPorUnidad: 10,
     codigoCorto: 'ESC', nombreEtiqueta: 'ESCAMA 10 KG', patron: 'diagonales',
   },
   barras_hielo: {
@@ -77,7 +79,7 @@ export const PRODUCTOS_HIELO: Record<ProductoHieloId, ProductoHieloDef> = {
   rembolsado_cementera_10kg: {
     id: 'rembolsado_cementera_10kg', nombre: 'Rembolsado cementera bolsa 10kg',
     descripcionTicket: 'HIELO REMBOLSADO CEMENTERA 10KG', tamanioTicket: '10KG', etiquetaGrilla: 'CEMENTERA',
-    unidadesPorPallet: 88, unidadLabel: 'bolsas', color: '#4a3aa7',
+    unidadesPorPallet: 88, unidadLabel: 'bolsas', color: '#4a3aa7', kgPorUnidad: 10,
     codigoCorto: 'CEM', nombreEtiqueta: 'CEMENTERA 10 KG', patron: 'puntos',
   },
 }

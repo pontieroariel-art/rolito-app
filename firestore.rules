@@ -760,6 +760,17 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['next'])
         && request.resource.data.next > resource.data.next;
 
+      // Turnos de producción por planta (2026-09-25): horarios, operarios y
+      // capitán de cada turno. Cambian con la temporada, así que los edita el
+      // encargado de producción (no solo el operador).
+      allow create, update: if request.auth != null
+        && docId.matches('produccionTurnos_(torcuato|merlo)')
+        && isProduccionEncargado()
+        && request.resource.data.keys().hasOnly(['turnos', 'actualizadoPor', 'actualizadoEn'])
+        && request.resource.data.turnos is list
+        && request.resource.data.turnos.size() >= 1
+        && request.resource.data.turnos.size() <= 6;
+
       allow read: if esNoAnonimo()
         && (docId == 'catalogo' || docId == 'motivosReparacion' || docId == 'ticketServicioCounter' || isStaff());
       allow write: if request.auth != null && isOperator() && !esConfigArca();
@@ -2660,6 +2671,31 @@ service cloud.firestore {
     match /rollupsPedidos/{fecha} {
       allow read:  if request.auth != null && isStaff();
       allow write: if false;
+    }
+
+    // Ventas por producto de producción, por planta y por día (2026-09-25): lo
+    // escribe solo el server (rollupVentasProducto) y lo lee el panel del
+    // encargado de producción, que no puede leer las ventas sueltas.
+    match /rollupsVentasProducto/{fecha} {
+      allow read:  if request.auth != null
+        && hasAlguno(['produccion_encargado', 'super_admin', 'gerente_general', 'gerente_comercial', 'logistica']);
+      allow write: if false;
+    }
+
+    // Estado de la tablet de carga de pallets, uno por planta (2026-09-25): la
+    // tablet avisa cada minuto quién está, si la Zebra está conectada y cuántas
+    // etiquetas esperan; el panel del encargado lo muestra. Solo la escribe un
+    // operario de ESA planta y solo con estos campos.
+    match /produccionTablets/{plantaId} {
+      allow read: if request.auth != null
+        && (isProduccion() || hasAlguno(['produccion_encargado', 'super_admin', 'gerente_general', 'logistica']));
+      allow create, update: if request.auth != null && isProduccion()
+        && plantaId == myPlanta()
+        && request.resource.data.keys().hasOnly(['operario', 'impresora', 'enCola', 'ultimaActividad'])
+        && request.resource.data.operario.uid == request.auth.uid
+        && request.resource.data.enCola is int
+        && request.resource.data.ultimaActividad == request.time;
+      allow delete: if false;
     }
 
     // ── Auditoría del Backoffice ───────────────────────────────────────────────

@@ -1,3 +1,4 @@
+import EditorTurnos from '@/components/produccion/panel/EditorTurnos'
 import { useCallback, useEffect, useState } from 'react'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
@@ -80,13 +81,16 @@ function ContadorPlanta({ plantaId }: { plantaId: PlantaId }) {
 
 export default function PlantasProduccionPage() {
   return (
-    <main className="max-w-2xl mx-auto p-4 space-y-6 pb-10">
+    <main className="max-w-[1600px] mx-auto p-4 space-y-6 pb-10">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Plantas</h1>
-        <p className="text-secundario text-sm">Correlativo de pallets por planta</p>
+        <p className="text-secundario text-sm">Turnos, operarios y capitán por turno · correlativo de pallets</p>
       </div>
 
-      <div className="grid sm:grid-cols-2 gap-3">
+      {/* Turnos por planta (2026-09-25): hoy solo Torcuato carga con la tablet. */}
+      <EditorTurnos planta="torcuato" />
+
+      <div className="grid sm:grid-cols-2 gap-3 max-w-5xl">
         {Object.keys(PLANTAS).map((id) => <ContadorPlanta key={id} plantaId={id as PlantaId} />)}
       </div>
     </main>

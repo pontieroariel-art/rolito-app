@@ -84,6 +84,7 @@ export { onAnulacionSolicitada, onAnulacionResuelta } from './triggers/anulacion
 // facturación para anularlo en Tango y confirmación por el lector de comprobantes.
 export { onVentaCamionAnulada, onVentaVentanillaAnulada, reconciliarRemitosAnulados } from './triggers/ventasAnuladas'
 export { onProduccionPalletAnulado } from './triggers/produccionAnulada'
+export { rollupVentasProducto } from './triggers/ventasProductoRollup'
 export { onDescargaContada } from './triggers/descargaRevision'
 // Marca en el remito que su descarga ya se contó, aunque haya sido en la otra planta (2026-09-22).
 export { onDescargaMarcaRemito } from './triggers/descargaMarcaRemito'

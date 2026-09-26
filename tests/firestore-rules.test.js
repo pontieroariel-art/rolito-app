@@ -1938,6 +1938,50 @@ describe('produccionPallets', () => {
   })
 })
 
+// ── Panel del encargado de producción (2026-09-25) ────────────────────────────
+describe('panel de producción: tablet, turnos y ventas por producto', () => {
+  const seedOperario = (uid = 'op1', planta = 'torcuato') =>
+    seed((d) => setDoc(doc(d, `users/${uid}`), { rol: 'produccion_hielo', estado: 'activo', planta }))
+  const seedEncargado = () =>
+    seed((d) => setDoc(doc(d, 'users/enc'), { rol: 'produccion_encargado', estado: 'activo' }))
+  const estado = (extra = {}) => ({
+    operario: { uid: 'op1', nombre: 'Juan' }, impresora: { estado: 'conectada', nombre: 'ZD421' },
+    enCola: 0, ultimaActividad: serverTimestamp(), ...extra,
+  })
+
+  test('la tablet publica su estado en SU planta', async () => {
+    await seedOperario()
+    await assertSucceeds(setDoc(doc(db('op1'), 'produccionTablets/torcuato'), estado()))
+  })
+  test('la tablet no publica en otra planta, a nombre de otro ni con campos de más', async () => {
+    await seedOperario()
+    await assertFails(setDoc(doc(db('op1'), 'produccionTablets/merlo'), estado()))
+    await assertFails(setDoc(doc(db('op1'), 'produccionTablets/torcuato'), estado({ operario: { uid: 'otro', nombre: 'X' } })))
+    await assertFails(setDoc(doc(db('op1'), 'produccionTablets/torcuato'), estado({ extra: 1 })))
+  })
+  test('el encargado lee el estado de la tablet y no lo escribe', async () => {
+    await seedEncargado()
+    await seed((d) => setDoc(doc(d, 'produccionTablets/torcuato'), { enCola: 0 }))
+    await assertSucceeds(getDoc(doc(db('enc'), 'produccionTablets/torcuato')))
+    await assertFails(setDoc(doc(db('enc'), 'produccionTablets/torcuato'), estado({ operario: { uid: 'enc', nombre: 'O' } })))
+  })
+  test('el encargado edita los turnos; el operario no', async () => {
+    await seedEncargado(); await seedOperario()
+    const turnos = { turnos: [{ nombre: 'Mañana', desde: '06:00', hasta: '14:00' }], actualizadoPor: 'enc', actualizadoEn: new Date() }
+    await assertSucceeds(setDoc(doc(db('enc'), 'config/produccionTurnos_torcuato'), turnos))
+    await assertFails(setDoc(doc(db('op1'), 'config/produccionTurnos_torcuato'), turnos))
+    await assertFails(setDoc(doc(db('enc'), 'config/produccionTurnos_torcuato'), { ...turnos, otro: 1 }))
+    await assertFails(setDoc(doc(db('enc'), 'config/otraCosa'), turnos))
+  })
+  test('el resumen de ventas por producto lo lee el encargado, no el operario, y nadie lo escribe', async () => {
+    await seedEncargado(); await seedOperario()
+    await seed((d) => setDoc(doc(d, 'rollupsVentasProducto/2026-09-28'), { fecha: '2026-09-28', porPlanta: {} }))
+    await assertSucceeds(getDoc(doc(db('enc'), 'rollupsVentasProducto/2026-09-28')))
+    await assertFails(getDoc(doc(db('op1'), 'rollupsVentasProducto/2026-09-28')))
+    await assertFails(setDoc(doc(db('enc'), 'rollupsVentasProducto/2026-09-28'), { fecha: 'x' }))
+  })
+})
+
 // ── partesMaquinas: parte de máquinas del maquinista ──────────────────────────
 describe('partesMaquinas', () => {
   const seedMaquinista = (uid = 'maq1', planta = 'torcuato') =>

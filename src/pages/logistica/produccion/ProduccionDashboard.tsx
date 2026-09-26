@@ -5,6 +5,9 @@ import TileProducto from '@/components/produccion/carga/TileProducto'
 import ConfirmarPallet from '@/components/produccion/carga/ConfirmarPallet'
 import CambiarOperario from '@/components/produccion/carga/CambiarOperario'
 import { getDispositivoProduccion } from '@/services/produccionDeviceService'
+import { publicarEstadoTablet, subscribeTurnosPlanta } from '@/services/produccionPanelService'
+import { useFirestoreSubscription } from '@/hooks/useFirestoreSubscription'
+import { fotoTurno, TURNOS_POR_DEFECTO, type TurnoProduccionDef } from '@/utils/turnosProduccion'
 import ContadorDia from '@/components/produccion/carga/ContadorDia'
 import CabeceraPlanta from '@/components/produccion/carga/CabeceraPlanta'
 import { useAuth } from '@/context/AuthContext'
@@ -66,6 +69,14 @@ export default function ProduccionDashboard() {
   const { pallets, loading } = useProduccionPalletsHoy(user?.planta, dia)
   const impresora = useImpresoraZebra()
   usePantallaEncendida()
+  // Turnos de la planta (editables por el encargado): cada pallet guarda la foto del suyo.
+  const { data: turnos } = useFirestoreSubscription<TurnoProduccionDef[]>(
+    (cb) => user?.planta ? subscribeTurnosPlanta(user.planta, cb) : () => {},
+    [user?.planta],
+    TURNOS_POR_DEFECTO,
+  )
+  const turnosRef = useRef(turnos)
+  turnosRef.current = turnos
 
   const [reservaLista, setReservaLista] = useState(false)
   const [error, setError] = useState('')
@@ -78,6 +89,8 @@ export default function ProduccionDashboard() {
   const [hecho, setHecho] = useState<{ texto: string; codigo: string; color: string } | null>(null)
   /** Mismo producto cargado hace menos de un minuto: la ventana lo pregunta. */
   const [repetido, setRepetido] = useState<number | null>(null)
+  const repetidoRef = useRef<number | null>(null)
+  repetidoRef.current = repetido
   /** Ventana de cambio de operario abierta. */
   const [cambiando, setCambiando] = useState(false)
   // Los pallets de hoy en una referencia, para que `onTap` sea estable (las tarjetas están en memo).
@@ -171,6 +184,22 @@ export default function ProduccionDashboard() {
       .finally(() => { vaciando.current = false })
   }, [impresora.estado, porImprimir])
 
+  // Estado de la tablet para el panel del encargado (2026-09-25): quién está,
+  // cómo está la Zebra y cuántas etiquetas esperan. Al cambiar algo y cada minuto.
+  useEffect(() => {
+    if (!uid || !planta) return
+    const publicar = () => {
+      publicarEstadoTablet(planta, {
+        operario: { uid, nombre },
+        impresora: { estado: impresora.estado, nombre: impresora.nombre ?? null },
+        enCola: porImprimir.length,
+      }).catch((err) => reportError(err, { origen: 'ProduccionDashboard.estadoTablet', silencioso: true }))
+    }
+    publicar()
+    const id = setInterval(publicar, 60_000)
+    return () => clearInterval(id)
+  }, [uid, planta, nombre, impresora.estado, impresora.nombre, porImprimir.length])
+
   // La confirmación grande se va sola.
   useEffect(() => {
     if (!hecho) return
@@ -193,7 +222,10 @@ export default function ProduccionDashboard() {
   const confirmar = useCallback((productoId: ProductoHieloId) => {
     if (!uid || !planta) return
     try {
-      const { pallet } = crearPallet({ plantaId: planta, productoId }, { uid, nombre }, online)
+      const { pallet } = crearPallet(
+        { plantaId: planta, productoId, turno: fotoTurno(new Date(), turnosRef.current), avisoRepetidoSeg: repetidoRef.current },
+        { uid, nombre }, online,
+      )
       // Optimista: el contador sube ya; el setDoc viaja en segundo plano.
       setPendientes((prev) => [...prev, pallet])
       setArmado(null)
