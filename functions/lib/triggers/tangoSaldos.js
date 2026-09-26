@@ -74,16 +74,6 @@ async function procesarLoteSaldos(db, rows, opts) {
             porUid.set(cliente.uid, { cliente, comprobantes: [] });
         porUid.get(cliente.uid).comprobantes.push(...comprobantes);
     }
-    const uids = [...porUid.keys()];
-    const refs = uids.map((uid) => db.collection('saldosTango').doc(uid));
-    const actuales = new Map();
-    if (refs.length && !opts.dryRun) {
-        for (let i = 0; i < refs.length; i += 300) {
-            const snaps = await db.getAll(...refs.slice(i, i + 300));
-            for (const s of snaps)
-                actuales.set(s.id, s.exists ? s.data() : undefined);
-        }
-    }
     let batch = db.batch();
     let enBatch = 0;
     const flush = async () => {
@@ -121,6 +111,20 @@ async function procesarLoteSaldos(db, rows, opts) {
     }
     if (conSaldoAFavor)
         console.log(`[syncSaldos] ${empresa}: ${conSaldoAFavor} clientes con saldo a favor en Tango`);
+    // Los refs se arman DESPUÉS de sumar a los clientes que solo tienen saldo a favor:
+    // armados antes, esos uids no estaban en `uids`, `refs[uids.indexOf(uid)]` daba
+    // undefined y `batch.set` tiraba "documentRef is not a valid DocumentReference":
+    // la corrida entera se caía (del 24/09 a la noche al 26/09 no se actualizó ningún saldo).
+    const uids = [...porUid.keys()];
+    const refs = uids.map((uid) => db.collection('saldosTango').doc(uid));
+    const actuales = new Map();
+    if (refs.length && !opts.dryRun) {
+        for (let i = 0; i < refs.length; i += 300) {
+            const snaps = await db.getAll(...refs.slice(i, i + 300));
+            for (const s of snaps)
+                actuales.set(s.id, s.exists ? s.data() : undefined);
+        }
+    }
     for (const [uid, { cliente, comprobantes: crudos }] of porUid) {
         const descuento = descuentos.get(uid);
         const comprobantes = (0, saldos_1.aplicarDescuentos)(crudos, descuento);
@@ -142,7 +146,7 @@ async function procesarLoteSaldos(db, rows, opts) {
             sinCambios++;
             continue;
         }
-        batch.set(refs[uids.indexOf(uid)], { ...nuevo, actualizadoEn: firestore_1.FieldValue.serverTimestamp() }); // `refs` es paralelo a `uids` y `uid` sale de ahí
+        batch.set(db.collection('saldosTango').doc(uid), { ...nuevo, actualizadoEn: firestore_1.FieldValue.serverTimestamp() });
         actualizados++;
         enBatch++;
         if (enBatch >= 400)
