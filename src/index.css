@@ -85,11 +85,11 @@
   }
 
   /* Ticket de producción (pallets) — tamaño distinto, @page NOMBRADO para no
-     pisar el de heladeras. 100x150mm es un punto de partida razonable para
-     una etiqueta angosta tipo ticket; falta calibrar contra el rollo real de
-     la Zebra en planta — ajustar acá y en ProduccionTicket.tsx (mismo mm). */
+     pisar el de heladeras. 80x120mm desde el 2026-09-25 (diseño "una banda por
+     producto", utils/etiquetaPallet.ts); falta confirmar contra el rollo real de
+     la Zebra en planta — ajustar acá y en ETIQUETA_PALLET (mismo mm). */
   @page produccion-ticket {
-    size: 100mm 150mm;
+    size: 80mm 120mm;
     margin: 0;
   }
   .produccion-ticket-page {
