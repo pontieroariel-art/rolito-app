@@ -2,6 +2,7 @@ import { ReactNode, useMemo, useState } from 'react'
 import { ChevronLeft, ChevronRight, Download, Inbox, RotateCw, Search, TriangleAlert } from 'lucide-react'
 import { INPUT_BUSQUEDA_PROPS } from '@/utils/busqueda'
 import { descargarCSV } from '@/utils/csv'
+import { useIsMobile } from '@/hooks/useIsMobile'
 import { CAMPO_FILTRO, NUMERO, TD, TD_COMPACTA, TH, TH_COMPACTA } from './tabla'
 
 /**
@@ -27,6 +28,11 @@ import { CAMPO_FILTRO, NUMERO, TD, TD_COMPACTA, TH, TH_COMPACTA } from './tabla'
  *    sociales de Tango son largas y antes rompían la fila.
  *  · Los grises secundarios (vacío, paginador, esqueleto) salen de
  *    `text-secundario`, que es el piso de contraste de la app.
+ *  · En el celular (menos de 768 px) cada fila es una TARJETA (relevamiento de
+ *    responsividad, 2026-09-26): la primera columna de título y las demás como
+ *    etiqueta y valor, los botones (`sinCsv` sin título) al pie. Una tabla de
+ *    diez columnas en 375 px obligaba a scrollear al costado sin saber que había
+ *    más. `sinTarjetas` la deja como tabla.
  */
 
 
@@ -68,6 +74,8 @@ interface Props<T> {
   exportar?: string
   /** Celdas más apretadas. Para tablas de diez o más columnas. */
   compacta?: boolean
+  /** En el celular, seguir mostrando la tabla en vez de tarjetas. */
+  sinTarjetas?: boolean
   className?: string
 }
 
@@ -88,8 +96,10 @@ const tituloDe = <T,>(c: ColumnaHistorial<T>, fila: T): string | undefined => {
 
 export default function HistorialTable<T>({
   columnas, filas, claveDe, titulo, resumen, cargando = false, error = false, onReintentar,
-  vacio = 'No hay registros en este período.', anchoMinimo, filaResaltada, porPagina, exportar, compacta = false, className = '',
+  vacio = 'No hay registros en este período.', anchoMinimo, filaResaltada, porPagina, exportar, compacta = false, sinTarjetas = false, className = '',
 }: Props<T>) {
+  const esCelular = useIsMobile()
+  const enTarjetas = esCelular && !sinTarjetas
   const th = compacta ? TH_COMPACTA : TH
   const td = compacta ? TD_COMPACTA : TD
 
@@ -169,6 +179,65 @@ export default function HistorialTable<T>({
     ))
   }
 
+  // Celular: una tarjeta por fila.
+  const [cabeza, ...resto] = columnas
+  const acciones = resto.filter((c) => c.sinCsv && !c.titulo)
+  const campos = resto.filter((c) => !(c.sinCsv && !c.titulo))
+  const tarjetas = () => {
+    if (error) {
+      return (
+        <div className="py-10 text-center">
+          <TriangleAlert size={22} className="mx-auto text-amber-500 mb-2" />
+          <p className="text-sm text-gray-900">No pudimos cargar estos datos.</p>
+          {onReintentar && (
+            <button type="button" onClick={onReintentar}
+              className="mt-2 inline-flex items-center gap-1.5 text-sm font-semibold text-accent border border-accent/40 rounded-lg px-3 py-2 hover:bg-accent/10 transition-colors">
+              <RotateCw size={14} /> Reintentar
+            </button>
+          )}
+        </div>
+      )
+    }
+    if (cargando) {
+      return [0, 1, 2].map((i) => (
+        <div key={`esqueleto-${i}`} aria-hidden className="border border-[#E7E5DC] rounded-xl p-3 space-y-2">
+          <span className="block h-4 w-2/3 rounded bg-[#EDEBE3] animate-pulse" />
+          <span className="block h-3.5 w-1/2 rounded bg-[#EDEBE3] animate-pulse" />
+        </div>
+      ))
+    }
+    if (filas.length === 0) {
+      return (
+        <div className="py-10 text-center">
+          <Inbox size={22} className="mx-auto text-inerte mb-2" />
+          <p className="text-sm text-secundario">{vacio}</p>
+        </div>
+      )
+    }
+    return visibles.map((fila) => (
+      <article key={claveDe(fila)} className={`border border-[#E7E5DC] rounded-xl p-3 min-w-0 ${filaResaltada?.(fila) ? 'bg-accent/5' : ''}`}>
+        {cabeza && (
+          <div className="text-[15px] font-semibold text-gray-900 min-w-0 break-words">{cabeza.celda(fila)}</div>
+        )}
+        {campos.length > 0 && (
+          <dl className="mt-2 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-sm">
+            {campos.map((c, i) => (
+              <div key={c.titulo + i} className="contents">
+                <dt className="text-secundario">{c.titulo}</dt>
+                <dd className={`min-w-0 break-words text-gray-900 ${c.alinear === 'der' ? NUMERO : 'text-right'}`}>{c.celda(fila)}</dd>
+              </div>
+            ))}
+          </dl>
+        )}
+        {acciones.length > 0 && (
+          <div className="mt-2 pt-2 border-t border-[#E7E5DC] flex flex-wrap items-center justify-end gap-2">
+            {acciones.map((c, i) => <div key={i}>{c.celda(fila)}</div>)}
+          </div>
+        )}
+      </article>
+    ))
+  }
+
   const hayBarra = titulo || resumen || exportar
   return (
     <section className={`bg-white rounded-2xl border border-[#D3D1C7] shadow-sm p-4 ${className}`}>
@@ -187,6 +256,9 @@ export default function HistorialTable<T>({
         </div>
       )}
 
+      {enTarjetas ? (
+        <div className="space-y-2">{tarjetas()}</div>
+      ) : (
       <div className="overflow-x-auto">
         <table className="w-full" style={anchoMinimo ? { minWidth: anchoMinimo } : undefined}>
           <thead>
@@ -205,6 +277,7 @@ export default function HistorialTable<T>({
           <tbody>{cuerpo()}</tbody>
         </table>
       </div>
+      )}
 
       {paginas > 1 && !cargando && !error && (
         <div className="flex items-center justify-between gap-3 pt-3 mt-1 border-t border-[#E7E5DC]">
