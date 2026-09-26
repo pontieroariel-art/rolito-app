@@ -49,7 +49,8 @@ export function GpsChoferProvider({ children }: { children: ReactNode }) {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
           setEstado('ok')
-          setPosicion({ lat: pos.coords.latitude, lng: pos.coords.longitude })
+          // Mismo objeto si no cambió: no re-renderiza el inicio ni el mapa cada 10 s (R10).
+          setPosicion((p) => (p && p.lat === pos.coords.latitude && p.lng === pos.coords.longitude ? p : { lat: pos.coords.latitude, lng: pos.coords.longitude }))
           if (enVueloRef.current) return
           const { latitude: lat, longitude: lng } = pos.coords
           const ahora = Date.now()

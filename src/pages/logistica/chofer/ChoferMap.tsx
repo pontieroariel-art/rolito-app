@@ -80,6 +80,10 @@ export default function ChoferMap() {
   const [calculating, setCalculating] = useState(false)
   // Posición del GPS compartido de ChoferShell (auditoría del chofer, A6).
   const { posicion: currentPos } = useGpsChofer()
+  // El mapa se centra UNA vez, con la primera posición (R10): antes cada
+  // lectura del GPS lo recentraba y pisaba lo que el chofer había movido.
+  const [centroInicial, setCentroInicial] = useState<{ lat: number; lng: number } | null>(null)
+  useEffect(() => { if (!centroInicial && currentPos) setCentroInicial(currentPos) }, [centroInicial, currentPos])
   const [routeStale, setRouteStale]   = useState(false)
   const [pdfLoading, setPdfLoading]   = useState(false)
   const { abrir } = useVisorComprobante()
@@ -333,7 +337,7 @@ export default function ChoferMap() {
         <div className="flex-1 min-h-0">
           <MapaBase
             modo="calido"
-            center={currentPos ?? undefined}
+            center={centroInicial ?? undefined}
             zoom={13}
             opciones={{ disableDefaultUI: false, fullscreenControl: true }}
           >
