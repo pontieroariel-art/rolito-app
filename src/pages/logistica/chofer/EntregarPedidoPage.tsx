@@ -15,7 +15,7 @@ import { useDepositoDelUsuario } from '@/hooks/useDepositosReparto'
 import { useCatalogo } from '@/hooks/useCatalogo'
 import { useOnline } from '@/hooks/useOnline'
 import { Timestamp } from 'firebase/firestore'
-import { crearVentaCamion } from '@/services/ventaCamionService'
+import { crearVentaCamion, ventaVigenteDelPedido } from '@/services/ventaCamionService'
 import { entregarConRemitoDeFabrica, markDelivered } from '@/services/orderService'
 import { armarEntregaFabrica, esEntregaSinComprobante, renglonesFabrica } from '@/utils/entregaFabrica'
 import { claveDia } from '@/utils/diaReparto'
@@ -33,7 +33,7 @@ import { desgloseFactura, percepcionVigenteDe } from '@/utils/totalFacturado'
 import { SIN_IMPORTE, ventaSinImporte } from '@/utils/ventaSinImporte'
 import { normalizarOrdenCompra } from '@/utils/ordenCompraVenta'
 import { esEntregaParcial, formaPagoInicial, renglonesDelPedido, sucursalDelPedido, type RenglonEntrega } from '@/utils/entregaPedido'
-import type { CanalVenta, ComprobanteInternoVenta, FormaPago, TipoComprobanteInterno, VentaCamionItem } from '@/types'
+import type { CanalVenta, ComprobanteInternoVenta, FormaPago, TipoComprobanteInterno, VentaCamion, VentaCamionItem } from '@/types'
 
 // Entregar un pedido de logística en tres pasos (2026-09-11, diseño aprobado
 // por Ariel): cantidades → canal y forma de pago → firma. La app arma la venta
@@ -89,6 +89,17 @@ export default function EntregarPedidoPage() {
   // cantidades reales y listo. Sin venta, sin comprobante, sin mail ni Tango.
   const sinComprobante = !!order && esEntregaSinComprobante(order)
   const [exitoFabrica, setExitoFabrica] = useState<{ cliente: string; unidades: number; parcial: boolean } | null>(null)
+  // Venta ya hecha desde Vender con este pedido (A2). undefined = buscando.
+  const [ventaPrevia, setVentaPrevia] = useState<VentaCamion | null | undefined>(undefined)
+  useEffect(() => {
+    if (!user?.uid || !orderId) return
+    let vivo = true
+    ventaVigenteDelPedido(user.uid, orderId)
+      .then((v) => { if (vivo) setVentaPrevia(v) })
+      .catch((err) => { reportError(err, { origen: 'EntregarPedidoPage', accion: 'ventaVigenteDelPedido' }); if (vivo) setVentaPrevia(null) })
+    return () => { vivo = false }
+  }, [user?.uid, orderId])
+  const [marcando, setMarcando] = useState(false)
   const [preciosIncluyenIva, setPreciosIncluyenIva] = useState(false)
   useEffect(() => { getPreciosIncluyenIva().then(setPreciosIncluyenIva).catch((err) => reportError(err, { origen: 'EntregarPedidoPage', accion: 'leer config de precios con IVA' })) }, [])
 
@@ -328,6 +339,29 @@ export default function EntregarPedidoPage() {
         </p>
         <div className="flex flex-col gap-2 pt-1">
           {order.status === 'entregado' && <Link to="/chofer/ventas" className="text-sm text-accent underline">Ver en Mis ventas</Link>}
+          <Link to="/chofer" className="text-sm text-accent underline">Volver a mis entregas</Link>
+        </div>
+      </Marco>
+    )
+  }
+  if (ventaPrevia === undefined && !sinComprobante) return <LoadingSpinner fullScreen />
+  if (ventaPrevia && !sinComprobante) {
+    const doc = ventaPrevia.comprobanteInterno ? `${ETIQUETA_COMPROBANTE[ventaPrevia.comprobanteInterno.tipo]} ${codigoComprobanteInterno(ventaPrevia.comprobanteInterno)}` : ventaPrevia.factura?.numero ? `Factura ${ventaPrevia.factura.puntoVenta ?? ''}-${ventaPrevia.factura.numero}` : 'La venta todavía no tiene número'
+    const marcar = () => {
+      if (!user) return
+      setMarcando(true)
+      const entregados = ventaPrevia.items.map((i) => ({ name: i.nombre, quantity: i.cantidad, productoId: i.productoId }))
+      markDelivered(order.id, entregados, false, 'Entregado con la venta hecha desde Vender', { uid: user.uid, nombre: user.nombre })
+        .catch((err) => reportError(err, { origen: 'EntregarPedidoPage', accion: 'markDelivered con venta previa', orderId: order.id }))
+      void navigate('/chofer')
+    }
+    return (
+      <Marco titulo={order.clientName}>
+        <p className="text-base font-semibold text-gray-900">Ya le hiciste una venta a este pedido desde Vender.</p>
+        <p className="text-sm text-gray-600">{doc}. Si esa venta fue la entrega, marcá el pedido como entregado: no sale otro comprobante.</p>
+        <Button onClick={marcar} loading={marcando} className="w-full h-14 text-base font-black">MARCAR ENTREGADO</Button>
+        <div className="flex flex-col gap-2 pt-1">
+          <Link to="/chofer/ventas" className="text-sm text-accent underline">Ver en Mis ventas</Link>
           <Link to="/chofer" className="text-sm text-accent underline">Volver a mis entregas</Link>
         </div>
       </Marco>

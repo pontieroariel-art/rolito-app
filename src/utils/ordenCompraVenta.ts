@@ -18,7 +18,10 @@ export function pedidoParaVenta(orders: Order[], clienteUid: string, hoy: Date =
   const h = dia(hoy)
   return orders
     .filter((o) => o.clientId === clienteUid && o.status !== 'cancelado' && dia(o.date.toDate()) === h)
-    .sort((a, b) => b.date.toMillis() - a.date.toMillis())[0]
+    // Primero los abiertos (2026-09-26, auditoría del chofer, A2): con un pedido
+    // entregado y otro abierto el mismo día, la venta se enganchaba al entregado y
+    // el abierto quedaba sin detectar, así que ENTREGAR sacaba otro comprobante.
+    .sort((a, b) => Number(a.status === 'entregado') - Number(b.status === 'entregado') || b.date.toMillis() - a.date.toMillis())[0]
 }
 
 /** OC normalizada para guardar: sin espacios de más, hasta 40 caracteres, o '' si no hay. */

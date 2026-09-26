@@ -24,6 +24,13 @@ describe('pedidoParaVenta', () => {
   it('un pedido entregado también sirve (la OC sigue siendo la del pedido)', () => {
     expect(pedidoParaVenta([pedido('e', { status: 'entregado' })], 'c1', hoy)?.id).toBe('e')
   })
+  it('si hay uno abierto y otro entregado, elige el abierto aunque el entregado sea más reciente (auditoría chofer A2)', () => {
+    const orders = [
+      pedido('abierto', { date: Timestamp.fromDate(new Date('2026-09-11T08:00:00Z')) }),
+      pedido('entregado', { status: 'entregado', date: Timestamp.fromDate(new Date('2026-09-11T13:00:00Z')) }),
+    ]
+    expect(pedidoParaVenta(orders, 'c1', hoy)?.id).toBe('abierto')
+  })
   it('la medianoche se corta en hora argentina', () => {
     // 01:30 del 11/09 en Argentina = 04:30Z: es "hoy"; 23:30 del 10/09 AR = 02:30Z del 11: no.
     expect(pedidoParaVenta([pedido('a', { date: Timestamp.fromDate(new Date('2026-09-11T04:30:00Z')) })], 'c1', hoy)?.id).toBe('a')

@@ -1,4 +1,4 @@
-import { collection, doc, getDoc, onSnapshot, query, where, orderBy, limit, setDoc, updateDoc, Timestamp } from 'firebase/firestore'
+import { collection, doc, getDoc, getDocs, onSnapshot, query, where, orderBy, limit, setDoc, updateDoc, Timestamp } from 'firebase/firestore'
 import { db } from './firebase'
 import { fireAndForget, onSnapshotError } from './observability'
 import { VentaCamion, VentaCamionItem, FormaPago, CanalVenta, UserProfile, ComprobanteInternoVenta } from '../types'
@@ -100,6 +100,19 @@ export function crearVentaCamion(
   // en vez de perderlo en silencio tras haber dicho "registrado".
   fireAndForget(setDoc(ref, venta), { origen: 'crearVentaCamion', ventaId: ref.id, choferId: actor.uid })
   return { id: ref.id, ...venta }
+}
+
+/**
+ * Venta vigente del chofer ya vinculada a un pedido (2026-09-26, auditoría del
+ * chofer, A2): vender desde Vender a un cliente con pedido deja `pedidoId` en la
+ * venta pero no marca el pedido, y después ENTREGAR sacaba un segundo
+ * comprobante. Dos igualdades (sin índice), filtradas por el chofer como piden
+ * las reglas; sale de la caché sin señal. Las anuladas no cuentan.
+ */
+export async function ventaVigenteDelPedido(choferId: string, pedidoId: string): Promise<VentaCamion | null> {
+  const snap = await getDocs(query(collection(db, VENTAS), where('choferId', '==', choferId), where('pedidoId', '==', pedidoId), limit(5)))
+  const v = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as VentaCamion).find((x) => x.anulacion?.estado !== 'anulada')
+  return v ?? null
 }
 
 export const getVentaCamion = async (id: string): Promise<VentaCamion | null> => {
