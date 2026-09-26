@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
-import ProduccionTicket from '@/components/produccion/ProduccionTicket'
 import TileProducto from '@/components/produccion/carga/TileProducto'
 import ConfirmarPallet from '@/components/produccion/carga/ConfirmarPallet'
 import CambiarOperario from '@/components/produccion/carga/CambiarOperario'
@@ -17,12 +16,10 @@ import { logoutUser } from '@/services/authService'
 import { crearPallet } from '@/services/produccionService'
 import { asegurarReserva, proximoNumero, ReservaAgotadaError, SinNumerosDisponiblesOfflineError } from '@/services/produccionReservaService'
 import { ProduccionCounterNoInicializadoError } from '@/services/produccionCounterService'
-import { hayImpresoraGuardada, impresoraConectada, imprimirZpl } from '@/services/zebraBleService'
+import { impresoraConectada, imprimirZpl } from '@/services/zebraBleService'
 import { usePantallaEncendida } from '@/hooks/usePantallaEncendida'
 import { CheckCircle2, Printer } from 'lucide-react'
 import { reportError } from '@/services/observability'
-import { generateQrDataUrl } from '@/utils/qr'
-import { generateBarcodeDataUrl } from '@/utils/barcode'
 import { PRODUCTOS_HIELO, productosDePlanta } from '@/utils/produccionCatalogo'
 import { PLANTA_INFO } from '@/utils/constants'
 import { armar, codigoDePallet, repetidoHaceSegundos, pendientesSinConfirmar, resumenDelDia, type Armado } from '@/utils/cargaPallets'
@@ -31,7 +28,17 @@ import { TACTO, vibrar } from '@/utils/tacto'
 import { desbloquearAudio, sonar } from '@/utils/sonidoCarga'
 import { PLANTAS, ProductoHieloId, PalletProduccion } from '@/types'
 
-interface TicketData { pallet: PalletProduccion; qrDataUrl: string; barcodeDataUrl: string }
+/**
+ * Etiquetas que esperan a la impresora, guardadas en la tablet (2026-09-25):
+ * si la página se recarga, siguen en la cola y salen cuando la Zebra vuelva.
+ */
+const KEY_POR_IMPRIMIR = 'produccionPorImprimir'
+function leerPendientesImpresion(): string[] {
+  try { const v = JSON.parse(localStorage.getItem(KEY_POR_IMPRIMIR) ?? '[]') as unknown; return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [] } catch { return [] }
+}
+function guardarPendientesImpresion(ids: string[]): void {
+  try { if (ids.length) localStorage.setItem(KEY_POR_IMPRIMIR, JSON.stringify(ids)); else localStorage.removeItem(KEY_POR_IMPRIMIR) } catch { /* sin storage: la cola vive en memoria */ }
+}
 
 // Carga de pallets de producción desde la tablet de planta (rehecha el
 // 2026-09-14 sobre la maqueta aprobada por Ariel). Reglas de la pantalla:
@@ -65,7 +72,6 @@ export default function ProduccionDashboard() {
   const [armado, setArmado] = useState<Armado | null>(null)
   const [codigoProximo, setCodigoProximo] = useState<string | null>(null)
   const [pendientes, setPendientes] = useState<PalletProduccion[]>([])
-  const [ticketData, setTicketData] = useState<TicketData | null>(null)
   /** Etiquetas que no pudieron salir: esperan a la Zebra y salen solas. */
   const [porImprimir, setPorImprimir] = useState<PalletProduccion[]>([])
   /** Confirmación grande del último pallet cargado o reimpreso (1,8 s). */
@@ -115,23 +121,21 @@ export default function ProduccionDashboard() {
     codigo:   resumen.ultimo.codigo,
   }), [resumen.ultimo])
 
-  // Respaldo sin Zebra conectada: dispara la impresión del navegador apenas
-  // hay un ticket listo (QR/barcode ya generados); imprime la pestaña actual
-  // con el ticket renderizado (oculto) y el resto escondido vía CSS de
-  // impresión (wrapper "print:hidden").
+  // La cola de impresión sobrevive a una recarga: al volver, las etiquetas
+  // pendientes de hoy se reponen desde los pallets del día.
+  // Primero se repone lo guardado y recién después se empieza a guardar: si
+  // no, la cola vacía del arranque borraba lo pendiente.
+  const [repuesta, setRepuesta] = useState(false)
   useEffect(() => {
-    if (!ticketData) return
-    const id = setTimeout(() => window.print(), 300)
-    return () => clearTimeout(id)
-  }, [ticketData])
-
-  // Limpia el ticket apenas se cierra el diálogo de impresión (impreso o
-  // cancelado): deja la pantalla lista para el próximo pallet.
+    if (repuesta || loading) return
+    const ids = new Set(leerPendientesImpresion())
+    const hallados = pallets.filter((p) => ids.has(p.id))
+    if (hallados.length) setPorImprimir((prev) => [...prev, ...hallados.filter((h) => !prev.some((p) => p.id === h.id))])
+    setRepuesta(true)
+  }, [repuesta, loading, pallets])
   useEffect(() => {
-    const limpiar = () => setTicketData(null)
-    window.addEventListener('afterprint', limpiar)
-    return () => window.removeEventListener('afterprint', limpiar)
-  }, [])
+    if (repuesta) guardarPendientesImpresion(porImprimir.map((p) => p.id))
+  }, [repuesta, porImprimir])
 
   const uid = user?.uid
   const planta = user?.planta
@@ -142,24 +146,17 @@ export default function ProduccionDashboard() {
     setPorImprimir((prev) => prev.some((p) => p.id === pallet.id) ? prev : [...prev, pallet])
   }, [])
 
+  // La etiqueta sale DIRECTO por la Zebra, sin mostrar nada (2026-09-25,
+  // pedido de Ariel). Si la Zebra no está conectada, la etiqueta espera en la
+  // cola y sale sola cuando vuelve: nunca se abre el diálogo de impresión de
+  // Android. (La reimpresión con diálogo sigue en la ficha del pallet, para el
+  // encargado.)
   const imprimir = useCallback((pallet: PalletProduccion) => {
-    if (impresoraConectada()) {
-      imprimirZpl(armarZplPallet(pallet)).catch((err) => {
-        reportError(err, { origen: 'ProduccionDashboard.zpl', palletId: pallet.id, silencioso: true })
-        encolar(pallet)
-      })
-      return
-    }
-    // La tablet ya usa la Zebra pero justo no está: la etiqueta espera y sale
-    // sola cuando vuelva, en vez de abrir el diálogo de Android.
-    if (hayImpresoraGuardada()) { encolar(pallet); return }
-    // QR y código de barras se generan fuera del toque; el ticket sale cuando están.
-    generateQrDataUrl(pallet.codigo)
-      .then((qrDataUrl) => setTicketData({ pallet, qrDataUrl, barcodeDataUrl: generateBarcodeDataUrl(pallet.codigo) }))
-      .catch((err) => {
-        reportError(err, { origen: 'ProduccionDashboard.ticket', palletId: pallet.id })
-        setError(`El pallet ${pallet.codigo} quedó cargado pero no se pudo armar la etiqueta. Tocá REIMPRIMIR.`)
-      })
+    if (!impresoraConectada()) { encolar(pallet); return }
+    imprimirZpl(armarZplPallet(pallet)).catch((err) => {
+      reportError(err, { origen: 'ProduccionDashboard.zpl', palletId: pallet.id, silencioso: true })
+      encolar(pallet)
+    })
   }, [encolar])
 
   // La cola sale sola, de a una, apenas la Zebra está conectada.
@@ -373,12 +370,6 @@ export default function ProduccionDashboard() {
         </div>
       )}
 
-      {/* Oculto en pantalla, es lo único visible al imprimir (ver print:hidden arriba) */}
-      {ticketData && (
-        <div className="hidden print:block produccion-ticket-page">
-          <ProduccionTicket pallet={ticketData.pallet} qrDataUrl={ticketData.qrDataUrl} barcodeDataUrl={ticketData.barcodeDataUrl} />
-        </div>
-      )}
     </>
   )
 }
