@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app'
 import { initializeAppCheck, CustomProvider, ReCaptchaV3Provider, getToken as getTokenAppCheck, type AppCheck } from 'firebase/app-check'
-import { getAuth, initializeAuth, inMemoryPersistence, connectAuthEmulator } from 'firebase/auth'
+import { initializeAuth, inMemoryPersistence, indexedDBLocalPersistence, browserLocalPersistence, browserSessionPersistence, connectAuthEmulator } from 'firebase/auth'
 import {
   initializeFirestore, persistentLocalCache, persistentMultipleTabManager, memoryLocalCache,
   connectFirestoreEmulator,
@@ -65,9 +65,14 @@ if (SESION_VER_COMO) {
   document.documentElement.classList.add('ver-como')
 }
 
+// Sin `popupRedirectResolver` (2026-09-26, auditoría del chofer, R1): `getAuth`
+// lo trae de fábrica y al iniciar baja el iframe de Firebase Auth y la API de
+// Google (unos 133 KB en el ingreso) que solo sirven para ingresar con ventana
+// emergente o redirección, y la app nunca lo hace (DNI/CUIT + contraseña y la
+// sesión anónima del turno). Misma persistencia que `getAuth`.
 export const auth = SESION_VER_COMO
   ? initializeAuth(app, { persistence: inMemoryPersistence })
-  : getAuth(app)
+  : initializeAuth(app, { persistence: [indexedDBLocalPersistence, browserLocalPersistence, browserSessionPersistence] })
 // Televisor (2026-09-21): el navegador de las Samsung (TizenBrowser, agente
 // "SMART-TV"/"Tizen") no sostiene el canal en vivo que usa Firestore y la app
 // quedaba en "sin conexión" / `unavailable` sin pasar del login. En una tele se
