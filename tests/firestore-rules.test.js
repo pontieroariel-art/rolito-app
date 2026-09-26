@@ -6296,3 +6296,40 @@ describe('auditoría chofer — C2: la entrega de un pedido no sale dos veces', 
     await assertFails(setDoc(doc(db('chof1'), 'ventasCamion/pedido_o1'), { ...venta, fecha: new Date() }))
   })
 })
+
+describe('auditoría chofer — A1: el chofer solo entrega pedidos abiertos', () => {
+  const seedBase = (extra = {}) => seed(async (d) => {
+    await setDoc(doc(d, 'users/ch'), { rol: 'chofer', estado: 'activo', email: 'ch@x.com' })
+    await setDoc(doc(d, 'orders/o1'), pedido({ driverId: 'ch@x.com', historialAcciones: [{ accion: 'creado' }], ...extra }))
+  })
+  const entregar = (extra = {}) => updateDoc(doc(db('ch', 'ch@x.com'), 'orders/o1'), {
+    status: 'entregado', productosEntregados: [{ name: 'Hielo', quantity: 10 }], entregaParcial: false, notaEntrega: '',
+    updatedAt: new Date(), historialAcciones: arrayUnion({ accion: 'entregado', en: 'ahora' }), ...extra,
+  })
+  test('entrega un pedido confirmado o en camino', async () => {
+    await seedBase({ status: 'confirmado' })
+    await assertSucceeds(entregar())
+  })
+  test('NO entrega un pedido cancelado', async () => {
+    await seedBase({ status: 'cancelado' })
+    await assertFails(entregar())
+  })
+  test('NO vuelve a tocar un pedido ya entregado', async () => {
+    await seedBase({ status: 'entregado' })
+    await assertFails(entregar({ productosEntregados: [{ name: 'Hielo', quantity: 1 }] }))
+  })
+  test('NO pone otro estado que entregado', async () => {
+    await seedBase({ status: 'confirmado' })
+    await assertFails(entregar({ status: 'cancelado' }))
+  })
+  test('NO reescribe ni borra el historial', async () => {
+    await seedBase({ status: 'confirmado' })
+    await assertFails(entregar({ historialAcciones: [] }))
+  })
+  test('logística sigue cancelando y reabriendo pedidos', async () => {
+    await seedBase({ status: 'confirmado' })
+    await seed((d) => setDoc(doc(d, 'users/log1'), { rol: 'logistica', estado: 'activo' }))
+    await assertSucceeds(updateDoc(doc(db('log1'), 'orders/o1'), { status: 'cancelado', updatedAt: new Date() }))
+    await assertSucceeds(updateDoc(doc(db('log1'), 'orders/o1'), { status: 'pendiente', updatedAt: new Date() }))
+  })
+})

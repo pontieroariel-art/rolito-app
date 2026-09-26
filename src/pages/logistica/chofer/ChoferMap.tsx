@@ -119,7 +119,7 @@ export default function ChoferMap() {
   const { orders, loading }           = useDriverOrders(ordersEmail)
 
   const pending = useMemo(
-    () => orders.filter((o) => o.status !== 'entregado' && o.clientAddress),
+    () => orders.filter((o) => o.status !== 'entregado' && o.status !== 'cancelado' && o.clientAddress),
     [orders],
   )
   // Booleano estable: cambia solo entre "hay pendientes" / "no hay", no en

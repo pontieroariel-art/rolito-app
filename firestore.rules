@@ -661,6 +661,14 @@ service cloud.firestore {
         myEstado() == 'activo' &&
         request.resource.data.diff(resource.data).affectedKeys()
           .hasOnly(['status', 'productosEntregados', 'entregaParcial', 'notaEntrega', 'updatedAt', 'historialAcciones', 'entregaFabrica']) &&
+        // Solo un pedido abierto y solo a entregado, con el historial creciendo de
+        // a una entrada (2026-09-26, auditoría del chofer, A1): antes podía
+        // entregar un cancelado, "des-entregar", tocar uno entregado días atrás o
+        // reescribir el historial.
+        resource.data.status in ['pendiente', 'confirmado', 'en_camino'] &&
+        request.resource.data.status == 'entregado' &&
+        (!('historialAcciones' in request.resource.data.diff(resource.data).affectedKeys())
+          || request.resource.data.historialAcciones.size() == resource.data.get('historialAcciones', []).size() + 1) &&
         (!('entregaFabrica' in request.resource.data.diff(resource.data).affectedKeys())
           || (resource.data.get('entregaSinComprobante', false) == true
               && request.resource.data.entregaFabrica.choferId == request.auth.uid

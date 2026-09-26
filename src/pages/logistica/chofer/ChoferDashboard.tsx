@@ -94,7 +94,9 @@ export default function ChoferDashboard() {
 
   // Derivados memoizados (2026-09-12, auditoría de performance): el GPS
   // re-renderiza esta pantalla cada 10 s y antes se recalculaba todo cada vez.
-  const pending   = useMemo(() => orders.filter((o) => o.status !== 'entregado'), [orders])
+  // Un cancelado no es una entrega pendiente (2026-09-26, auditoría del chofer, A1):
+  // quedaba con ENTREGAR, inflaba el contador y mantenía el GPS prendido.
+  const pending   = useMemo(() => orders.filter((o) => o.status !== 'entregado' && o.status !== 'cancelado'), [orders])
   const delivered = useMemo(() => orders.filter((o) => o.status === 'entregado'), [orders])
   const hasPending = pending.length > 0
 
