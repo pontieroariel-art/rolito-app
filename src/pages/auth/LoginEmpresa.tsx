@@ -80,11 +80,12 @@ export default function LoginEmpresa() {
           autoComplete="current-password"
           rightElement={
             <button
-              type="button"
+                type="button"
               tabIndex={-1}
               onClick={() => setShowPass((v) => !v)}
-              className="text-secundario hover:text-gray-700 transition-colors"
-            >
+              aria-label={showPass ? 'Ocultar la contraseña' : 'Mostrar la contraseña'}
+                className="-mr-3 flex h-11 w-11 items-center justify-center text-secundario hover:text-gray-700 transition-colors"
+              >
               {showPass ? <EyeOff size={18} /> : <Eye size={18} />}
             </button>
           }

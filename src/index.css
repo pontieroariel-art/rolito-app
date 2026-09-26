@@ -97,6 +97,41 @@
   }
 }
 
+/* ── Celular y tablet (relevamiento de responsividad, 2026-09-26) ───────────
+   Solo con puntero táctil (`pointer: coarse`): en escritorio con mouse no
+   cambia nada.
+   · Campos de 44 px de alto con letra de 16 px: el mínimo táctil, y además el
+     iPhone no hace zoom solo al tocar un campo (lo hace con letra < 16 px). Por
+     eso se pudo sacar el `maximum-scale=1` del viewport y volver a dejar
+     agrandar con dos dedos.
+   · Botones de solo ícono (llevan aria-label o title): 44 × 44.
+   · Texto de 9 a 11 px sube a 12 px en pantallas chicas (badges, contadores,
+     gráficos): se lee de parado y a contraluz.
+   Un control que tenga que quedar chico a propósito lleva la clase `no-tactil`. */
+@media (pointer: coarse) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]):not(.no-tactil),
+  select:not(.no-tactil),
+  textarea:not(.no-tactil) {
+    min-height: 44px;
+    font-size: max(16px, 1em);
+  }
+  button[aria-label]:not(.no-tactil),
+  button[title]:not(.no-tactil),
+  a[aria-label]:not(.no-tactil) {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  input[type="checkbox"]:not(.no-tactil),
+  input[type="radio"]:not(.no-tactil) {
+    min-width: 20px;
+    min-height: 20px;
+  }
+}
+@media (max-width: 767px) {
+  .text-\[9px\], .text-\[10px\], .text-\[11px\] { font-size: 12px; }
+  .recharts-cartesian-axis-tick-value, .recharts-legend-item-text, .recharts-text { font-size: 12px; }
+}
+
 /* "Ver como usuario" (2026-09-10): el banner violeta es sticky arriba de todo
    (VerComoBanner, h-9 = 2.25rem). Los headers/sidebars sticky de los layouts
    bajan esa altura para no quedar tapados. */

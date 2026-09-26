@@ -149,7 +149,8 @@ export function CrearStaffModal({ onClose, onCreated }: { onClose: () => void; o
               type="button"
               tabIndex={-1}
               onClick={() => setShowPass((v) => !v)}
-              className="text-lg leading-none text-secundario hover:text-gray-700"
+              aria-label={showPass ? 'Ocultar la contraseña' : 'Mostrar la contraseña'}
+              className="-mr-3 flex h-11 w-11 items-center justify-center text-lg leading-none text-secundario hover:text-gray-700"
             >
               {showPass ? '🙈' : '👁️'}
             </button>

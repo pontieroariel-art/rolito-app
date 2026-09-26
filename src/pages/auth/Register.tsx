@@ -150,11 +150,12 @@ export default function Register() {
           autoComplete="new-password"
           rightElement={
             <button
-              type="button"
+                type="button"
               tabIndex={-1}
               onClick={() => setShowPassword((v) => !v)}
-              className="text-secundario hover:text-gray-700 transition-colors"
-            >
+              aria-label={showPassword ? 'Ocultar la contraseña' : 'Mostrar la contraseña'}
+                className="-mr-3 flex h-11 w-11 items-center justify-center text-secundario hover:text-gray-700 transition-colors"
+              >
               {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
             </button>
           }
@@ -170,11 +171,12 @@ export default function Register() {
           autoComplete="new-password"
           rightElement={
             <button
-              type="button"
+                type="button"
               tabIndex={-1}
               onClick={() => setShowConfirm((v) => !v)}
-              className="text-secundario hover:text-gray-700 transition-colors"
-            >
+              aria-label={showConfirm ? 'Ocultar la contraseña' : 'Mostrar la contraseña'}
+                className="-mr-3 flex h-11 w-11 items-center justify-center text-secundario hover:text-gray-700 transition-colors"
+              >
               {showConfirm ? <EyeOff size={18} /> : <Eye size={18} />}
             </button>
           }
