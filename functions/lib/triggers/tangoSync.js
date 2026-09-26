@@ -14,6 +14,7 @@ const auth_1 = require("firebase-admin/auth");
 const empresas_1 = require("../services/tango/empresas");
 const cuit_1 = require("../services/tango/cuit");
 const clientes_1 = require("../services/tango/clientes");
+const cambiosCliente_1 = require("../services/tango/cambiosCliente");
 const tangoBridgeSecret = (0, params_1.defineSecret)('TANGO_BRIDGE_SECRET');
 // Tope de filas por request (auditoría 2026-08-29, H11): el bridge sincroniza el
 // padrón en lotes y ninguno legítimo se acerca a esto. Acota el costo / DoS si
@@ -133,6 +134,7 @@ async function procesarLoteClientesTango(db, rows, opts) {
     let skippedNoMatch = 0;
     let skippedAmbiguousCuit = 0;
     let actualizados = 0;
+    let sinCambios = 0;
     let emailsActualizados = 0;
     let emailsConError = 0;
     const errores = [];
@@ -327,13 +329,20 @@ async function procesarLoteClientesTango(db, rows, opts) {
             }
         }
         update.tangoUltimaSync = firestore_1.FieldValue.serverTimestamp();
+        // Solo lo que cambió (2026-09-26): antes se reescribían todas las fichas en cada
+        // corrida y cada escritura disparaba onClienteIndexado.
+        const aEscribir = (0, cambiosCliente_1.soloLoQueCambia)(update, perfil);
+        if (!aEscribir) {
+            sinCambios++;
+            continue;
+        }
         if (opts.dryRun) {
             if (wouldUpdate.length < 20)
                 wouldUpdate.push({ uid, empresa, ...update });
             actualizados++;
             continue;
         }
-        batch.update(db.collection('users').doc(uid), update);
+        batch.update(db.collection('users').doc(uid), aEscribir);
         actualizados++;
         enBatch++;
         if (enBatch >= 400)
@@ -352,6 +361,7 @@ async function procesarLoteClientesTango(db, rows, opts) {
         skippedNoMatch,
         skippedAmbiguousCuit,
         actualizados,
+        sinCambios,
         emailsActualizados,
         emailsConError,
         ...(opts.dryRun ? { wouldUpdate } : {}),

@@ -1,5 +1,6 @@
-// Precios y listas: Tango → app. Corrida diaria a la madrugada (igual que
-// clientes) + callable para el botón "Sincronizar ahora" de la pantalla de
+// Precios y listas: Tango → app. A las 5:30 y cada hora de 7 a 19 a y media
+// (2026-09-26, pedido de los choferes: un cambio de precio o de lista en Tango
+// llega en el día; escribe solo los clientes cuyo precio cambió) + callable para el botón "Sincronizar ahora" de la pantalla de
 // precios. Lógica en services/tango/precios.ts; docs/tango/INTEGRACION.md §17.
 
 import { onCall, HttpsError } from 'firebase-functions/v2/https'
@@ -36,7 +37,7 @@ async function correr(origen: string, uid?: string) {
 }
 
 export const syncPreciosTango = onSchedule(
-  { schedule: '30 5 * * *', timeZone: TZ, secrets: [tangoApiToken], timeoutSeconds: 540, memory: '512MiB', cpu: 0.5 },
+  { schedule: '30 5,7-19 * * *', timeZone: TZ, secrets: [tangoApiToken], timeoutSeconds: 540, memory: '512MiB', cpu: 0.5 },
   async () => {
     try { await correr('programada') } catch (e) { logger.error(`[tango] sync de precios falló: ${(e as Error).message}`) }
   },

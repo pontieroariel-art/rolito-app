@@ -114,6 +114,8 @@ export interface ResumenClientesEmpresa {
   recibidos: number
   lotes: number
   actualizados: number
+  /** Fichas iguales que no se reescribieron (2026-09-26). */
+  sinCambios?: number
   matchedByIdGva14: number
   matchedByCuit: number
   matchedByCodigo: number
@@ -161,6 +163,7 @@ function resumenClientesVacio(): ResumenClientesEmpresa {
 function sumarResumenClientes(into: ResumenClientesEmpresa, r: ResultadoSync) {
   into.lotes++
   into.actualizados           += r.actualizados ?? 0
+  into.sinCambios              = (into.sinCambios ?? 0) + (r.sinCambios ?? 0)
   into.matchedByIdGva14       += r.matchedByIdGva14 ?? 0
   into.matchedByCuit          += r.matchedByCuit ?? 0
   into.matchedByCodigo        += r.matchedByCodigo ?? 0
@@ -552,10 +555,13 @@ async function correrSaldos(origen: string, uid?: string) {
 
 // ── Programadas y callables ──────────────────────────────────────────────────
 
-// Clientes a las 5:00 (antes que precios a las 5:30, que necesita los
-// codigoTango recién vinculados). Saldos cada hora en horario de operación.
+// Clientes a las 5:00 y cada hora de 7 a 19 (2026-09-26, pedido de los choferes:
+// que un cambio de condición de venta en Tango llegue en el día; posible desde que
+// la corrida escribe solo las fichas que cambiaron). Siempre a la hora en punto,
+// antes que precios a y media, que necesita los codigoTango recién vinculados.
+// Saldos cada hora en horario de operación.
 export const syncClientesTangoConnect = onSchedule(
-  { schedule: '0 5 * * *', timeZone: TZ, secrets: [tangoApiToken], timeoutSeconds: 540, memory: '512MiB', cpu: 0.5 },
+  { schedule: '0 5,7-19 * * *', timeZone: TZ, secrets: [tangoApiToken], timeoutSeconds: 540, memory: '512MiB', cpu: 0.5 },
   async () => {
     try { await correrClientes('programada') } catch (e) { logger.error(`[tango] sync de clientes falló: ${(e as Error).message}`) }
   },

@@ -5,6 +5,7 @@ import { getAuth } from 'firebase-admin/auth'
 import { agregarTangoId, EMPRESAS, tangoIdsDe, type Empresa, type TangoIds } from '../services/tango/empresas'
 import { cuitValido } from '../services/tango/cuit'
 import { upsertDireccionTango } from '../services/tango/clientes'
+import { soloLoQueCambia } from '../services/tango/cambiosCliente'
 
 const tangoBridgeSecret = defineSecret('TANGO_BRIDGE_SECRET')
 
@@ -57,6 +58,8 @@ export interface ResultadoSync {
   skippedNoMatch?: number
   skippedAmbiguousCuit?: number
   actualizados?: number
+  /** Fichas que vinieron iguales y no se reescribieron (2026-09-26). */
+  sinCambios?: number
   emailsActualizados?: number
   emailsConError?: number
   wouldUpdate?: unknown[]
@@ -201,6 +204,7 @@ export async function procesarLoteClientesTango(
   let skippedNoMatch = 0
   let skippedAmbiguousCuit = 0
   let actualizados = 0
+  let sinCambios = 0
   let emailsActualizados = 0
   let emailsConError = 0
   const errores: ResultadoFila[] = []
@@ -380,13 +384,18 @@ export async function procesarLoteClientesTango(
 
     update.tangoUltimaSync = FieldValue.serverTimestamp()
 
+    // Solo lo que cambió (2026-09-26): antes se reescribían todas las fichas en cada
+    // corrida y cada escritura disparaba onClienteIndexado.
+    const aEscribir = soloLoQueCambia(update, perfil as Record<string, unknown>)
+    if (!aEscribir) { sinCambios++; continue }
+
     if (opts.dryRun) {
       if (wouldUpdate.length < 20) wouldUpdate.push({ uid, empresa, ...update })
       actualizados++
       continue
     }
 
-    batch.update(db.collection('users').doc(uid), update)
+    batch.update(db.collection('users').doc(uid), aEscribir)
     actualizados++
     enBatch++
     if (enBatch >= 400) await flush()
@@ -406,6 +415,7 @@ export async function procesarLoteClientesTango(
     skippedNoMatch,
     skippedAmbiguousCuit,
     actualizados,
+    sinCambios,
     emailsActualizados,
     emailsConError,
     ...(opts.dryRun ? { wouldUpdate } : {}),
