@@ -5641,7 +5641,8 @@ describe('anulacionesCobranza (anular un recibo con autorización, 2026-09-15)',
   // cobranza sigue inmutable para todos (la marca el server).
   const recibo = (uid, extra = {}) => ({
     origen: 'supervisor', registradoPor: { uid, nombre: 'Cobrador' }, clienteId: 'cli', clienteNombre: 'Cliente SA',
-    importe: 200000, formaPago: 'mixto', fecha: new Date(), numeroRecibo: 'RS-000168', empresa: 'redonhielo',
+    // 15/09 al mediodía de Argentina: la solicitud tiene que traer ese día (M6).
+    importe: 200000, formaPago: 'mixto', fecha: new Date('2026-09-15T15:00:00Z'), numeroRecibo: 'RS-000168', empresa: 'redonhielo',
     imputaciones: [], medios: { efectivo: 0, transferencia: 0, cheques: [], retenciones: [] }, ...extra,
   })
   const seedTodos = () => seed(async (d) => {
@@ -5657,6 +5658,7 @@ describe('anulacionesCobranza (anular un recibo con autorización, 2026-09-15)',
     await setDoc(doc(d, 'cobranzas/c4'), recibo('chof1', { origen: 'cobrador' }))
     await setDoc(doc(d, 'cobranzas/c5'), recibo('caja1', { origen: 'caja', plantaId: 'torcuato' }))
     await setDoc(doc(d, 'cobranzas/c6'), recibo('sup', { anulacion: { estado: 'rechazada', solicitudId: 'c6' } })) // rechazada: se puede volver a pedir
+    await setDoc(doc(d, 'cobranzas/c7'), recibo('sup', { fecha: new Date('2026-09-15T02:30:00Z') }))              // 14/09 a las 23:30 de Argentina
   })
   const solicitud = (cobranzaId, uid, extra = {}) => ({
     cobranzaId, origen: 'supervisor', cobradorId: uid, cobradorNombre: 'Cobrador', clienteId: 'cli', clienteNombre: 'Cliente SA',
@@ -5677,6 +5679,8 @@ describe('anulacionesCobranza (anular un recibo con autorización, 2026-09-15)',
     await assertFails(setDoc(doc(db('sup'), 'anulacionesCobranza/c1'), solicitud('c1', 'sup', { estado: 'aprobada' })))
     await assertFails(setDoc(doc(db('sup'), 'anulacionesCobranza/otro'), solicitud('c1', 'sup')))
     await assertFails(setDoc(doc(db('sup'), 'anulacionesCobranza/c1'), solicitud('c1', 'sup', { motivo: '' })))
+    // El importe es el del recibo: no se puede pedir con uno inventado (M6).
+    await assertFails(setDoc(doc(db('sup'), 'anulacionesCobranza/c1'), solicitud('c1', 'sup', { importe: 1000 })))
     // Chofer y cajero, sobre los suyos.
     await assertSucceeds(setDoc(doc(db('chof1'), 'anulacionesCobranza/c4'), solicitud('c4', 'chof1', { origen: 'cobrador' })))
     await assertSucceeds(setDoc(doc(db('caja1'), 'anulacionesCobranza/c5'), solicitud('c5', 'caja1', { origen: 'caja', plantaId: 'torcuato' })))
@@ -5688,8 +5692,10 @@ describe('anulacionesCobranza (anular un recibo con autorización, 2026-09-15)',
     await seed((d) => setDoc(doc(d, 'rendiciones/2026-09-15_caja1'), { fecha: '2026-09-15', cajeroId: 'caja1' }))
     await assertFails(setDoc(doc(db('sup'), 'anulacionesCobranza/c1'), solicitud('c1', 'sup')))
     await assertFails(setDoc(doc(db('caja1'), 'anulacionesCobranza/c5'), solicitud('c5', 'caja1', { origen: 'caja', plantaId: 'torcuato' })))
-    // Otro día sigue abierto.
-    await assertSucceeds(setDoc(doc(db('sup'), 'anulacionesCobranza/c1'), solicitud('c1', 'sup', { fechaCobranza: '2026-09-14' })))
+    // Poner otro día en la solicitud para esquivar el cierre ya no pasa (M6)...
+    await assertFails(setDoc(doc(db('sup'), 'anulacionesCobranza/c1'), solicitud('c1', 'sup', { fechaCobranza: '2026-09-14' })))
+    // ...pero un recibo que ES de otro día (14/09 23:30 AR = 15/09 02:30 UTC) sigue abierto.
+    await assertSucceeds(setDoc(doc(db('sup'), 'anulacionesCobranza/c7'), solicitud('c7', 'sup', { fechaCobranza: '2026-09-14' })))
   })
 
   test('aprueba o rechaza solo quien tiene el permiso, nunca el solicitante, solo esos campos', async () => {
@@ -6110,7 +6116,7 @@ describe('anulaciones: el gate es el viaje, no el día (2026-09-18)', () => {
   })
   const cobranza = (over = {}) => ({
     origen: 'chofer', registradoPor: { uid: 'chof1', nombre: 'C' }, clienteId: 'cli', clienteNombre: 'Cliente',
-    importe: 5000, formaPago: 'contado_efectivo', numeroRecibo: 'RS-000168', fecha: new Date(), ...over,
+    importe: 5000, formaPago: 'contado_efectivo', numeroRecibo: 'RS-000168', fecha: new Date('2026-09-18T15:00:00Z'), ...over,
   })
   const seedTodos = () => seed(async (d) => {
     await setDoc(doc(d, 'users/chof1'), { rol: 'chofer', estado: 'activo' })
@@ -6448,5 +6454,60 @@ describe('auditoría chofer — A7: el chofer lista sus últimas rendiciones', (
     const { query, where } = await import('firebase/firestore')
     await assertFails(getDocs(query(collection(db('ch', 'ch@x.com'), 'liquidaciones'), where('choferId', '==', 'otro'))))
     await assertFails(getDocs(query(collection(db('ch', 'ch@x.com'), 'liquidaciones'), where('fecha', '==', '2026-09-25'))))
+  })
+})
+
+// ── Auditoría del chofer M6 (2026-09-26): reglas más amplias de lo necesario ──
+describe('M6 — índices, contadores y umbral de faltantes', () => {
+  const seedRoles = () => seed(async (d) => {
+    await setDoc(doc(d, 'users/cho'), { rol: 'chofer', estado: 'activo' })
+    await setDoc(doc(d, 'users/mue'), { rol: 'muelle', estado: 'activo', planta: 'torcuato' })
+    await setDoc(doc(d, 'users/caja1'), { rol: 'caja', estado: 'activo', planta: 'torcuato' })
+    await setDoc(doc(d, 'users/ops'), { rol: 'logistica', estado: 'activo' })
+    await setDoc(doc(d, 'users/tes'), { rol: 'tesoreria', estado: 'activo' })
+    await setDoc(doc(d, 'users/fac'), { rol: 'facturacion', estado: 'activo' })
+    await setDoc(doc(d, 'users/gg'), { rol: 'gerente_general', estado: 'activo' })
+    await setDoc(doc(d, 'users/sup'), { rol: 'supervisor', estado: 'activo' })
+  })
+
+  test('el staff de calle y planta ya no enumera los índices de login; logística sí', async () => {
+    await seedRoles()
+    await seed(async (d) => {
+      await setDoc(doc(d, 'staffDniIndex/30111222'), { email: 's@x.com' })
+      await setDoc(doc(d, 'dniIndex/12345678'), { email: 'ch@x.com' })
+    })
+    for (const uid of ['cho', 'mue', 'caja1']) {
+      await assertFails(getDocs(collection(db(uid), 'staffDniIndex')))
+      await assertFails(getDocs(collection(db(uid), 'dniIndex')))
+    }
+    await assertSucceeds(getDocs(collection(db('ops'), 'staffDniIndex')))
+    // El login sigue resolviendo UN DNI por get.
+    await assertSucceeds(getDoc(doc(testEnv.unauthenticatedContext().firestore(), 'staffDniIndex/30111222')))
+  })
+
+  test('la numeración avanza de a un lote (tope +30) y el chofer no toca la NC X', async () => {
+    await seedRoles()
+    await seed(async (d) => {
+      await setDoc(doc(d, 'config/numeracionInterna_remito'), { next: 100, puntoVenta: 2 })
+      await setDoc(doc(d, 'config/numeracionInterna_notaCreditoX'), { next: 5, puntoVenta: 3 })
+      await setDoc(doc(d, 'config/reciboSupervisorCounter'), { next: 100 })
+    })
+    await assertSucceeds(updateDoc(doc(db('cho'), 'config/numeracionInterna_remito'), { next: 130 }))
+    await assertFails(updateDoc(doc(db('cho'), 'config/numeracionInterna_remito'), { next: 1000 }))
+    await assertFails(updateDoc(doc(db('cho'), 'config/numeracionInterna_notaCreditoX'), { next: 6 }))
+    await assertSucceeds(updateDoc(doc(db('sup'), 'config/reciboSupervisorCounter'), { next: 120 }))
+    await assertFails(updateDoc(doc(db('sup'), 'config/reciboSupervisorCounter'), { next: 500 }))
+  })
+
+  test('el umbral de faltantes no lo lee quien cuenta ni quien rinde; la oficina sí', async () => {
+    await seedRoles()
+    await seed(async (d) => {
+      await setDoc(doc(d, 'config/liquidacion'), { faltantes: { unidades: 5 } })
+      await setDoc(doc(d, 'config/remitoOficial'), { cai: '123' })
+    })
+    for (const uid of ['cho', 'mue', 'sup']) await assertFails(getDoc(doc(db(uid), 'config/liquidacion')))
+    for (const uid of ['caja1', 'tes', 'ops', 'fac', 'gg']) await assertSucceeds(getDoc(doc(db(uid), 'config/liquidacion')))
+    // El resto de la configuración sigue igual para el chofer.
+    await assertSucceeds(getDoc(doc(db('cho'), 'config/remitoOficial')))
   })
 })

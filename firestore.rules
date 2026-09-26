@@ -808,8 +808,13 @@ service cloud.firestore {
         && request.resource.data.turnos.size() >= 1
         && request.resource.data.turnos.size() <= 6;
 
+      // config/liquidacion (umbral de faltantes) no lo lee quien cuenta ni quien
+      // rinde: chofer, muelle, seguridad, producción, supervisor (auditoría del
+      // chofer M6). Solo las pantallas de liquidación y Ajustes generales lo usan.
       allow read: if esNoAnonimo()
-        && (docId == 'catalogo' || docId == 'motivosReparacion' || docId == 'ticketServicioCounter' || isStaff());
+        && (docId == 'catalogo' || docId == 'motivosReparacion' || docId == 'ticketServicioCounter'
+            || (isStaff() && (docId != 'liquidacion'
+                || hasAlguno(['super_admin', 'logistica', 'caja', 'tesoreria', 'gerente_general', 'gerente_comercial', 'facturacion']))));
       allow write: if request.auth != null && isOperator() && !esConfigArca();
       // Bridge de Tango: necesita leer config/tango (interruptor
       // produccionEnabled) y escribir su propio heartbeat, nada más.
@@ -903,10 +908,13 @@ service cloud.firestore {
       // supervisores no están fijos a una planta). Alta inicial solo por
       // super_admin (isOperator() write total, arriba); el supervisor solo
       // puede avanzar `next` al reservar un lote — mismo patrón que producción.
+      // Tope de +30 por reserva (lotes de 20, auditoría del chofer M6): sin tope
+      // cualquiera podía saltar números del talonario.
       allow update: if request.auth != null && docId == 'reciboSupervisorCounter'
         && (isSupervisor() || isCaja() || isChofer())
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['next'])
-        && request.resource.data.next > resource.data.next;
+        && request.resource.data.next > resource.data.next
+        && request.resource.data.next <= resource.data.next + 30;
 
       // Numeración de los comprobantes internos de la venta
       // (config/numeracionInterna_remito, _facturaX = { next, puntoVenta }).
@@ -915,10 +923,14 @@ service cloud.firestore {
       // chofer, el supervisor (depósito propio, 2026-09-06) y caja en
       // ventanilla (factura X de promo, 2026-09-08) — sin este permiso la
       // venta salía "sin número" y Tango la rechazaba.
-      allow update: if request.auth != null && docId.matches('numeracionInterna_.*')
+      // Solo los tres talonarios de la venta: la NC X (numeracionInterna_notaCreditoX)
+      // la numera el servidor al aprobar una anulación. Tope de +30 por reserva
+      // (lotes de 20): un talonario con CAI no admite saltos (auditoría del chofer M6).
+      allow update: if request.auth != null && docId.matches('numeracionInterna_(remito|remitoPromo|facturaX)')
         && (isChofer() || isSupervisor() || isCaja())
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['next'])
-        && request.resource.data.next > resource.data.next;
+        && request.resource.data.next > resource.data.next
+        && request.resource.data.next <= resource.data.next + 30;
     }
 
     // ── Emails de notificación admin ──────────────────────────────────────────
@@ -2458,7 +2470,19 @@ service cloud.firestore {
         let a = c.get('anulacion', {});
         return c.registradoPor.uid == request.auth.uid
           && c.get('numeroRecibo', '') is string && c.get('numeroRecibo', '').size() > 0
-          && (a.get('estado', 'rechazada') in ['rechazada', 'error']);
+          && (a.get('estado', 'rechazada') in ['rechazada', 'error'])
+          // El importe y el día de la solicitud son los del recibo (auditoría del
+          // chofer M6): antes se podía pedir con un importe inventado, que es lo
+          // que ve quien autoriza, o con otro día para esquivar el cierre.
+          && request.resource.data.importe == c.importe
+          && request.resource.data.fechaCobranza == diaArgentina(c.fecha);
+      }
+      // yyyy-MM-dd del día en Argentina (UTC-3, sin horario de verano), igual
+      // que toDateStr en el teléfono.
+      function diaArgentina(t) {
+        let f = t - duration.value(3, 'h');
+        return string(f.year()) + '-' + (f.month() < 10 ? '0' : '') + string(f.month())
+          + '-' + (f.day() < 10 ? '0' : '') + string(f.day());
       }
       function diaAbierto(c) {
         let d = request.resource.data;
@@ -2662,7 +2686,7 @@ service cloud.firestore {
     // (fase 2). Mismo criterio para todos los índices de login de abajo.
     match /cuitIndex/{cuit} {
       allow get:  if true;
-      allow list: if request.auth != null && isStaff();
+      allow list: if request.auth != null && isOperator();
       // Un cliente solo puede CREAR (nunca sobrescribir) el índice de SU
       // PROPIO CUIT, apuntando a su propio email — evita que un usuario
       // secuestre/envenene el índice de un CUIT ya asignado a otra cuenta.
@@ -2680,37 +2704,37 @@ service cloud.firestore {
 
     match /choferIndex/{username} {
       allow get:  if true;
-      allow list: if request.auth != null && isStaff();
+      allow list: if request.auth != null && isOperator();
       allow write: if request.auth != null && isOperator();
     }
 
     match /staffIndex/{username} {
       allow get:  if true;
-      allow list: if request.auth != null && isStaff();
+      allow list: if request.auth != null && isOperator();
       allow write: if request.auth != null && esSuperAdmin();
     }
 
     match /dniIndex/{dni} {
       allow get:  if true;
-      allow list: if request.auth != null && isStaff();
+      allow list: if request.auth != null && isOperator();
       allow write: if request.auth != null && isOperator();
     }
 
     match /staffDniIndex/{dni} {
       allow get:  if true;
-      allow list: if request.auth != null && isStaff();
+      allow list: if request.auth != null && isOperator();
       allow write: if request.auth != null && esSuperAdmin();
     }
 
     match /tecnicoDniIndex/{dni} {
       allow get:  if true;
-      allow list: if request.auth != null && isStaff();
+      allow list: if request.auth != null && isOperator();
       allow write: if request.auth != null && isHeladerasFullAccess();
     }
 
     match /produccionLegajoIndex/{legajo} {
       allow get:  if true;
-      allow list: if request.auth != null && isStaff();
+      allow list: if request.auth != null && isOperator();
       allow write: if request.auth != null && isProduccionEncargado();
     }
 
