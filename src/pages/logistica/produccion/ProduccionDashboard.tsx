@@ -23,7 +23,7 @@ import { CheckCircle2, Printer } from 'lucide-react'
 import { reportError } from '@/services/observability'
 import { generateQrDataUrl } from '@/utils/qr'
 import { generateBarcodeDataUrl } from '@/utils/barcode'
-import { PRODUCTOS_HIELO, PRODUCTOS_HIELO_LIST } from '@/utils/produccionCatalogo'
+import { PRODUCTOS_HIELO, productosDePlanta } from '@/utils/produccionCatalogo'
 import { PLANTA_INFO } from '@/utils/constants'
 import { armar, codigoDePallet, repetidoHaceSegundos, pendientesSinConfirmar, resumenDelDia, type Armado } from '@/utils/cargaPallets'
 import { armarZplPallet } from '@/utils/zplPallet'
@@ -277,7 +277,9 @@ export default function ProduccionDashboard() {
     )
   }
 
-  const impar = PRODUCTOS_HIELO_LIST.length % 2 === 1
+  // Solo lo que se fabrica en esta planta (Torcuato no hace barras).
+  const productos = productosDePlanta(user.planta)
+  const impar = productos.length % 2 === 1
   const aviso = error || impresora.error
 
   return (
@@ -320,9 +322,9 @@ export default function ProduccionDashboard() {
 
           <div
             className="flex-1 min-h-0 grid grid-cols-2 gap-3"
-            style={{ gridTemplateRows: `repeat(${Math.ceil(PRODUCTOS_HIELO_LIST.length / 2)}, minmax(0, 1fr))` }}
+            style={{ gridTemplateRows: `repeat(${Math.ceil(productos.length / 2)}, minmax(0, 1fr))` }}
           >
-            {PRODUCTOS_HIELO_LIST.map((p, i) => {
+            {productos.map((p, i) => {
               return (
                 <TileProducto
                   key={p.id}
@@ -330,7 +332,7 @@ export default function ProduccionDashboard() {
                   hoy={resumen.porProducto[p.id] ?? 0}
                   seleccionada={armado?.productoId === p.id}
                   disabled={!reservaLista}
-                  spanDos={impar && i === PRODUCTOS_HIELO_LIST.length - 1}
+                  spanDos={impar && i === productos.length - 1}
                   onTap={onTap}
                 />
               )

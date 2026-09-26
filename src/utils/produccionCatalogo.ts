@@ -1,4 +1,4 @@
-import { ProductoHieloId } from '../types'
+import { PlantaId, ProductoHieloId } from '../types'
 
 // Catálogo cerrado de productos de producción de hielo — confirmado por
 // Redonhielo, un cambio acá es un deploy, no una pantalla de edición.
@@ -27,6 +27,10 @@ export interface ProductoHieloDef {
   codigoCorto:       string        // '10', '3', 'PIC'… en el bloque negro
   nombreEtiqueta:    string        // 'BOLSA 10 KG', 'PICADO 10 KG'…
   patron:            PatronEtiqueta
+  // Plantas que lo fabrican (2026-09-25, dato de Ariel: las barras se hacen
+  // en Merlo, no en Torcuato). Sin el campo = las dos. La tablet de cada
+  // planta muestra solo lo suyo, así nadie toca un producto que ahí no se hace.
+  plantas?:          PlantaId[]
 }
 
 /** Patrón de la banda de la etiqueta: cada producto el suyo, bien distinto de lejos. */
@@ -68,6 +72,7 @@ export const PRODUCTOS_HIELO: Record<ProductoHieloId, ProductoHieloDef> = {
     descripcionTicket: 'BARRAS DE HIELO', tamanioTicket: 'BARRA', etiquetaGrilla: 'BARRA',
     unidadesPorPallet: 56, unidadLabel: 'barras', color: '#008300',
     codigoCorto: 'BAR', nombreEtiqueta: 'BARRAS', patron: 'marco',
+    plantas: ['merlo'],
   },
   rembolsado_cementera_10kg: {
     id: 'rembolsado_cementera_10kg', nombre: 'Rembolsado cementera bolsa 10kg',
@@ -78,3 +83,8 @@ export const PRODUCTOS_HIELO: Record<ProductoHieloId, ProductoHieloDef> = {
 }
 
 export const PRODUCTOS_HIELO_LIST: ProductoHieloDef[] = Object.values(PRODUCTOS_HIELO)
+
+/** Los productos que se fabrican en una planta, en el orden del catálogo. */
+export function productosDePlanta(planta: PlantaId): ProductoHieloDef[] {
+  return PRODUCTOS_HIELO_LIST.filter((p) => !p.plantas || p.plantas.includes(planta))
+}
