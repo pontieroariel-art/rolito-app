@@ -6398,3 +6398,24 @@ describe('auditoría chofer — A5: perfil propio y lectura de otros usuarios', 
     await assertSucceeds(getDoc(doc(db('log1'), 'users/ch2')))
   })
 })
+
+describe('auditoría chofer — A7: el chofer lista sus últimas rendiciones', () => {
+  const seedBase = () => seed(async (d) => {
+    await setDoc(doc(d, 'users/ch'), { rol: 'chofer', estado: 'activo', email: 'ch@x.com' })
+    await setDoc(doc(d, 'liquidaciones/rem1'), { choferId: 'ch', fecha: '2026-09-24', codigo: 'LQ-21-000001' })
+    await setDoc(doc(d, 'liquidaciones/rem2'), { choferId: 'ch', fecha: '2026-09-25', codigo: 'LQ-21-000002' })
+    await setDoc(doc(d, 'liquidaciones/rem3'), { choferId: 'otro', fecha: '2026-09-25', codigo: 'LQ-22-000001' })
+  })
+  test('lista las suyas por chofer y días (con la clave por viaje)', async () => {
+    await seedBase()
+    const { query, where } = await import('firebase/firestore')
+    const snap = await assertSucceeds(getDocs(query(collection(db('ch', 'ch@x.com'), 'liquidaciones'), where('choferId', '==', 'ch'), where('fecha', 'in', ['2026-09-24', '2026-09-25']))))
+    if (snap.size !== 2) throw new Error('esperaba 2 y vinieron ' + snap.size)
+  })
+  test('no lista las de otro chofer', async () => {
+    await seedBase()
+    const { query, where } = await import('firebase/firestore')
+    await assertFails(getDocs(query(collection(db('ch', 'ch@x.com'), 'liquidaciones'), where('choferId', '==', 'otro'))))
+    await assertFails(getDocs(query(collection(db('ch', 'ch@x.com'), 'liquidaciones'), where('fecha', '==', '2026-09-25'))))
+  })
+})

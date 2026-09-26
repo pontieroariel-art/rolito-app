@@ -1,4 +1,4 @@
-import { collection, doc, getDoc, onSnapshot, query, runTransaction, where, Timestamp } from 'firebase/firestore'
+import { collection, doc, getDoc, getDocs, onSnapshot, query, runTransaction, where, Timestamp } from 'firebase/firestore'
 import { db } from './firebase'
 import { reportError } from './observability'
 import { ChequeRendido, ConteoBilletes, DesvioLiquidacion, EmpresaTango, Liquidacion, MotivoDiferenciaLiquidacion, PlantaId, RetencionRendida } from '../types'
@@ -114,10 +114,18 @@ export async function cerrarLiquidacion(
   return { id, ...liquidacion }
 }
 
-/** Liquidaciones de una persona en varios días (ids determinísticos, un getDoc por día). */
+/**
+ * Liquidaciones de una persona en varios días (hasta 30). Una sola consulta por
+ * chofer y fecha (2026-09-26, auditoría del chofer, A7): antes eran un getDoc
+ * por día con el id `{fecha}_{uid}`, que desde el 21/09 no existe para el chofer
+ * con viaje (su id es el `{remitoId}`), así que "Últimas rendiciones" quedaba
+ * vacía y se pagaban siete lecturas. Dos igualdades: sin índice compuesto; la
+ * regla deja listar las propias por `choferId`.
+ */
 export async function getLiquidacionesDeChofer(choferId: string, fechas: string[]): Promise<Liquidacion[]> {
-  const snaps = await Promise.all(fechas.map((f) => getDoc(doc(db, LIQUIDACIONES, liquidacionId(f, choferId)))))
-  return snaps.filter((s) => s.exists()).map((s) => ({ id: s.id, ...s.data() }) as Liquidacion)
+  if (!fechas.length) return []
+  const snap = await getDocs(query(collection(db, LIQUIDACIONES), where('choferId', '==', choferId), where('fecha', 'in', fechas.slice(0, 30))))
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Liquidacion)
 }
 
 // Historial (2026-09-06): todos los cierres cuya fecha (yyyy-MM-dd) cae en
