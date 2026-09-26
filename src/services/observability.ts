@@ -29,10 +29,23 @@ export const APP_RELEASE: string =
 
 export function initObservability(): void {
   if (!dsn || import.meta.env.DEV) return
-  import('@sentry/react').then((mod) => {
-    Sentry = mod
-    iniciarSentry(mod)
-  }).catch((err) => console.error('[observability] no se pudo cargar Sentry', err))
+  // Después de que la página terminó de cargar y el navegador está libre
+  // (2026-09-26, auditoría del chofer, R3): Sentry pesa unos 128 KB y se bajaba
+  // durante el arranque compitiendo con la app en 4G. Los errores de ese
+  // intervalo se guardan en `erroresPendientes` y se mandan al cargar.
+  const cargar = () => {
+    import('@sentry/react').then((mod) => {
+      Sentry = mod
+      iniciarSentry(mod)
+    }).catch((err) => console.error('[observability] no se pudo cargar Sentry', err))
+  }
+  const cuandoEsteLibre = () => {
+    const ric = (window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }).requestIdleCallback
+    if (ric) ric(cargar, { timeout: 4000 })
+    else setTimeout(cargar, 1500)
+  }
+  if (document.readyState === 'complete') cuandoEsteLibre()
+  else window.addEventListener('load', cuandoEsteLibre, { once: true })
 }
 
 function iniciarSentry(Sentry: SentryModulo): void {
