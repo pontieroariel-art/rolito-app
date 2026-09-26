@@ -28,6 +28,7 @@ import { PLANTA_INFO } from '@/utils/constants'
 import { armar, codigoDePallet, repetidoHaceSegundos, pendientesSinConfirmar, resumenDelDia, type Armado } from '@/utils/cargaPallets'
 import { armarZplPallet } from '@/utils/zplPallet'
 import { TACTO, vibrar } from '@/utils/tacto'
+import { desbloquearAudio, sonar } from '@/utils/sonidoCarga'
 import { PLANTAS, ProductoHieloId, PalletProduccion } from '@/types'
 
 interface TicketData { pallet: PalletProduccion; qrDataUrl: string; barcodeDataUrl: string }
@@ -137,6 +138,7 @@ export default function ProduccionDashboard() {
   const nombre = user?.nombre ?? ''
 
   const encolar = useCallback((pallet: PalletProduccion) => {
+    sonar('error')   // la etiqueta no salió: que se entere aunque no mire
     setPorImprimir((prev) => prev.some((p) => p.id === pallet.id) ? prev : [...prev, pallet])
   }, [])
 
@@ -183,6 +185,7 @@ export default function ProduccionDashboard() {
   // las tarjetas y nada que tocar por error. Chrome solo lo permite con un gesto.
   useEffect(() => {
     const entrar = () => {
+      desbloquearAudio()
       if (document.fullscreenElement || !document.documentElement.requestFullscreen) return
       document.documentElement.requestFullscreen().catch(() => { /* sin permiso: sigue igual */ })
     }
@@ -199,11 +202,13 @@ export default function ProduccionDashboard() {
       setArmado(null)
       setError('')
       vibrar(TACTO.exito)
+      sonar('ok')
       const prod = PRODUCTOS_HIELO[productoId]
       setHecho({ texto: `${prod.etiquetaGrilla} cargado`, codigo: pallet.codigo, color: prod.color })
       imprimir(pallet)
     } catch (err) {
       vibrar(TACTO.error)
+      sonar('error')
       setArmado(null)
       if (err instanceof ReservaAgotadaError) {
         setReservaLista(false)
@@ -220,7 +225,9 @@ export default function ProduccionDashboard() {
   const onTap = useCallback((productoId: ProductoHieloId) => {
     const ahora = Date.now()
     vibrar(TACTO.toque)
-    setRepetido(repetidoHaceSegundos(productoId, listasRef.current, ahora))
+    const rep = repetidoHaceSegundos(productoId, listasRef.current, ahora)
+    setRepetido(rep)
+    if (rep !== null) sonar('duplicado')
     const numero = uid && planta ? proximoNumero(uid, planta) : null
     setCodigoProximo(numero !== null && planta ? codigoDePallet(PLANTA_INFO[planta].prefijoCodigo, numero) : null)
     setArmado(armar(productoId, ahora))
