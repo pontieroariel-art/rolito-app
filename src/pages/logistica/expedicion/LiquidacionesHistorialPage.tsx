@@ -64,9 +64,9 @@ export default function LiquidacionesHistorialPage({ base }: { base: '/caja' | '
       let r = m.get(l.choferId)
       if (!r) { r = { id: l.choferId, nombre: l.choferNombre, deposito: l.depositoTango, cierres: 0, aRendir: 0, recibido: 0, diferencia: 0, conDiferencia: 0, valoresFaltantes: 0, conDesvio: 0, bolsasFaltantes: 0 }; m.set(l.choferId, r) }
       r.cierres++
-      r.aRendir += l.efectivoARendir
-      r.recibido += l.efectivoRecibido
-      r.diferencia += l.diferenciaEfectivo
+      r.aRendir += l.efectivoARendir ?? 0
+      r.recibido += l.efectivoRecibido ?? 0
+      r.diferencia += l.diferenciaEfectivo ?? 0
       r.valoresFaltantes += l.valoresFaltantes?.cantidad ?? 0
       if (l.desvio) { r.conDesvio += 1; r.bolsasFaltantes += l.desvio.bolsasFaltantes }
       if (l.diferenciaEfectivo !== 0) r.conDiferencia++
@@ -81,7 +81,7 @@ export default function LiquidacionesHistorialPage({ base }: { base: '/caja' | '
       .sort((a, b) => b.fecha.localeCompare(a.fecha) || a.choferNombre.localeCompare(b.choferNombre, 'es')),
     [liquidaciones, filtroChofer, busqueda],
   )
-  const totalDiferencia = liquidaciones.reduce((s, l) => s + l.diferenciaEfectivo, 0)
+  const totalDiferencia = liquidaciones.reduce((s, l) => s + (l.diferenciaEfectivo ?? 0), 0)
 
   const columnasResumen: ColumnaHistorial<PorRepartidor>[] = [
     { titulo: 'Repartidor', truncar: true, anchoMax: 260, csv: (r) => `${r.deposito ? `${r.deposito} · ` : ''}${r.nombre}`, celda: (r) => (
