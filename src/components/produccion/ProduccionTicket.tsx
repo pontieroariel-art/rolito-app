@@ -1,6 +1,7 @@
 import { PalletProduccion } from '../../types'
 import { PLANTA_INFO } from '../../utils/constants'
 import { PRODUCTOS_HIELO } from '../../utils/produccionCatalogo'
+import { bandaDeProducto } from '../../utils/zplPallet'
 
 // Ticket 100x150mm para Zebra — tamaño definido en index.css (@page
 // produccion-ticket), acá solo se dibuja el contenido. Tamaño físico
@@ -18,20 +19,27 @@ export default function ProduccionTicket({
   const producto = PRODUCTOS_HIELO[pallet.productoId]
   const fecha    = pallet.fechaFabricacion.toDate()
 
-  // Mismo criterio que la grilla de carga: la palabra distintiva en grande
-  // (cuatro productos comparten "10KG" y en la cámara se identifica por
-  // PICADO/ESCAMA/CEMENTERA), con el peso al lado cuando no es redundante.
-  const tamanioLinea = producto.etiquetaGrilla === producto.tamanioTicket
-    ? producto.tamanioTicket
-    : `${producto.etiquetaGrilla} · ${producto.tamanioTicket}`
+  // Banda negra con la palabra del producto en blanco, lo más grande que
+  // entre (2026-09-25): en la cámara de frío el pallet se reconoce de lejos.
+  // Misma cuenta que la etiqueta ZPL de la Zebra (zplPallet.bandaDeProducto).
+  const banda = bandaDeProducto(pallet.productoId, 92)
+  // Inter en negrita es más ancha que la fuente de la Zebra: una mayúscula
+  // ocupa ~0,72 del tamaño de fuente. Tope de 26 mm para que la banda de 40 respire.
+  const tamanioFuenteMm = Math.min(26, 88 / (banda.palabra.length * 0.72))
 
   return (
-    <div className="produccion-ticket-page w-[100mm] h-[150mm] p-[4mm] flex flex-col items-center justify-between text-black bg-white box-border">
-      <img src="/logo-rolito.png" alt="Rolito" className="h-[14mm] object-contain" />
+    <div className="produccion-ticket-page w-[100mm] h-[150mm] pb-[4mm] flex flex-col items-center justify-between text-black bg-white box-border">
+      <div
+        className="w-full h-[40mm] bg-black text-white flex flex-col items-center justify-center"
+        style={{ printColorAdjust: 'exact', WebkitPrintColorAdjust: 'exact' }}
+      >
+        <p className="font-black leading-none text-center whitespace-nowrap" style={{ fontSize: `${tamanioFuenteMm}mm` }}>
+          {banda.palabra}
+        </p>
+        {banda.subtitulo && <p className="font-bold text-[8mm] leading-none mt-[2mm]">{banda.subtitulo}</p>}
+      </div>
 
-      <p className="font-bold text-[7mm] leading-tight text-center">
-        {tamanioLinea}
-      </p>
+      <img src="/logo-rolito.png" alt="Rolito" className="h-[9mm] object-contain" />
 
       <div className="text-center text-[2.6mm] leading-snug">
         <p>HORA FAB.: {fecha.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}</p>
