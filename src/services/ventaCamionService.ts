@@ -54,10 +54,17 @@ export function crearVentaCamion(
     ordenCompra?: string
     /** Venta anulada que esta reemplaza (reemisión asistida). */
     reemiteDe?: string
+    /**
+     * Id fijo del documento (2026-09-26, auditoría del chofer, C2): la entrega de
+     * un pedido usa `pedido_{orderId}`. Si por cualquier camino se intenta
+     * registrar dos veces la entrega del mismo pedido, la segunda escritura es
+     * una actualización y las reglas la rechazan: no sale un segundo comprobante.
+     */
+    idFijo?: string
   },
   actor: ActorChofer,
 ): VentaCamion {
-  const ref   = doc(collection(db, VENTAS))
+  const ref   = args.idFijo ? doc(db, VENTAS, args.idFijo) : doc(collection(db, VENTAS))
   const fecha = Timestamp.now()
   const total = args.items.reduce((s, i) => s + i.precioUnitario * i.cantidad, 0)
 

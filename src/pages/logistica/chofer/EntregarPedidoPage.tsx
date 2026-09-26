@@ -81,11 +81,14 @@ export default function EntregarPedidoPage() {
   const [firmante, setFirmante] = useState('')
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState('')
-  const [exito, setExito] = useState<{ documento: string | null; total: number; conIva: boolean; parcial: boolean; mail: string; sinImporte: boolean } | null>(null)
+  // El éxito lleva su propia copia del nombre del cliente (2026-09-26, auditoría del
+  // chofer, A3): al entregar, un pedido de un día anterior sale de la lista y la
+  // pantalla mostraba "ya no está en tus entregas" en vez del éxito.
+  const [exito, setExito] = useState<{ cliente: string; documento: string | null; total: number; conIva: boolean; parcial: boolean; mail: string; sinImporte: boolean } | null>(null)
   // Entrega con remito de fábrica (Coto/Carrefour, 2026-09-23): un solo paso,
   // cantidades reales y listo. Sin venta, sin comprobante, sin mail ni Tango.
   const sinComprobante = !!order && esEntregaSinComprobante(order)
-  const [exitoFabrica, setExitoFabrica] = useState<{ unidades: number; parcial: boolean } | null>(null)
+  const [exitoFabrica, setExitoFabrica] = useState<{ cliente: string; unidades: number; parcial: boolean } | null>(null)
   const [preciosIncluyenIva, setPreciosIncluyenIva] = useState(false)
   useEffect(() => { getPreciosIncluyenIva().then(setPreciosIncluyenIva).catch((err) => reportError(err, { origen: 'EntregarPedidoPage', accion: 'leer config de precios con IVA' })) }, [])
 
@@ -203,7 +206,7 @@ export default function EntregarPedidoPage() {
       crearVentaCamion(
         {
           canal, cliente: clienteVenta, items, formaPago, firmaCliente: firma, firmanteNombre: firmante, comprobanteInterno,
-          pedidoId: order.id, ordenCompra: ocVenta,
+          pedidoId: order.id, ordenCompra: ocVenta, idFijo: `pedido_${order.id}`,
           clienteSucursalNombre: nombreSucursalVenta(cliente, empresa, clienteVenta.codigoTango),
         },
         {
@@ -217,6 +220,7 @@ export default function EntregarPedidoPage() {
       markDelivered(order.id, entregados, parcial, nota.trim(), { uid: user.uid, nombre: user.nombre })
         .catch((err) => reportError(err, { origen: 'EntregarPedidoPage', accion: 'markDelivered', orderId: order.id }))
       setExito({
+        cliente: order.clientName,
         documento: tipoInterno ? `${ETIQUETA_COMPROBANTE[tipoInterno]} ${comprobanteInterno ? codigoComprobanteInterno(comprobanteInterno) : 'sin número'}` : null,
         total: conIva?.total ?? total, conIva: conIva !== null, parcial, mail: cliente.email && !cliente.email.endsWith('@rolito.app') ? cliente.email : '',
         sinImporte,
@@ -242,7 +246,7 @@ export default function EntregarPedidoPage() {
       // Sin señal el write queda encolado y la entrega igual figura registrada.
       entregarConRemitoDeFabrica(order.id, entregados, parcial, nota.trim(), entrega, { uid: user.uid, nombre: user.nombre })
         .catch((err) => reportError(err, { origen: 'EntregarPedidoPage', accion: 'entregarConRemitoDeFabrica', orderId: order.id }))
-      setExitoFabrica({ unidades: conCatalogo.reduce((s, r) => s + r.cantidad, 0), parcial })
+      setExitoFabrica({ cliente: order.clientName, unidades: conCatalogo.reduce((s, r) => s + r.cantidad, 0), parcial })
     } catch (err) {
       reportError(err, { origen: 'EntregarPedidoPage', accion: 'confirmarFabrica' })
       setError('No se pudo registrar la entrega. Intentá de nuevo.')
@@ -252,7 +256,7 @@ export default function EntregarPedidoPage() {
   }
 
   // ── Pantalla de éxito (remito de fábrica) ──────────────────────────────────
-  if (exitoFabrica && order) {
+  if (exitoFabrica) {
     return (
       <div className="min-h-dvh bg-[#F8F7F2] text-gray-900 flex flex-col">
         <main className="flex-1 flex flex-col items-center justify-center px-6 text-center max-w-md mx-auto w-full">
@@ -260,7 +264,7 @@ export default function EntregarPedidoPage() {
             <CheckCircle2 size={48} className="text-success" strokeWidth={2.2} />
           </div>
           <h2 className="text-2xl font-black">¡Entrega registrada!</h2>
-          <p className="text-secundario mt-1">{order.clientName}</p>
+          <p className="text-secundario mt-1">{exitoFabrica.cliente}</p>
           <p className="text-3xl font-black tabular-nums mt-3">{exitoFabrica.unidades} u.</p>
           <div className="mt-5 w-full rounded-2xl border border-[#D3D1C7] bg-white p-4 text-left text-sm space-y-2">
             <p className="flex gap-2"><span className="text-success font-bold">✓</span> Pedido entregado{exitoFabrica.parcial ? ' (parcial)' : ''}</p>
@@ -274,7 +278,7 @@ export default function EntregarPedidoPage() {
   }
 
   // ── Pantalla de éxito ──────────────────────────────────────────────────────
-  if (exito && order) {
+  if (exito) {
     return (
       <div className="min-h-dvh bg-[#F8F7F2] text-gray-900 flex flex-col">
         <main className="flex-1 flex flex-col items-center justify-center px-6 text-center max-w-md mx-auto w-full">
@@ -282,7 +286,7 @@ export default function EntregarPedidoPage() {
             <CheckCircle2 size={48} className="text-success" strokeWidth={2.2} />
           </div>
           <h2 className="text-2xl font-black">¡Entrega registrada!</h2>
-          <p className="text-secundario mt-1">{order.clientName}</p>
+          <p className="text-secundario mt-1">{exito.cliente}</p>
           <p className="text-3xl font-black tabular-nums mt-3">{exito.sinImporte ? 'Cuenta corriente' : money(exito.total)}</p>
           {exito.conIva && !exito.sinImporte && <p className="text-xs text-secundario mt-0.5">IVA incluido, como sale en la factura</p>}
           <div className="mt-5 w-full rounded-2xl border border-[#D3D1C7] bg-white p-4 text-left text-sm space-y-2">
@@ -305,6 +309,27 @@ export default function EntregarPedidoPage() {
       <Marco titulo="Entregar pedido">
         <p className="text-sm text-gray-600">Este pedido ya no está en tus entregas de hoy.</p>
         <Link to="/chofer" className="text-sm text-accent underline">Volver</Link>
+      </Marco>
+    )
+  }
+  // Un pedido ya entregado o cancelado no se vuelve a entregar (2026-09-26,
+  // auditoría del chofer, C2): volviendo atrás desde "Ver el comprobante" se
+  // podía recorrer de nuevo y salía otra venta con su comprobante, Tango y stock.
+  if (order.status === 'entregado' || order.status === 'cancelado') {
+    return (
+      <Marco titulo={order.clientName}>
+        <p className="text-base font-semibold text-gray-900">
+          {order.status === 'entregado' ? 'Este pedido ya está entregado.' : 'Este pedido está cancelado.'}
+        </p>
+        <p className="text-sm text-gray-600">
+          {order.status === 'entregado'
+            ? 'El comprobante está en Mis ventas. Si hay que corregir algo, anulalo desde ahí o pedíselo a la oficina.'
+            : 'Si el cliente igual quiere hielo, hacé la venta desde Vender.'}
+        </p>
+        <div className="flex flex-col gap-2 pt-1">
+          {order.status === 'entregado' && <Link to="/chofer/ventas" className="text-sm text-accent underline">Ver en Mis ventas</Link>}
+          <Link to="/chofer" className="text-sm text-accent underline">Volver a mis entregas</Link>
+        </div>
       </Marco>
     )
   }

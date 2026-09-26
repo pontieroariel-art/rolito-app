@@ -6174,3 +6174,17 @@ describe('el chofer lee las dos mitades de su viaje (2026-09-18)', () => {
     await assertFails(getDoc(doc(db('chof1'), 'liquidaciones/2026-09-18_chof2')))
   })
 })
+
+describe('auditoría chofer — C2: la entrega de un pedido no sale dos veces', () => {
+  test('la segunda venta con el id fijo del pedido es una actualización y se rechaza', async () => {
+    await seed((d) => setDoc(doc(d, 'users/chof1'), { rol: 'chofer', estado: 'activo' }))
+    const venta = {
+      canal: 'contado', camionId: 'cam1', choferId: 'chof1', choferNombre: 'Chofer Uno',
+      clienteId: 'cli', clienteNombre: 'Cliente SA',
+      items: [{ productoId: 'bolsa_10kg', nombre: 'Hielo 10kg', cantidad: 5, precioUnitario: 100 }],
+      total: 500, formaPago: 'cuenta_corriente', fecha: new Date(), pedidoId: 'o1', tango: { estado: 'pendiente' },
+    }
+    await assertSucceeds(setDoc(doc(db('chof1'), 'ventasCamion/pedido_o1'), venta))
+    await assertFails(setDoc(doc(db('chof1'), 'ventasCamion/pedido_o1'), { ...venta, fecha: new Date() }))
+  })
+})
