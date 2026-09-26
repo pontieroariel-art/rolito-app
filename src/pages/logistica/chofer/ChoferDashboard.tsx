@@ -104,13 +104,13 @@ export default function ChoferDashboard() {
   // abre Vender en vez de crear un pedido suelto).
   const entregadosHoyIds = useMemo(() => {
     const ids = new Set(delivered.map((o) => o.clientId))
-    const hoy = new Date().toDateString()
+    const hoy = new Date(`${diaHoy}T12:00:00`).toDateString()
     for (const v of ventasRecientes ?? []) {
       if (v.anulacion?.estado === 'anulada') continue
       if (v.fecha?.toDate?.().toDateString() === hoy) ids.add(v.clienteId)
     }
     return ids
-  }, [delivered, ventasRecientes])
+  }, [delivered, ventasRecientes, diaHoy])
 
   // Próximas visitas puntuales (días 1–6 desde hoy, asignadas a este chofer)
   const proximasVisitas = useMemo(() => {

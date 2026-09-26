@@ -652,8 +652,6 @@ export const subscribeDriverOrders = (
   callback: (orders: Order[]) => void,
   onError?: (error: Error) => void,
 ) => {
-  const todayStart = new Date()
-  todayStart.setHours(0, 0, 0, 0)
   // Índice compuesto (driverId, date) ya existe en firestore.indexes.json
   const thirtyDaysAgo = Timestamp.fromDate(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000))
 
@@ -673,6 +671,10 @@ export const subscribeDriverOrders = (
     q,
     (snap) => {
       const all = snap.docs.map((d) => ({ id: d.id, ...d.data() } as Order))
+      // "Hoy" en cada snapshot, no al suscribirse (M4, auditoría del chofer): con
+      // la app abierta pasada la medianoche seguían los entregados de ayer.
+      const todayStart = new Date()
+      todayStart.setHours(0, 0, 0, 0)
       const filtered = all.filter((o) => {
         if (!['entregado', 'cancelado'].includes(o.status)) return true
         // entregados/cancelados: solo mostrar los de hoy

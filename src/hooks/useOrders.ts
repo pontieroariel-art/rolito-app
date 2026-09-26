@@ -12,6 +12,7 @@ import {
 import { Order } from '../types'
 import { useFirestoreSubscription } from './useFirestoreSubscription'
 import { useSharedSubscription } from './useSharedSubscription'
+import { useDiaActual } from './useDiaActual'
 
 export function useClientOrders(): { orders: Order[]; loading: boolean; error: boolean; timedOut: boolean } {
   const { user } = useAuth()
@@ -71,11 +72,13 @@ export function useKanbanOrders(): { orders: Order[]; loading: boolean; error: b
 export function useDriverOrders(overrideEmail?: string | null): { orders: Order[]; loading: boolean; error: boolean } {
   const { user } = useAuth()
   const email = overrideEmail === undefined ? user?.email : overrideEmail
+  const dia = useDiaActual()
 
   // Compartida (auditoría del chofer, R6): la usan el GPS del shell, el inicio,
   // la ruta y Entregar; una sola suscripción que sobrevive al cambio de pantalla.
   const { data: orders, loading, error } = useSharedSubscription<Order[]>(
-    `driverOrders:${email ?? ''}`,
+    // Con el día en la key, a la medianoche se reabre con la ventana de 30 días al día (M4).
+    `driverOrders:${email ?? ''}:${dia}`,
     (cb, onErr) => subscribeDriverOrders(email ?? '', cb, onErr),
     SIN_PEDIDOS,
     { enabled: !!email },
