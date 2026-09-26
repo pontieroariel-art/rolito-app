@@ -66,9 +66,9 @@ export default function StatusStrip({
                 className={`flex-1 min-w-[33.333%] sm:min-w-0 px-3.5 py-2.5 ${destacar ? t.realce : ''}`}
                 title={s.title}
               >
-                <div className="flex items-center gap-1.5 mb-0.5">
+                <div className="flex items-start sm:items-center gap-1.5 mb-0.5">
                   {s.icono && <span className={`shrink-0 ${enCero ? 'text-secundario' : t.texto}`}>{s.icono}</span>}
-                  <p className={`text-xs font-medium truncate ${destacar ? t.texto : 'text-secundario'}`} title={s.etiqueta}>
+                  <p className={`min-w-0 text-xs font-medium leading-tight break-words sm:truncate ${destacar ? t.texto : 'text-secundario'}`} title={s.etiqueta}>
                     {s.etiqueta}
                   </p>
                   {destacar && <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${t.punto}`} />}
