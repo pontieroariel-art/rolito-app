@@ -97,9 +97,9 @@ export default function MiCamionHoyCard({ uid, hoy }: { uid: string; hoy: string
                   <th className="text-left font-normal">Producto</th>
                   <th className="text-right font-normal">Cargué</th>
                   <th className="text-right font-normal">Vendí</th>
-                  <th className="text-right font-normal">Cambios</th>
-                  <th className="text-right font-normal">{conDescarga ? 'Debía volver sano' : 'Quedan'}</th>
-                  {conDescarga && <th className="text-right font-normal">Volvió sano</th>}
+                  <th className="text-right font-normal" title="Cambios">Camb.</th>
+                  <th className="text-right font-normal leading-tight">{conDescarga ? <>Debía<br />volver</> : 'Quedan'}</th>
+                  {conDescarga && <th className="text-right font-normal">Volvió</th>}
                 </tr>
               </thead>
               <tbody>
