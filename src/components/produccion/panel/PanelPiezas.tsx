@@ -44,8 +44,8 @@ export function Kpi({ etiqueta, valor, unidad, pie, tono = 'normal', icono }: {
 }
 
 /** Barras por hora: hoy (color) contra ayer (gris), en CSS (sin librería de gráficos). */
-export function BarrasPorHora({ hoy, ayer, horaActual }: {
-  hoy: { hora: string; pallets: number }[]; ayer: { pallets: number }[]; horaActual: number | null
+export function BarrasPorHora({ hoy, ayer, horaActual, leyenda = ['Este turno', 'Mismo turno ayer'] }: {
+  hoy: { hora: string; pallets: number }[]; ayer: { pallets: number }[]; horaActual: number | null; leyenda?: [string, string]
 }) {
   const max = Math.max(1, ...hoy.map((h) => h.pallets), ...ayer.map((h) => h.pallets))
   return (
@@ -67,8 +67,8 @@ export function BarrasPorHora({ hoy, ayer, horaActual }: {
         ))}
       </div>
       <div className="flex gap-4 mt-2 text-xs font-semibold text-secundario">
-        <span className="inline-flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-[#6FC3A5]" /> Este turno</span>
-        <span className="inline-flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-[#D3D1C7]" /> Mismo turno ayer</span>
+        <span className="inline-flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-[#6FC3A5]" /> {leyenda[0]}</span>
+        <span className="inline-flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-[#D3D1C7]" /> {leyenda[1]}</span>
       </div>
     </div>
   )

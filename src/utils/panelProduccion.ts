@@ -6,7 +6,7 @@
 import type { PalletProduccion, PersonaTurno, ProductoHieloId } from '@/types'
 import { PRODUCTOS_HIELO } from './produccionCatalogo'
 import { palletVigente } from './cargaPallets'
-import { rangoDeTurno, type TurnoProduccionDef } from './turnosProduccion'
+import { fotoTurno, rangoDeTurno, type TurnoProduccionDef } from './turnosProduccion'
 
 const fechaDe = (p: Pick<PalletProduccion, 'fechaFabricacion'>) => p.fechaFabricacion.toDate()
 
@@ -25,6 +25,27 @@ export function palletsDelTurno<T extends Pick<PalletProduccion, 'fechaFabricaci
     const t = fechaDe(p).getTime()
     return t >= rango.inicio.getTime() && t < rango.fin.getTime()
   })
+}
+
+/**
+ * Pallets de un DÍA DE PRODUCCIÓN (2026-09-26, "Día completo" del panel): los
+ * de todos los turnos que empezaron ese día, así la noche de 22 a 6 no queda
+ * partida a la medianoche. Por la foto del turno; los viejos, por la hora.
+ */
+export function palletsDelDiaProduccion<T extends Pick<PalletProduccion, 'fechaFabricacion' | 'turno'>>(
+  pallets: T[], dia: string, turnos: TurnoProduccionDef[],
+): T[] {
+  return pallets.filter((p) => (p.turno ?? fotoTurno(fechaDe(p), turnos)).dia === dia)
+}
+
+/** Del inicio del primer turno al fin del último del día (06:00 a 06:00 con los de siempre). */
+export function rangoDelDia(dia: string, turnos: TurnoProduccionDef[]): { inicio: Date; fin: Date } | null {
+  const rangos = turnos.map((t) => rangoDeTurno(dia, t)).filter((r): r is { inicio: Date; fin: Date } => !!r)
+  if (!rangos.length) return null
+  return {
+    inicio: new Date(Math.min(...rangos.map((r) => r.inicio.getTime()))),
+    fin:    new Date(Math.max(...rangos.map((r) => r.fin.getTime()))),
+  }
 }
 
 export interface FilaOperario {
@@ -72,10 +93,15 @@ export function resumirTurno(pallets: PalletProduccion[], turno: TurnoProduccion
   }
 
   // Equipo: la foto del turno manda (quién estaba asignado ESE día); si no
-  // hay foto, la configuración actual del turno.
-  const foto = pallets.find((p) => p.turno)?.turno
-  const capitan = foto?.capitan ?? turno?.capitan ?? null
-  const dotacion = foto?.dotacion ?? turno?.operarios ?? []
+  // hay foto, la configuración actual del turno. Para un día completo se
+  // juntan las fotos de todos sus turnos (varios capitanes).
+  const fotos = new Map<string, NonNullable<PalletProduccion['turno']>>()
+  for (const p of pallets) if (p.turno) fotos.set(`${p.turno.dia}|${p.turno.nombre}`, p.turno)
+  const capitanes = fotos.size
+    ? [...fotos.values()].map((f) => f.capitan).filter((c): c is PersonaTurno => !!c)
+    : (turno?.capitan ? [turno.capitan] : [])
+  const dotacion = fotos.size ? [...fotos.values()].flatMap((f) => f.dotacion) : (turno?.operarios ?? [])
+  const capitan = capitanes[0] ?? null
   const filas = new Map<string, FilaOperario>()
   const fila = (uid: string, nombre: string) => {
     let f = filas.get(uid)
@@ -83,7 +109,7 @@ export function resumirTurno(pallets: PalletProduccion[], turno: TurnoProduccion
     return f
   }
   for (const o of dotacion) fila(o.uid, o.nombre).asignado = true
-  if (capitan) { const c = fila(capitan.uid, capitan.nombre); c.capitan = true; c.asignado = true }
+  for (const cap of capitanes) { const c = fila(cap.uid, cap.nombre); c.capitan = true; c.asignado = true }
   for (const p of pallets) {
     const f = fila(p.operador.uid, p.operador.nombre)
     if (!palletVigente(p)) { f.anulados++; continue }

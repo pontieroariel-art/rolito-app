@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import type { PalletProduccion } from '@/types'
 import {
-  compararTurnos, minutosSinCargar, palletsDelTurno, palletsHasta, palletsPorHora, producidoVsVendido, resumirTurno, vendidoDePlanta,
+  compararTurnos, minutosSinCargar, palletsDelDiaProduccion, rangoDelDia, palletsDelTurno, palletsHasta, palletsPorHora, producidoVsVendido, resumirTurno, vendidoDePlanta,
 } from './panelProduccion'
 
 const T = (h: number, m = 0, dia = 28) => new Date(2026, 8, dia, h, m)
@@ -104,5 +104,24 @@ describe('compararTurnos', () => {
       ['Carlos', 1, 2, 2],
       ['Dora', 2, 2, 1],
     ])
+  })
+})
+
+describe('día completo', () => {
+  const turnos = [{ nombre: 'Mañana', desde: '06:00', hasta: '14:00' }, { nombre: 'Tarde', desde: '14:00', hasta: '22:00' }, { nombre: 'Noche', desde: '22:00', hasta: '06:00' }]
+  it('el día de producción va de 6 a 6 e incluye la madrugada siguiente', () => {
+    const r = rangoDelDia('2026-09-28', turnos)!
+    expect(r.inicio).toEqual(T(6))
+    expect(r.fin).toEqual(T(6, 0, 29))
+    const ps = [pallet({ en: T(5) }), pallet({ en: T(7) }), pallet({ en: T(23) }), pallet({ en: T(3, 0, 29) }), pallet({ en: T(7, 0, 29) })]
+    expect(palletsDelDiaProduccion(ps, '2026-09-28', turnos)).toHaveLength(3)
+  })
+  it('el equipo del día junta a los capitanes de todos los turnos', () => {
+    const foto = (nombre: string, capitan: { uid: string; nombre: string }) => ({ nombre, dia: '2026-09-28', capitan, dotacion: [capitan] })
+    const r = resumirTurno([
+      pallet({ en: T(7), turno: foto('Mañana', { uid: 'c', nombre: 'Carlos' }) }),
+      pallet({ en: T(15), turno: foto('Tarde', { uid: 'd', nombre: 'Dora' }) }),
+    ], null)
+    expect(r.equipo.filter((f) => f.capitan).map((f) => f.nombre).sort()).toEqual(['Carlos', 'Dora'])
   })
 })

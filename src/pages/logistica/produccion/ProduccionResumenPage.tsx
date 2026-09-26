@@ -10,7 +10,7 @@ import Badge from '@/components/common/Badge'
 import ComparativaTurnos from '@/components/produccion/panel/ComparativaTurnos'
 import { Alerta, BarrasPorHora, CARD, Delta, EquipoTurno, Kpi, ProducidoVendido } from '@/components/produccion/panel/PanelPiezas'
 import {
-  ALERTA_SIN_CARGAR_MIN, compararTurnos, minutosSinCargar, palletsDelTurno, palletsHasta, palletsPorHora, producidoVsVendido, resumirTurno, vendidoDePlanta,
+  ALERTA_SIN_CARGAR_MIN, compararTurnos, minutosSinCargar, palletsDelDiaProduccion, palletsDelTurno, rangoDelDia, palletsHasta, palletsPorHora, producidoVsVendido, resumirTurno, vendidoDePlanta,
 } from '@/utils/panelProduccion'
 import { fotoTurno, rangoDeTurno, turnoEn, TURNOS_POR_DEFECTO, type TurnoProduccionDef } from '@/utils/turnosProduccion'
 import { PRODUCTOS_HIELO, productosDePlanta } from '@/utils/produccionCatalogo'
@@ -30,6 +30,9 @@ const fechaLarga = (dia: string) => new Date(`${dia}T12:00:00`).toLocaleDateStri
 
 type Periodo = 'turno' | 'hoy' | '7d' | '30d'
 
+/** Índice de la selección "Día completo" (los tres turnos del día de producción). */
+const DIA_COMPLETO = -1
+
 export default function ProduccionResumenPage() {
   const [planta, setPlanta] = useState<PlantaId>('torcuato')
   const [ahora, setAhora] = useState(() => new Date())
@@ -39,25 +42,35 @@ export default function ProduccionResumenPage() {
   const { data: tablet } = useFirestoreSubscription<EstadoTablet | null>((cb) => subscribeEstadoTablet(planta, cb), [planta], null)
 
   // Selección: null = el turno en curso ("Ahora"); si no, un día y un turno.
+  // idx = DIA_COMPLETO: los tres turnos del día de producción (2026-09-26).
   const [eleccion, setEleccion] = useState<{ dia: string; idx: number } | null>(null)
   const enCurso = turnoEn(ahora, turnos)
   const dia = eleccion?.dia ?? (enCurso ? aDia(enCurso.inicio) : aDia(ahora))
   const idx = eleccion?.idx ?? Math.max(0, enCurso ? turnos.indexOf(enCurso.turno) : 0)
-  const turno = turnos[idx] ?? turnos[0]!
-  const rango = rangoDeTurno(dia, turno)
-  const esAhora = !!enCurso && enCurso.turno === turno && aDia(enCurso.inicio) === dia
+  const diaCompleto = idx === DIA_COMPLETO
+  const turno = diaCompleto ? null : (turnos[idx] ?? turnos[0]!)
+  const rango = turno ? rangoDeTurno(dia, turno) : rangoDelDia(dia, turnos)
+  const esAhora = turno
+    ? !!enCurso && enCurso.turno === turno && aDia(enCurso.inicio) === dia
+    : !!rango && ahora >= rango.inicio && ahora < rango.fin
+  const nombreSel = turno ? `Turno ${turno.nombre}` : 'Día completo'
+  const horarioSel = turno ? `${turno.desde}–${turno.hasta}` : rango ? `${hhmm(rango.inicio)} a ${hhmm(rango.fin)}` : ''
 
-  // Pallets de ayer y hoy del turno elegido (un día antes para comparar).
+  // Pallets de ayer y hoy de lo elegido (un día antes para comparar, uno después por la noche).
   const desde = useMemo(() => new Date(`${sumarDias(dia, -1)}T00:00:00`), [dia])
-  const hasta = useMemo(() => new Date(`${sumarDias(dia, 2)}T00:00:00`), [dia])
+  const hasta = useMemo(() => new Date(`${sumarDias(dia, 2)}T12:00:00`), [dia])
   const { data: palletsVentana, loading } = useFirestoreSubscription<PalletProduccion[]>(
     (cb) => subscribePalletsEnRango(desde, hasta, cb), [desde.getTime(), hasta.getTime()], [],
   )
   const dePlanta = useMemo(() => palletsVentana.filter((p) => p.plantaId === planta), [palletsVentana, planta])
-  const delTurno = useMemo(() => palletsDelTurno(dePlanta, dia, turno), [dePlanta, dia, turno])
-  const delTurnoAyer = useMemo(() => palletsDelTurno(dePlanta, sumarDias(dia, -1), turno), [dePlanta, dia, turno])
+  const delTurno = useMemo(() => turno ? palletsDelTurno(dePlanta, dia, turno) : palletsDelDiaProduccion(dePlanta, dia, turnos), [dePlanta, dia, turno, turnos])
+  const delTurnoAyer = useMemo(() => turno ? palletsDelTurno(dePlanta, sumarDias(dia, -1), turno) : palletsDelDiaProduccion(dePlanta, sumarDias(dia, -1), turnos), [dePlanta, dia, turno, turnos])
   const resumen = useMemo(() => resumirTurno(delTurno, turno), [delTurno, turno])
-  const hoyDia = useMemo(() => resumirTurno(dePlanta.filter((p) => aDia(p.fechaFabricacion.toDate()) === dia), null), [dePlanta, dia])
+  const hoyDia = useMemo(() => resumirTurno(palletsDelDiaProduccion(dePlanta, dia, turnos), null), [dePlanta, dia, turnos])
+  // Con el día completo, el segundo KPI es el mejor turno del día.
+  const mejorTurno = useMemo(() => diaCompleto
+    ? compararTurnos(delTurno, turnos, [dia], (p) => p.turno ?? fotoTurno(p.fechaFabricacion.toDate(), turnos)).turnos[0] ?? null
+    : null, [diaCompleto, delTurno, turnos, dia])
 
   const corte = esAhora ? ahora : (rango?.fin ?? ahora)
   const ayerMismaHora = rango ? palletsHasta(delTurnoAyer, new Date(corte.getTime() - 86_400_000)) : 0
@@ -144,12 +157,16 @@ export default function ProduccionResumenPage() {
             </button>
           ))}
         </div>
+        <button type="button" onClick={() => irA(dia, DIA_COMPLETO)}
+          className={`h-10 px-4 rounded-xl text-sm font-bold ${diaCompleto ? 'bg-gray-900 text-white' : 'bg-white border-2 border-gray-900 text-gray-900'}`}>
+          Día completo
+        </button>
         <button type="button" onClick={() => setEleccion(null)} disabled={eleccion === null}
           className="h-10 px-4 rounded-xl text-sm font-bold border-2 border-accent text-[#0F6B4E] disabled:opacity-40">
           ● Ahora
         </button>
         <p className="ml-auto text-sm text-secundario first-letter:uppercase">
-          {esAhora ? <><Badge tono="entregado">En curso</Badge>{' '}</> : null}{fechaLarga(dia).replace(/^./, (c) => c.toUpperCase())} · Turno {turno.nombre}
+          {esAhora ? <><Badge tono="entregado">En curso</Badge>{' '}</> : null}{fechaLarga(dia).replace(/^./, (c) => c.toUpperCase())} · {nombreSel} {horarioSel}
         </p>
       </div>
 
@@ -160,19 +177,31 @@ export default function ProduccionResumenPage() {
         <Alerta>La tablet de carga no da señales {minTablet !== null ? `hace ${minTablet} minutos` : 'todavía'}. Fijate que esté prendida y con la pantalla de carga abierta.</Alerta>
       )}
 
-      {/* KPIs del turno. */}
+      {/* KPIs del turno (o del día completo). */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-        <Kpi etiqueta={esAhora ? 'Pallets del turno' : 'Pallets del turno'} valor={loading ? '·' : resumen.pallets} icono={<Activity size={14} />}
-          pie={<Delta actual={resumen.pallets} antes={ayerMismaHora} sufijo={esAhora ? 'que ayer a esta hora' : 'que el mismo turno ayer'} />} />
-        <Kpi etiqueta="Pallets del día" valor={hoyDia.pallets} icono={<Database size={14} />}
-          pie={<span className="text-sm text-secundario tabular-nums">{hoyDia.unidades.toLocaleString('es-AR')} bolsas</span>} />
-        <Kpi etiqueta="Kilos del turno" valor={resumen.kilos} unidad="kg" icono={<Scale size={14} />}
+        <Kpi etiqueta={diaCompleto ? 'Pallets del día' : 'Pallets del turno'} valor={loading ? '·' : resumen.pallets} icono={<Activity size={14} />}
+          pie={<Delta actual={resumen.pallets} antes={ayerMismaHora} sufijo={esAhora ? 'que ayer a esta hora' : diaCompleto ? 'que el día anterior' : 'que el mismo turno ayer'} />} />
+        {diaCompleto ? (
+          <Kpi etiqueta="Mejor turno del día" valor={mejorTurno && mejorTurno.pallets ? mejorTurno.nombre : '—'} icono={<Database size={14} />}
+            tono={mejorTurno && mejorTurno.pallets ? 'bien' : 'normal'}
+            pie={<span className="text-sm text-secundario tabular-nums">{mejorTurno && mejorTurno.pallets ? `${mejorTurno.pallets} pallets${mejorTurno.capitan ? ` · capitán ${mejorTurno.capitan}` : ''}` : 'Sin pallets'}</span>} />
+        ) : (
+          <Kpi etiqueta="Pallets del día" valor={hoyDia.pallets} icono={<Database size={14} />}
+            pie={<span className="text-sm text-secundario tabular-nums">{hoyDia.unidades.toLocaleString('es-AR')} bolsas</span>} />
+        )}
+        <Kpi etiqueta={diaCompleto ? 'Kilos del día' : 'Kilos del turno'} valor={resumen.kilos} unidad="kg" icono={<Scale size={14} />}
           pie={<span className="text-sm text-secundario tabular-nums">{Math.round(resumen.kilos / 100) / 10} toneladas</span>} />
         <Kpi etiqueta="Ritmo" valor={ultimaHora ?? promedioHora} unidad={ultimaHora !== null ? 'en esta hora' : 'por hora'} icono={<Gauge size={14} />}
-          pie={<span className="text-sm text-secundario tabular-nums">Promedio del turno: {promedioHora} por hora</span>} />
-        <Kpi etiqueta="Sin cargar" valor={sinCargar ?? '—'} unidad={sinCargar !== null ? 'min' : undefined} icono={<Clock size={14} />}
-          tono={alertaParado ? 'alerta' : 'normal'}
-          pie={<span className="text-sm text-secundario">{resumen.ultimo ? `Último pallet ${hhmm(resumen.ultimo)}` : 'Sin pallets en el turno'}</span>} />
+          pie={<span className="text-sm text-secundario tabular-nums">Promedio {diaCompleto ? 'del día' : 'del turno'}: {promedioHora} por hora</span>} />
+        {esAhora ? (
+          <Kpi etiqueta="Sin cargar" valor={sinCargar ?? '—'} unidad={sinCargar !== null ? 'min' : undefined} icono={<Clock size={14} />}
+            tono={alertaParado ? 'alerta' : 'normal'}
+            pie={<span className="text-sm text-secundario">{resumen.ultimo ? `Último pallet ${hhmm(resumen.ultimo)}` : 'Sin pallets todavía'}</span>} />
+        ) : (
+          // Un turno o un día que ya terminó: la hora del último pallet, no los minutos.
+          <Kpi etiqueta="Último pallet" valor={resumen.ultimo ? hhmm(resumen.ultimo) : '—'} icono={<Clock size={14} />}
+            pie={<span className="text-sm text-secundario">{resumen.ultimo ? resumen.ultimo.toLocaleDateString('es-AR', { day: 'numeric', month: 'numeric' }) : 'Sin pallets'}</span>} />
+        )}
       </div>
 
       {/* Estado: tablet, Tango y calidad. */}
@@ -228,11 +257,11 @@ export default function ProduccionResumenPage() {
       {/* Ritmo por hora y equipo del turno. */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-3">
         <section className={`${CARD} p-4 lg:col-span-3`}>
-          <h2 className="flex items-center gap-2 text-xs font-bold tracking-wider text-secundario uppercase mb-3"><Activity size={14} /> Pallets por hora · {turno.nombre} {turno.desde}–{turno.hasta}</h2>
-          {porHora.length ? <BarrasPorHora hoy={porHora} ayer={porHoraAyer} horaActual={horaActual} /> : <p className="text-sm text-secundario">Horario del turno inválido.</p>}
+          <h2 className="flex items-center gap-2 text-xs font-bold tracking-wider text-secundario uppercase mb-3"><Activity size={14} /> Pallets por hora · {nombreSel} {horarioSel}</h2>
+          {porHora.length ? <BarrasPorHora hoy={porHora} ayer={porHoraAyer} horaActual={horaActual} leyenda={diaCompleto ? ['Este día', 'Día anterior'] : ['Este turno', 'Mismo turno ayer']} /> : <p className="text-sm text-secundario">Horario del turno inválido.</p>}
         </section>
         <section className={`${CARD} p-4 lg:col-span-2`}>
-          <h2 className="flex items-center gap-2 text-xs font-bold tracking-wider text-secundario uppercase mb-3"><Users size={14} /> Equipo del turno</h2>
+          <h2 className="flex items-center gap-2 text-xs font-bold tracking-wider text-secundario uppercase mb-3"><Users size={14} /> {diaCompleto ? 'Equipo del día' : 'Equipo del turno'}</h2>
           <EquipoTurno equipo={resumen.equipo} />
         </section>
       </div>
@@ -256,7 +285,7 @@ export default function ProduccionResumenPage() {
         <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
           <h2 className="text-base font-black text-gray-900">Producido contra vendido</h2>
           <div className="flex gap-2">
-            {([['turno', 'Este turno'], ['hoy', 'Hoy'], ['7d', '7 días'], ['30d', '30 días']] as [Periodo, string][]).map(([p, l]) => (
+            {([['turno', diaCompleto ? 'Este día' : 'Este turno'], ['hoy', 'Hoy'], ['7d', '7 días'], ['30d', '30 días']] as [Periodo, string][]).map(([p, l]) => (
               <button key={p} type="button" onClick={() => setPeriodo(p)}
                 className={`h-9 px-3 rounded-xl text-sm font-bold ${periodo === p ? 'bg-accent text-white' : 'bg-[#F1EFE8] text-gray-900'}`}>{l}</button>
             ))}
@@ -269,20 +298,20 @@ export default function ProduccionResumenPage() {
         </p>
       </section>
 
-      {/* Pallets del turno (trazabilidad). */}
+      {/* Pallets del turno o del día (trazabilidad). */}
       <section className={`${CARD} p-4`}>
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-base font-black text-gray-900">Pallets del turno ({delTurno.length})</h2>
+          <h2 className="text-base font-black text-gray-900">{diaCompleto ? 'Pallets del día' : 'Pallets del turno'} ({delTurno.length})</h2>
           <Link to="/produccion/listado" className="text-sm font-bold text-[#0F6B4E] hover:underline">Ver listado completo →</Link>
         </div>
         {delTurno.length === 0 ? (
-          <p className="text-sm text-secundario">No se cargaron pallets en este turno.</p>
+          <p className="text-sm text-secundario">No se cargaron pallets {diaCompleto ? 'este día' : 'en este turno'}.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-xs text-secundario border-b border-[#E7E5DC]">
-                  <th className="py-2 pr-3">Hora</th><th className="py-2 pr-3">Código</th><th className="py-2 pr-3">Producto</th>
+                  <th className="py-2 pr-3">Hora</th>{diaCompleto && <th className="py-2 pr-3">Turno</th>}<th className="py-2 pr-3">Código</th><th className="py-2 pr-3">Producto</th>
                   <th className="py-2 pr-3 text-right">Unidades</th><th className="py-2 pr-3">Operario</th><th className="py-2 pr-3">Tango</th><th className="py-2">Estado</th>
                 </tr>
               </thead>
@@ -290,6 +319,7 @@ export default function ProduccionResumenPage() {
                 {[...delTurno].sort((a, b) => b.fechaFabricacion.toMillis() - a.fechaFabricacion.toMillis()).map((p) => (
                   <tr key={p.id} className="border-b border-[#E7E5DC] last:border-0">
                     <td className="py-2 pr-3 tabular-nums">{hhmm(p.fechaFabricacion.toDate())}</td>
+                    {diaCompleto && <td className="py-2 pr-3 font-semibold">{(p.turno ?? fotoTurno(p.fechaFabricacion.toDate(), turnos)).nombre}</td>}
                     <td className="py-2 pr-3"><Link to={`/produccion/ficha/${p.id}`} className={`font-bold text-[#0F6B4E] hover:underline ${p.anulacion ? 'line-through' : ''}`}>{p.codigo}</Link></td>
                     <td className="py-2 pr-3 font-bold" style={{ color: PRODUCTOS_HIELO[p.productoId]?.color }}>{PRODUCTOS_HIELO[p.productoId]?.etiquetaGrilla}</td>
                     <td className="py-2 pr-3 text-right tabular-nums">{p.unidades}</td>
