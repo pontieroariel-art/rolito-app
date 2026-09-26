@@ -1,3 +1,4 @@
+import { updateVisitaPuntual } from '@/services/visitasService'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   PenLine, User, Banknote, Smartphone, Wallet,
@@ -132,6 +133,8 @@ export default function VentaCamion({ volverA = '/chofer' }: { volverA?: string 
   const reemitirId = searchParams.get('reemitir')
   // ?cliente=<uid> llega desde Buscar cliente ("Vender a este cliente", 2026-09-26).
   const clienteParam = searchParams.get('cliente')
+  // ?visita=<id> llega desde "Registrar" de una visita puntual del inicio (A4): la venta la marca visitada.
+  const visitaParam = searchParams.get('visita')
   useEffect(() => { if (clienteParam && !reemitirId) setClienteId(clienteParam) }, [clienteParam, reemitirId])
   const [reemision, setReemision] = useState<VentaCamionDoc | null>(null)
   useEffect(() => {
@@ -313,6 +316,10 @@ export default function VentaCamion({ volverA = '/chofer' }: { volverA?: string 
         },
       )
       if (tipoInterno) precargarSiSeAcerca(tipoInterno, user.uid, online)
+      if (visitaParam) {
+        updateVisitaPuntual(visitaParam, { status: 'visitado', driverId: user.email ?? null })
+          .catch((err) => reportError(err, { origen: 'VentaCamion', accion: 'marcar visita visitada', visitaId: visitaParam }))
+      }
       setExito({
         cliente: cliente.razonSocial || cliente.nombre,
         total: conIva?.total ?? total,

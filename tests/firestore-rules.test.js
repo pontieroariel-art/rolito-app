@@ -6333,3 +6333,36 @@ describe('auditoría chofer — A1: el chofer solo entrega pedidos abiertos', ()
     await assertSucceeds(updateDoc(doc(db('log1'), 'orders/o1'), { status: 'pendiente', updatedAt: new Date() }))
   })
 })
+
+describe('auditoría chofer — A4: visitas puntuales', () => {
+  const seedBase = () => seed(async (d) => {
+    await setDoc(doc(d, 'users/ch'), { rol: 'chofer', estado: 'activo', email: 'ch@x.com' })
+    await setDoc(doc(d, 'users/log1'), { rol: 'logistica', estado: 'activo' })
+    await setDoc(doc(d, 'visitas-puntuales/sinChofer'), { clientId: 'cli', clientName: 'Cliente', driverId: null, status: 'pendiente', fecha: '2026-09-26' })
+    await setDoc(doc(d, 'visitas-puntuales/mia'), { clientId: 'cli', clientName: 'Cliente', driverId: 'ch@x.com', status: 'pendiente', fecha: '2026-09-26' })
+    await setDoc(doc(d, 'visitas-puntuales/ajena'), { clientId: 'cli', clientName: 'Cliente', driverId: 'otro@x.com', status: 'pendiente', fecha: '2026-09-26' })
+  })
+  const ch = () => db('ch', 'ch@x.com')
+  test('marca su propia visita como antes', async () => {
+    await seedBase()
+    await assertSucceeds(updateDoc(doc(ch(), 'visitas-puntuales/mia'), { status: 'visitado' }))
+  })
+  test('toma una visita sin chofer al marcarla visitada o sin contacto', async () => {
+    await seedBase()
+    await assertSucceeds(updateDoc(doc(ch(), 'visitas-puntuales/sinChofer'), { status: 'sin_contacto', notas: 'Local cerrado', driverId: 'ch@x.com' }))
+  })
+  test('no toma una visita sin chofer a nombre de otro ni con otro estado', async () => {
+    await seedBase()
+    await assertFails(updateDoc(doc(ch(), 'visitas-puntuales/sinChofer'), { status: 'visitado', driverId: 'otro@x.com' }))
+    await assertFails(updateDoc(doc(ch(), 'visitas-puntuales/sinChofer'), { status: 'pendiente', driverId: 'ch@x.com' }))
+    await assertFails(updateDoc(doc(ch(), 'visitas-puntuales/sinChofer'), { status: 'visitado', driverId: 'ch@x.com', fecha: '2026-10-01' }))
+  })
+  test('no toca la visita de otro chofer', async () => {
+    await seedBase()
+    await assertFails(updateDoc(doc(ch(), 'visitas-puntuales/ajena'), { status: 'visitado', driverId: 'ch@x.com' }))
+  })
+  test('logística sigue asignando visitas', async () => {
+    await seedBase()
+    await assertSucceeds(updateDoc(doc(db('log1'), 'visitas-puntuales/sinChofer'), { driverId: 'ch@x.com' }))
+  })
+})

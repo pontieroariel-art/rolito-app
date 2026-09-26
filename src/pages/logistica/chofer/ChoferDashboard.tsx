@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo, memo } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { HandCoins, Package, FileText, MapPin } from 'lucide-react'
 import ChoferHeader from '@/components/chofer/ChoferHeader'
 import Badge from '@/components/ui/Badge'
@@ -10,7 +10,6 @@ import { useDriverOrders } from '@/hooks/useOrders'
 import { useAuth } from '@/context/AuthContext'
 import { usePushNotification } from '@/hooks/usePushNotification'
 import { savePushSubscription, proposeCoord } from '@/services/userService'
-import { createOrder } from '@/services/orderService'
 import { markDelivered } from '@/services/orderService'
 import { updateDriverLocation, deactivateDriverLocation } from '@/services/locationService'
 import { subscribeDespachosForDriver, subscribeDespachosForAyudante, pickActiveDespacho, ordenarPorRutaDespacho } from '@/services/despachoService'
@@ -27,7 +26,7 @@ import { useDiaActual, useFechaDelDia } from '@/hooks/useDiaActual'
 import { summarizeProducts, toDateStr, todayString } from '@/utils/helpers'
 import { generateHojaDeRuta } from '@/utils/pdf'
 import { useVisorComprobante } from '@/components/ui/VisorComprobante'
-import { Order, ProgramaVisita, VisitaPuntual, OrderProduct } from '@/types'
+import { Order, VisitaPuntual } from '@/types'
 import EntregaModal from '@/components/chofer/EntregaModal'
 import NoEntregadoModal from '@/components/chofer/NoEntregadoModal'
 import MiRendicionCard from '@/components/chofer/MiRendicionCard'
@@ -38,6 +37,7 @@ import TicketsServicioSection from '@/components/chofer/TicketsServicioSection'
 import { reportError, esperarOEncolar } from '@/services/observability'
 
 export default function ChoferDashboard() {
+  const navigate = useNavigate()
   const { user, verComo }     = useAuth()
   const { permission, request } = usePushNotification()
   const { catalogo }          = useCatalogo()
@@ -45,7 +45,8 @@ export default function ChoferDashboard() {
   // Mail automático del comprobante al cliente por cada venta reciente que
   // todavía no salió (2026-09-11): corre desde el hub para no depender de que
   // el chofer abra Mis ventas.
-  useEnvioAutomaticoVentas(useVentasRecientesChofer(verComo ? null : user?.uid))
+  const ventasRecientes = useVentasRecientesChofer(verComo ? null : user?.uid)
+  useEnvioAutomaticoVentas(ventasRecientes)
   const [pdfLoading,  setPdfLoading]  = useState(false)
   const { abrir } = useVisorComprobante()
 
@@ -81,10 +82,6 @@ export default function ChoferDashboard() {
     : undefined
 
   const { orders, loading, error } = useDriverOrders(ordersEmail)
-  const [registrando, setRegistrando] = useState<
-    { tipo: 'programa'; data: ProgramaVisita } |
-    { tipo: 'visita';   data: VisitaPuntual   } | null
-  >(null)
   const [sinContactoVisita,  setSinContactoVisita]  = useState<VisitaPuntual | null>(null)
   const [sinContactoMotivo,  setSinContactoMotivo]  = useState('')
   const [sinContactoLoading, setSinContactoLoading] = useState(false)
@@ -109,7 +106,18 @@ export default function ChoferDashboard() {
   const { visitas }   = useVisitasPuntualesDeChofer(driverEmailForVisits, today, 7)
   const visitasHoy = useMemo(() => programasParaFecha(programas, today).filter((p) => !p.driverId || p.driverId === driverEmailForVisits), [programas, today, driverEmailForVisits])
   const puntualHoy = useMemo(() => visitasParaFecha(visitas, today).filter((v) => !v.driverId || v.driverId === driverEmailForVisits), [visitas, today, driverEmailForVisits])
-  const entregadosHoyIds = useMemo(() => new Set(delivered.map((o) => o.clientId)), [delivered])
+  // Una visita recurrente queda "entregada" con un pedido entregado o con una venta
+  // de hoy a ese cliente (2026-09-26, auditoría del chofer, A4: "Registrar" ahora
+  // abre Vender en vez de crear un pedido suelto).
+  const entregadosHoyIds = useMemo(() => {
+    const ids = new Set(delivered.map((o) => o.clientId))
+    const hoy = new Date().toDateString()
+    for (const v of ventasRecientes ?? []) {
+      if (v.anulacion?.estado === 'anulada') continue
+      if (v.fecha?.toDate?.().toDateString() === hoy) ids.add(v.clienteId)
+    }
+    return ids
+  }, [delivered, ventasRecientes])
 
   // Próximas visitas puntuales (días 1–6 desde hoy, asignadas a este chofer)
   const proximasVisitas = useMemo(() => {
@@ -497,7 +505,7 @@ export default function ChoferDashboard() {
                       {p.notas && <p className="text-xs text-secundario italic mt-1">"{p.notas}"</p>}
                     </div>
                     {!yaEntregado && (
-                      <Button onClick={() => setRegistrando({ tipo: 'programa', data: p })} className="text-xs py-2 px-4 shrink-0">
+                      <Button onClick={() => { void navigate(`/chofer/venta?cliente=${encodeURIComponent(p.clientId)}`) }} className="text-xs py-2 px-4 shrink-0">
                         Registrar
                       </Button>
                     )}
@@ -520,7 +528,7 @@ export default function ChoferDashboard() {
                   </div>
                   {v.status === 'pendiente' && (
                     <div className="flex flex-col gap-1.5 shrink-0">
-                      <Button onClick={() => setRegistrando({ tipo: 'visita', data: v })} className="text-xs py-2 px-4">
+                      <Button onClick={() => { void navigate(`/chofer/venta?cliente=${encodeURIComponent(v.clientId)}&visita=${encodeURIComponent(v.id)}`) }} className="text-xs py-2 px-4">
                         Registrar
                       </Button>
                       <button
@@ -637,10 +645,14 @@ export default function ChoferDashboard() {
                     updateVisitaPuntual(sinContactoVisita.id, {
                       status: 'sin_contacto',
                       notas:  sinContactoMotivo.trim(),
+                      // Una visita sin chofer la toma quien la marca (A4).
+                      ...(sinContactoVisita.driverId ? {} : { driverId: user?.email ?? null }),
                     }),
                     { origen: 'ChoferDashboard', accion: 'visita sin contacto', visitaId: sinContactoVisita.id },
                   )
                   setSinContactoVisita(null)
+                } catch (err) {
+                  reportError(err, { origen: 'ChoferDashboard', accion: 'visita sin contacto' })
                 } finally {
                   setSinContactoLoading(false)
                 }
@@ -698,110 +710,10 @@ export default function ChoferDashboard() {
         )}
       </Modal>
 
-      {registrando && (
-        <RegistrarEntregaModal
-          clientName={registrando.data.clientName}
-          clientAddress={registrando.data.clientAddress}
-          clientPhone={registrando.data.clientPhone}
-          catalogo={catalogo}
-          user={user}
-          onConfirm={async (products) => {
-            if (!user) return
-            await esperarOEncolar(createOrder({
-              user: {
-                ...user,
-                razonSocial:    registrando.data.clientName,
-                address:        registrando.data.clientAddress,
-                telefono:       registrando.data.clientPhone,
-                uid:            registrando.data.clientId,
-              },
-              products,
-              date: todayString(),
-              notes: registrando.tipo === 'visita' ? (registrando.data.notas ?? '') : (registrando.data.notas ?? ''),
-            }), { origen: 'ChoferDashboard', accion: 'registrar entrega de visita' })
-            if (registrando.tipo === 'visita') {
-              await esperarOEncolar(
-                updateVisitaPuntual(registrando.data.id, { status: 'visitado' }),
-                { origen: 'ChoferDashboard', accion: 'visita visitada', visitaId: registrando.data.id },
-              )
-            }
-            setRegistrando(null)
-          }}
-          onClose={() => setRegistrando(null)}
-        />
-      )}
     </div>
   )
 }
 
-function RegistrarEntregaModal({
-  clientName, clientAddress, clientPhone, catalogo, onConfirm, onClose,
-}: {
-  clientName:    string
-  clientAddress: string
-  clientPhone:   string
-  catalogo:      { id: string; nombre: string; unidad: string }[]
-  user:          import('@/types').UserProfile | null
-  onConfirm:     (products: OrderProduct[]) => Promise<void>
-  onClose:       () => void
-}) {
-  const [quantities, setQuantities] = useState<Record<string, number>>({})
-  const [saving,     setSaving]     = useState(false)
-
-  const selected: OrderProduct[] = catalogo
-    .filter((p) => (quantities[p.id] ?? 0) > 0)
-    .map((p) => ({ name: p.nombre, quantity: quantities[p.id], productoId: p.id }))
-
-  const handleConfirm = async () => {
-    if (selected.length === 0) return
-    setSaving(true)
-    await onConfirm(selected)
-    setSaving(false)
-  }
-
-  return (
-    <Modal open onClose={onClose} title={`Registrar entrega — ${clientName}`} variant="light">
-      <p className="text-xs text-secundario truncate">{clientAddress}</p>
-      {clientPhone && (
-        <a href={`tel:${clientPhone}`} className="text-accent text-xs hover:underline mb-4 block">
-          📞 {clientPhone}
-        </a>
-      )}
-      {!clientPhone && <div className="mb-4" />}
-      <div className="space-y-2 max-h-72 overflow-y-auto">
-        {catalogo.map((p) => {
-          const qty = quantities[p.id] ?? 0
-          return (
-            <div key={p.id} className="flex items-center justify-between gap-3 bg-[#F8F7F2] border border-[#D3D1C7] rounded-xl px-3 py-2">
-              <p className="text-sm text-gray-800 flex-1">{p.nombre}</p>
-              <div className="flex items-center gap-2.5">
-                <button
-                  onClick={() => setQuantities((q) => ({ ...q, [p.id]: Math.max(0, (q[p.id] ?? 0) - 1) }))}
-                  disabled={qty === 0}
-                  className="w-11 h-11 rounded-full border border-[#D3D1C7] text-lg text-gray-600 hover:border-accent hover:text-accent transition-colors disabled:opacity-30 flex items-center justify-center shrink-0"
-                >−</button>
-                <span className="w-8 text-center font-bold text-sm text-gray-900">{qty || '0'}</span>
-                <button
-                  onClick={() => setQuantities((q) => ({ ...q, [p.id]: (q[p.id] ?? 0) + 1 }))}
-                  className="w-11 h-11 rounded-full border border-[#D3D1C7] text-lg text-gray-600 hover:border-accent hover:text-accent transition-colors flex items-center justify-center shrink-0"
-                >+</button>
-              </div>
-            </div>
-          )
-        })}
-      </div>
-      <div className="flex gap-3 mt-5">
-        <Button variant="outline" onClick={onClose} className="flex-1">Cancelar</Button>
-        <Button onClick={handleConfirm} loading={saving} disabled={selected.length === 0} className="flex-1">
-          Confirmar ({selected.length} productos)
-        </Button>
-      </div>
-    </Modal>
-  )
-}
-
-// memo: la pantalla se re-renderiza cada 10 s por el GPS; las tarjetas solo
-// cuando cambia su pedido.
 const DeliveryCard = memo(function DeliveryCard({ order, index, isFirst, chofer }: { order: Order; index: number; isFirst?: boolean; chofer: import('@/types').UserProfile | null }) {
   const [modal,           setModal]           = useState(false)
   const [noEntregadoModal, setNoEntregadoModal] = useState(false)

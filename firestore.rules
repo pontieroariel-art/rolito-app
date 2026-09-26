@@ -947,6 +947,17 @@ service cloud.firestore {
         && resource.data.driverId == request.auth.token.email
         && request.resource.data.diff(resource.data).affectedKeys()
              .hasOnly(['status', 'notas', 'orderId']);
+      // Una visita SIN chofer (las pide el supervisor) se le muestra a todos los
+      // choferes: la toma el que la marca visitada o sin contacto (2026-09-26,
+      // auditoría del chofer, A4: antes la regla lo rechazaba y el botón quedaba
+      // girando). Solo a su nombre y solo esos dos estados.
+      allow update: if request.auth != null
+        && isChofer()
+        && resource.data.get('driverId', null) == null
+        && request.resource.data.driverId == request.auth.token.email
+        && request.resource.data.status in ['visitado', 'sin_contacto']
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['status', 'notas', 'driverId']);
     }
 
     // ── Flota de vehículos ────────────────────────────────────────────────────
