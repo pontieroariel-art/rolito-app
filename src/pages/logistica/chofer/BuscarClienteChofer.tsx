@@ -100,7 +100,7 @@ const Domicilio = memo(function Domicilio({ d, abierto, onToggle, vender }: { d:
               <span className={`${BOTON} h-12 bg-[#F1EFE8] text-inerte`}><Phone size={18} /> Sin teléfono</span>
             )}
             {vender && (
-              <Link to={vender} className={`${BOTON} col-span-2 h-14 bg-white border-2 border-accent text-accent text-lg`}>
+              <Link to={vender} className={`${BOTON} col-span-2 h-14 bg-white border-2 border-accent text-accent text-base whitespace-nowrap`}>
                 <Package size={22} /> Vender en esta sucursal
               </Link>
             )}

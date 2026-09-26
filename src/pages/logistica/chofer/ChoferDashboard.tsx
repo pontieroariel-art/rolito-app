@@ -258,17 +258,20 @@ export default function ChoferDashboard() {
       {/* Acciones principales — grandes y a mano para operar en la calle */}
       {/* En el celular Cobrar y Facturas no entraban en una sola fila (texto pegado
           al ícono, 2026-09-10): Vender ocupa el ancho y los otros dos van abajo a
-          la par; desde tablet queda la fila de tres. */}
-      <div className="max-w-2xl mx-auto px-4 pt-4 grid grid-cols-2 gap-3 sm:flex">
+          la par. Desde el 2026-09-26 (Buscar cliente) es una grilla fija: en el
+          celular Vender arriba, Cobrar y Facturas a la par y Buscar cliente
+          abajo; desde 640 px Vender arriba y los tres parejos debajo. Con los
+          cuatro en una fila "Buscar cliente" se partía en dos renglones. */}
+      <div className="max-w-2xl mx-auto px-4 pt-4 grid grid-cols-2 sm:grid-cols-3 gap-3">
         {/* Los cambios dejaron de ser una pantalla aparte: son renglones de la
             venta, para que salgan en el mismo comprobante que firma el cliente. */}
         <Link to="/chofer/venta"
-          className="col-span-2 sm:flex-[2] flex items-center justify-center gap-2.5 rounded-2xl bg-accent text-white py-5 shadow-sm active:scale-[0.99] transition-transform">
+          className="col-span-2 sm:col-span-3 flex items-center justify-center gap-2.5 rounded-2xl bg-accent text-white py-5 shadow-sm active:scale-[0.99] transition-transform">
           <Package size={26} />
           <span className="text-lg font-bold">Vender</span>
         </Link>
         <Link to="/chofer/cobrar"
-          className="sm:flex-1 flex items-center justify-center gap-2 rounded-2xl bg-white border border-[#D3D1C7] text-gray-700 py-4 sm:py-5 shadow-sm active:scale-[0.99] transition-transform">
+          className="flex items-center whitespace-nowrap justify-center gap-2 rounded-2xl bg-white border border-[#D3D1C7] text-gray-700 py-4 sm:py-5 shadow-sm active:scale-[0.99] transition-transform">
           <HandCoins size={22} className="text-accent shrink-0" />
           <span className="text-base font-bold">Cobrar</span>
         </Link>
@@ -276,14 +279,14 @@ export default function ChoferDashboard() {
             ningún lado, y el chofer no tenía cómo darle el comprobante al
             cliente parado en la puerta. */}
         <Link to="/chofer/ventas"
-          className="sm:flex-1 flex items-center justify-center gap-2 rounded-2xl bg-white border border-[#D3D1C7] text-gray-700 py-4 sm:py-5 shadow-sm active:scale-[0.99] transition-transform">
+          className="flex items-center whitespace-nowrap justify-center gap-2 rounded-2xl bg-white border border-[#D3D1C7] text-gray-700 py-4 sm:py-5 shadow-sm active:scale-[0.99] transition-transform">
           <FileText size={22} className="text-accent shrink-0" />
           <span className="text-base font-bold">Facturas</span>
         </Link>
         {/* Buscar cliente (2026-09-26, pedido de los choferes): dónde queda cada
             domicilio, con Cómo llegar y Llamar. */}
         <Link to="/chofer/clientes"
-          className="col-span-2 sm:flex-1 flex items-center justify-center gap-2 rounded-2xl bg-white border border-[#D3D1C7] text-gray-700 py-4 sm:py-5 shadow-sm active:scale-[0.99] transition-transform">
+          className="col-span-2 sm:col-span-1 flex items-center whitespace-nowrap justify-center gap-2 rounded-2xl bg-white border border-[#D3D1C7] text-gray-700 py-4 sm:py-5 shadow-sm active:scale-[0.99] transition-transform">
           <MapPin size={22} className="text-accent shrink-0" />
           <span className="text-base font-bold">Buscar cliente</span>
         </Link>
