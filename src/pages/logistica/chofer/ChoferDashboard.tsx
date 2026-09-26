@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, memo } from 'react'
+import { useState, useEffect, useMemo, memo } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { HandCoins, Package, FileText, MapPin } from 'lucide-react'
 import ChoferHeader from '@/components/chofer/ChoferHeader'
@@ -11,7 +11,7 @@ import { useAuth } from '@/context/AuthContext'
 import { usePushNotification } from '@/hooks/usePushNotification'
 import { savePushSubscription, proposeCoord } from '@/services/userService'
 import { markDelivered } from '@/services/orderService'
-import { updateDriverLocation, deactivateDriverLocation } from '@/services/locationService'
+import { useGpsChofer } from '@/hooks/useGpsChofer'
 import { subscribeDespachosForDriver, subscribeDespachosForAyudante, pickActiveDespacho, ordenarPorRutaDespacho } from '@/services/despachoService'
 import { Despacho } from '@/types'
 import { reauthenticateWithCredential, EmailAuthProvider, updatePassword } from 'firebase/auth'
@@ -57,9 +57,6 @@ export default function ChoferDashboard() {
   const diaHoy = useDiaActual()
   const today  = useFechaDelDia()
 
-  // Para evitar race condition en deactivateDriverLocation
-  const gpsEnVueloRef = useRef(false)
-  const locationGenRef = useRef(0)
 
   // Ayudante: buscar el/los despacho(s) del día donde ayudanteEmail === user.email
   // (puede haber más de uno — varias vueltas del mismo chofer principal).
@@ -85,7 +82,8 @@ export default function ChoferDashboard() {
   const [sinContactoVisita,  setSinContactoVisita]  = useState<VisitaPuntual | null>(null)
   const [sinContactoMotivo,  setSinContactoMotivo]  = useState('')
   const [sinContactoLoading, setSinContactoLoading] = useState(false)
-  const [gpsStatus,          setGpsStatus]          = useState<'idle' | 'ok' | 'error'>('idle')
+  // El GPS lo manda ChoferShell para todas las pantallas del chofer (A6); acá solo el estado.
+  const { estado: gpsStatus } = useGpsChofer()
 
   const MOTIVOS_SIN_CONTACTO = ['Nadie en el local', 'Local cerrado', 'No atendió el teléfono', 'Dirección incorrecta']
 
@@ -187,60 +185,6 @@ export default function ChoferDashboard() {
     }
   }
 
-  const nombreRef   = useRef(user?.nombreContacto || user?.nombre || '')
-  const telefonoRef = useRef(user?.telefono       || user?.phone  || '')
-  useEffect(() => {
-    nombreRef.current   = user?.nombreContacto || user?.nombre || ''
-    telefonoRef.current = user?.telefono       || user?.phone  || ''
-  })
-
-  useEffect(() => {
-    // En una sesión "Ver como" (super_admin mirando, solo lectura) no se manda GPS.
-    if (!hasPending || !user?.email || !navigator.geolocation || verComo) return
-
-    const email = user.email
-    const gen   = ++locationGenRef.current
-
-    const send = () => {
-      if (document.visibilityState === 'hidden') return
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          setGpsStatus('ok')
-          // Una posición en vuelo a la vez: sin señal el write anterior no
-          // resuelve, y encolar una cada 10 s acumula cientos de escrituras
-          // que al reconectar se suben antes que las ventas. Se pierde la
-          // posición de esos 10 s, que sin señal tampoco veía nadie.
-          if (gpsEnVueloRef.current) return
-          gpsEnVueloRef.current = true
-          updateDriverLocation(email, pos.coords.latitude, pos.coords.longitude, nombreRef.current, telefonoRef.current)
-            .catch(() => {})
-            .finally(() => { gpsEnVueloRef.current = false })
-        },
-        () => setGpsStatus('error'),
-        { enableHighAccuracy: true, timeout: 10_000, maximumAge: 0 },
-      )
-    }
-
-    send()
-    const id = setInterval(send, 10_000)
-    // En background el navegador suspende el envío; al volver la app al frente
-    // refrescamos la ubicación de inmediato en vez de esperar hasta 10s.
-    const onVisible = () => { if (document.visibilityState === 'visible') send() }
-    document.addEventListener('visibilitychange', onVisible)
-
-    return () => {
-      clearInterval(id)
-      document.removeEventListener('visibilitychange', onVisible)
-      // Microtask: si un nuevo efecto ya montó (gen cambió), no desactivar.
-      // Leer el .current actual (no una copia) es justamente el objetivo.
-      void Promise.resolve().then(() => {
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-        if (locationGenRef.current === gen) {
-          deactivateDriverLocation(email).catch((err) => reportError(err, { origen: 'ChoferDashboard' }))
-        }
-      })
-    }
-  }, [hasPending, user?.email, verComo])
 
   if (loading || pairedDespachoLoading) return <><ChoferHeader /><LoadingSpinner fullScreen /></>
 

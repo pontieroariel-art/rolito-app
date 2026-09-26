@@ -69,6 +69,8 @@ const EntregarPedidoPage = lazy(() => import('@/pages/logistica/chofer/EntregarP
 const VentasChofer      = lazy(() => import('@/pages/logistica/chofer/VentasChofer'))
 const BuscarClienteChofer = lazy(() => import('@/pages/logistica/chofer/BuscarClienteChofer'))
 const ManualChofer = lazy(() => import('@/pages/logistica/chofer/ManualChofer'))
+// Contenedor de /chofer/* con el GPS compartido (auditoría del chofer, A6). En diferido: no suma al arranque de otros roles.
+const ChoferShell = lazy(() => import('@/components/chofer/ChoferShell'))
 const GerenteDashboard  = lazy(() => import('@/pages/admin/GerenteDashboard'))
 
 const HeladerasPage        = lazy(() => import('./pages/heladeras/HeladerasPage'))
@@ -441,6 +443,7 @@ function AppContent() {
 
         {/* Chofer */}
         <Route element={<ProtectedRoute allowedRoles={rolesDe('/chofer')} />}>
+          <Route element={<ChoferShell />}>
           <Route path="/chofer"        element={<ChoferDashboard />} />
           <Route path="/chofer/map"    element={<ChoferMap />} />
           <Route path="/chofer/venta"  element={<VentaCamion />} />
@@ -449,6 +452,7 @@ function AppContent() {
           <Route path="/chofer/clientes" element={<BuscarClienteChofer />} />
           <Route path="/chofer/manual" element={<ManualChofer />} />
           <Route path="/chofer/cobrar" element={<CobranzaCalle />} />
+          </Route>
         </Route>
 
         {/* Selección de dominio: cualquier usuario activo. Sin lista de roles:

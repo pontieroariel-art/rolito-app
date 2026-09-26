@@ -15,7 +15,7 @@ import ChoferHeader from '@/components/chofer/ChoferHeader'
 import Button from '@/components/ui/Button'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
 import { useDriverOrders } from '@/hooks/useOrders'
-import { updateDriverLocation, deactivateDriverLocation } from '@/services/locationService'
+import { useGpsChofer } from '@/hooks/useGpsChofer'
 import { subscribeDespachosForDriver, subscribeDespachosForAyudante, pickActiveDespacho, todayStr, ordenarPorRutaDespacho } from '@/services/despachoService'
 import { useAuth } from '@/context/AuthContext'
 import { useGoogleMapsLoader } from '@/hooks/useGoogleMapsLoader'
@@ -73,12 +73,13 @@ function SortableStop({ order, index }: { order: Order; index: number }) {
 
 
 export default function ChoferMap() {
-  const { user, verComo }             = useAuth()
+  const { user }                      = useAuth()
   const { isLoaded, loadError }       = useGoogleMapsLoader()
   const [directions, setDirections]   = useState<google.maps.DirectionsResult | null>(null)
   const [routeError, setRouteError]   = useState('')
   const [calculating, setCalculating] = useState(false)
-  const [currentPos, setCurrentPos]   = useState<google.maps.LatLngLiteral | null>(null)
+  // Posición del GPS compartido de ChoferShell (auditoría del chofer, A6).
+  const { posicion: currentPos } = useGpsChofer()
   const [routeStale, setRouteStale]   = useState(false)
   const [pdfLoading, setPdfLoading]   = useState(false)
   const { abrir } = useVisorComprobante()
@@ -196,16 +197,6 @@ export default function ChoferMap() {
     setRouteStale(true)
   }, [])
 
-  const nombreRef   = useRef(user?.nombreContacto || user?.nombre || '')
-  const telefonoRef = useRef(user?.telefono       || user?.phone  || '')
-  useEffect(() => {
-    nombreRef.current   = user?.nombreContacto || user?.nombre || ''
-    telefonoRef.current = user?.telefono       || user?.phone  || ''
-  })
-
-  // Para evitar race condition en deactivateDriverLocation (ver ChoferDashboard.tsx)
-  const gpsEnVueloRef = useRef(false)
-  const locationGenRef = useRef(0)
   // Para descartar una respuesta de ruta obsoleta si el usuario toca
   // "Calcular ruta" dos veces antes de que resuelva la primera llamada
   const routeRequestIdRef = useRef(0)
@@ -226,47 +217,6 @@ export default function ChoferMap() {
     }
   }, [hasPending])
 
-  useEffect(() => {
-    // hasPending (no pending.length): antes este efecto se reiniciaba en cada
-    // entrega marcada (el cleanup desactivaba la ubicación y recién se
-    // reactivaba cuando volvía a resolver getCurrentPosition), así que el
-    // chofer "desaparecía" del mapa en vivo después de cada entrega en vez de
-    // solo al terminar la ruta.
-    // En una sesión "Ver como" (super_admin mirando, solo lectura) no se manda GPS.
-    if (!hasPending || !user?.email || !navigator.geolocation || verComo) return
-    const email = user.email
-    const gen   = ++locationGenRef.current
-    const send  = () =>
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          setCurrentPos({ lat: pos.coords.latitude, lng: pos.coords.longitude })
-          // Una posición en vuelo a la vez (ver ChoferDashboard): sin señal no
-          // acumular una cola de writes que compita con las ventas al volver.
-          if (gpsEnVueloRef.current) return
-          gpsEnVueloRef.current = true
-          updateDriverLocation(email, pos.coords.latitude, pos.coords.longitude,
-            nombreRef.current, telefonoRef.current)
-            .catch(() => {})
-            .finally(() => { gpsEnVueloRef.current = false })
-        },
-        () => {},
-        { enableHighAccuracy: true, timeout: 10_000, maximumAge: 0 },
-      )
-    send()
-    const id = setInterval(send, 10_000)
-    return () => {
-      clearInterval(id)
-      // Microtask: si un nuevo efecto ya montó (gen cambió), no desactivar
-      // (mismo fix que ChoferDashboard.tsx, para evitar la race condition
-      // donde una desactivación en vuelo pisa una reactivación posterior).
-      void Promise.resolve().then(() => {
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-        if (locationGenRef.current === gen) {
-          deactivateDriverLocation(email).catch((err) => reportError(err, { origen: 'ChoferMap' }))
-        }
-      })
-    }
-  }, [hasPending, user?.email, verComo])
 
   const calculateRoute = async () => {
     if (orderedPending.length === 0) return
