@@ -4,6 +4,8 @@ import LoadingSpinner from '@/components/ui/LoadingSpinner'
 import ProduccionTicket from '@/components/produccion/ProduccionTicket'
 import TileProducto from '@/components/produccion/carga/TileProducto'
 import ConfirmarPallet from '@/components/produccion/carga/ConfirmarPallet'
+import CambiarOperario from '@/components/produccion/carga/CambiarOperario'
+import { getDispositivoProduccion } from '@/services/produccionDeviceService'
 import ContadorDia from '@/components/produccion/carga/ContadorDia'
 import CabeceraPlanta from '@/components/produccion/carga/CabeceraPlanta'
 import { useAuth } from '@/context/AuthContext'
@@ -69,6 +71,8 @@ export default function ProduccionDashboard() {
   const [hecho, setHecho] = useState<{ texto: string; codigo: string; color: string } | null>(null)
   /** Mismo producto cargado hace menos de un minuto: la ventana lo pregunta. */
   const [repetido, setRepetido] = useState<number | null>(null)
+  /** Ventana de cambio de operario abierta. */
+  const [cambiando, setCambiando] = useState(false)
   // Los pallets de hoy en una referencia, para que `onTap` sea estable (las tarjetas están en memo).
   const listasRef = useRef<PalletProduccion[][]>([[], []])
   listasRef.current = [pallets, pendientes]
@@ -239,6 +243,19 @@ export default function ProduccionDashboard() {
     void navigate('/')
   }, [navigate])
 
+  const abrirCambio = useCallback(() => { setArmado(null); setCambiando(true) }, [])
+
+  // Si con "Cambiar operario" entró un legajo de OTRA planta, no puede cargar
+  // acá (el pallet se le atribuiría a su planta): se cierra la sesión y vuelve
+  // al ingreso de esta tablet, que explica el motivo.
+  useEffect(() => {
+    const disp = getDispositivoProduccion()
+    if (!disp || !user?.planta || user.planta === disp) return
+    logoutUser()
+      .then(() => navigate(`/produccion-${disp}`, { replace: true }))
+      .catch((err) => reportError(err, { origen: 'ProduccionDashboard', accion: 'operario de otra planta' }))
+  }, [user?.planta, navigate])
+
   const cabeceraImpresora = useMemo(() => ({
     estado: impresora.estado, nombre: impresora.nombre, onConectar: impresora.conectar, onProbar: impresora.probar,
   }), [impresora.estado, impresora.nombre, impresora.conectar, impresora.probar])
@@ -267,7 +284,7 @@ export default function ProduccionDashboard() {
             planta={PLANTAS[user.planta].label}
             online={online}
             impresora={cabeceraImpresora}
-            onSalir={salir}
+            onCambiar={abrirCambio}
           />
 
           <ContadorDia total={resumen.total} cargando={loading} ultimo={ultimo} onReimprimir={reimprimirUltimo} />
@@ -323,6 +340,14 @@ export default function ProduccionDashboard() {
           repetidoHaceSeg={repetido}
           onConfirmar={() => confirmar(armado.productoId)}
           onCancelar={() => setArmado(null)}
+        />
+      )}
+
+      {cambiando && (
+        <CambiarOperario
+          onListo={() => { setCambiando(false); vibrar(TACTO.exito) }}
+          onCerrar={() => setCambiando(false)}
+          onSalir={() => void salir()}
         />
       )}
 

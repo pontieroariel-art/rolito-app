@@ -138,9 +138,17 @@ async function main() {
     rol: 'produccion_hielo', planta: 'torcuato', legajo: operarioLegajo, username: operarioLegajo,
   }), { merge: true })
   await db.collection('produccionLegajoIndex').doc(operarioLegajo).set({ email: operarioEmail })
+  // Segundo operario, para probar "Cambiar operario" en la tablet (2026-09-25).
+  const operario2Email = '5796@produccion.rolito.internal'
+  const operario2Uid   = await upsertAuthUser(operario2Email, '1234__pr')
+  await db.collection('users').doc(operario2Uid).set(baseUserFields({
+    email: operario2Email, nombre: 'Lucía Operaria Prueba', nombreContacto: 'Lucía Operaria Prueba',
+    rol: 'produccion_hielo', planta: 'torcuato', legajo: '5796', username: '5796',
+  }), { merge: true })
+  await db.collection('produccionLegajoIndex').doc('5796').set({ email: operario2Email })
   const counterRef = db.collection('config').doc('produccionCounter_torcuato')
   if (!(await counterRef.get()).exists) await counterRef.set({ next: 91 })
-  console.log(`✓ Operario de producción — legajo ${operarioLegajo} / PIN 1234 (Torcuato, /produccion-torcuato)`)
+  console.log(`✓ Operarios de producción — legajos ${operarioLegajo} y 5796 / PIN 1234 (Torcuato, /produccion-torcuato)`)
 
   // ── Precios de Tango (para la venta desde el camión) ──────────────────────
   // Desde el 2026-09-03 los precios vienen de Tango, no de listas propias:

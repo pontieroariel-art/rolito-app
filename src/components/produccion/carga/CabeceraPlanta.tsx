@@ -1,20 +1,21 @@
 import { memo } from 'react'
-import { Bluetooth, Printer, WifiOff } from 'lucide-react'
+import { Bluetooth, Printer, UserRound, WifiOff } from 'lucide-react'
 import { hayImpresoraGuardada, type EstadoImpresora } from '@/services/zebraBleService'
 
 // Cabecera mínima de la tablet de planta (2026-09-14): en vez del Navbar
 // completo, que en una tablet lenta suma nodos y suscripciones que acá no se
-// usan. Nombre, planta, conexión, impresora y salir.
+// usan. Nombre, planta, conexión, impresora y cambiar de operario (desde el
+// 2026-09-25 "Salir" vive adentro de esa ventana).
 export interface CabeceraPlantaProps {
   nombre:  string
   planta:  string
   online:  boolean
   /** Zebra por Bluetooth: estado, nombre del dispositivo y las dos acciones. */
   impresora: { estado: EstadoImpresora; nombre: string | null; onConectar: () => void; onProbar: () => void }
-  onSalir: () => void
+  onCambiar: () => void
 }
 
-function CabeceraPlantaBase({ nombre, planta, online, impresora, onSalir }: CabeceraPlantaProps) {
+function CabeceraPlantaBase({ nombre, planta, online, impresora, onCambiar }: CabeceraPlantaProps) {
   const conectada = impresora.estado === 'conectada' || impresora.estado === 'imprimiendo'
   // Ya se usó la Zebra en esta tablet y se cayó: se reconecta sola, pero se avisa en ámbar.
   const caida = !conectada && hayImpresoraGuardada()
@@ -51,10 +52,10 @@ function CabeceraPlantaBase({ nombre, planta, online, impresora, onSalir }: Cabe
         )}
         <button
           type="button"
-          onClick={onSalir}
-          className="h-11 px-4 rounded-xl border border-[#D3D1C7] bg-white text-base font-bold text-secundario touch-manipulation active:bg-gray-50"
+          onClick={onCambiar}
+          className="inline-flex items-center gap-2 h-11 px-4 rounded-xl border border-[#D3D1C7] bg-white text-base font-bold text-gray-900 touch-manipulation active:bg-gray-50"
         >
-          Salir
+          <UserRound size={18} /> Cambiar operario
         </button>
       </div>
     </header>

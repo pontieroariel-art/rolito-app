@@ -1,6 +1,6 @@
 import { useState, FormEvent, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { FirebaseError } from 'firebase/app'
+import { mensajeErrorLoginProduccion } from '../../utils/errorLoginProduccion'
 import AuthLayout from '../../components/layout/AuthLayout'
 import Input from '../../components/ui/Input'
 import Button from '../../components/ui/Button'
@@ -59,24 +59,9 @@ export default function LoginProduccion({ planta }: Props) {
     try {
       await loginProduccion(legajo.trim(), pin)
     } catch (err) {
-      if (err instanceof Error && err.message === 'legajo-not-found') {
-        setError('Legajo no encontrado')
-      } else if (err instanceof FirebaseError) {
-        const wrongCreds = ['auth/invalid-credential', 'auth/wrong-password', 'auth/user-not-found']
-        if (wrongCreds.includes(err.code)) {
-          setError('Legajo o PIN incorrecto')
-        } else if (err.code === 'auth/network-request-failed') {
-          setError('Sin conexión. Revisá la señal e intentá de nuevo.')
-        } else if (err.code === 'auth/too-many-requests') {
-          setError('Demasiados intentos. Esperá unos minutos.')
-        } else {
-          reportError(err, { origen: 'LoginProduccion', accion: 'login', code: err.code })
-          setError(`Error al ingresar (${err.code})`)
-        }
-      } else {
-        reportError(err, { origen: 'LoginProduccion', accion: 'login' })
-        setError('Error al ingresar. Verificá el legajo.')
-      }
+      const { mensaje, inesperado } = mensajeErrorLoginProduccion(err)
+      if (inesperado) reportError(err, { origen: 'LoginProduccion', accion: 'login' })
+      setError(mensaje)
     } finally {
       setLoading(false)
     }
