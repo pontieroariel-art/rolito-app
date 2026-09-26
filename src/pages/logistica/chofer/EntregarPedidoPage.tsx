@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import AvisoErrorCarga from '@/components/common/AvisoErrorCarga'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, CheckCircle2, Mail, Minus, Pencil, Plus, Tag, FileText, Clock } from 'lucide-react'
 import Button from '@/components/ui/Button'
@@ -60,7 +61,7 @@ export default function EntregarPedidoPage() {
   const { orders, loading: cargandoPedidos } = useDriverOrders()
   const order = useMemo(() => orders.find((o) => o.id === orderId), [orders, orderId])
   const { catalogo } = useCatalogo()
-  const { cliente, loading: cargandoCliente } = useClienteSeleccionado(order?.clientId && order.clientId !== 'externo' ? order.clientId : null)
+  const { cliente, loading: cargandoCliente, error: errorCliente, noEncontrado: clienteNoEncontrado, reintentar: reintentarCliente } = useClienteSeleccionado(order?.clientId && order.clientId !== 'externo' ? order.clientId : null)
   const { remitos: remitosCarga } = useRemitosCargaChofer()
   const { deposito: depositoUsuario } = useDepositoDelUsuario(user?.uid)
   const online = useOnline()
@@ -375,6 +376,17 @@ export default function EntregarPedidoPage() {
       <Marco titulo={order.clientName}>
         <p className="text-sm text-gray-600">Este pedido no tiene un cliente registrado en la app, así que no se le puede hacer el remito desde acá. Marcalo entregado desde el home y registrá la venta desde Vender.</p>
         <Link to="/chofer" className="text-sm text-accent underline">Volver</Link>
+      </Marco>
+    )
+  }
+  // Sin la ficha no hay precios ni forma de pago habitual (M3): se dice, con Reintentar.
+  if (errorCliente || clienteNoEncontrado) {
+    return (
+      <Marco titulo={order.clientName}>
+        {errorCliente
+          ? <AvisoErrorCarga mensaje="No se pudo leer la ficha del cliente (precios y forma de pago). Revisá la señal." onReintentar={reintentarCliente} />
+          : <p className="text-sm text-gray-600">Este cliente no está en la app, así que no se le puede hacer el remito desde acá. Avisá a la oficina.</p>}
+        <Link to="/chofer" className="text-sm text-accent underline">Volver a mis entregas</Link>
       </Marco>
     )
   }

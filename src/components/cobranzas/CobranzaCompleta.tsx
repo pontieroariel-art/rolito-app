@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import AvisoErrorCarga from '@/components/common/AvisoErrorCarga'
 import { Link } from 'react-router-dom'
 import { Banknote, CheckCircle2, Eye, Landmark, Plus, ReceiptText, RefreshCw, Share2, Trash2 } from 'lucide-react'
 import ChequeForm from '@/components/supervisor/ChequeForm'
@@ -96,7 +97,7 @@ export default function CobranzaCompleta({ origen, plantaId, cajaSesionId, clien
 
   // Solo clientes vinculados a Tango (en cualquiera de las dos empresas) pueden cobrarse con imputación.
   const itemsTango = useMemo(() => indexAComboItems(clientes.filter((c) => c.vinculadoTango)), [clientes])
-  const { cliente: clienteCargado, loading: cargandoCliente } = useClienteSeleccionado(clienteId || null)
+  const { cliente: clienteCargado, loading: cargandoCliente, error: errorCliente, reintentar: reintentarCliente } = useClienteSeleccionado(clienteId || null)
   const cliente = useMemo(() => (clienteCargado && estaVinculadoATango(clienteCargado) ? clienteCargado : null), [clienteCargado])
 
   const actor = useMemo(
@@ -377,6 +378,7 @@ export default function CobranzaCompleta({ origen, plantaId, cajaSesionId, clien
         <label className="text-xs text-secundario mb-1 block">Cliente</label>
         <ClienteCombobox items={itemsTango} value={clienteId} onChange={setClienteId} placeholder="Buscar cliente…" />
         {clienteId && cargandoCliente && <p className="text-xs text-secundario mt-1">Cargando la ficha del cliente…</p>}
+        {errorCliente && <AvisoErrorCarga className="mt-2" mensaje="No se pudo leer la ficha del cliente. Revisá la señal." onReintentar={reintentarCliente} />}
       </div>
 
       {cliente && (

@@ -7,11 +7,19 @@ import type { UserProfile } from '@/types'
 // caché de 5 minutos por si vuelve al mismo cliente. Antes esa ficha venía en la
 // lista entera de 2.000+ clientes que bajaba cada pantalla.
 export function useClienteSeleccionado(uid: string | null | undefined) {
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['users', 'cliente', uid ?? ''],
     queryFn:  () => getUserDocument(uid!),
     enabled:  !!uid,
     staleTime: 300_000,
   })
-  return { cliente: (uid ? data ?? undefined : undefined) as UserProfile | undefined, loading: !!uid && isLoading }
+  return {
+    cliente: (uid ? data ?? undefined : undefined) as UserProfile | undefined,
+    loading: !!uid && isLoading,
+    // Sin la ficha no hay precios ni condición de venta (M3, auditoría del
+    // chofer): la pantalla tiene que decirlo con Reintentar, no "sin precio".
+    error: !!uid && isError,
+    noEncontrado: !!uid && !isLoading && !isError && data === null,
+    reintentar: () => { void refetch() },
+  }
 }

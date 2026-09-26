@@ -1,4 +1,5 @@
 import { updateVisitaPuntual } from '@/services/visitasService'
+import AvisoErrorCarga from '@/components/common/AvisoErrorCarga'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   PenLine, User, Banknote, Smartphone, Wallet,
@@ -166,7 +167,7 @@ export default function VentaCamion({ volverA = '/chofer' }: { volverA?: string 
     })
   }, [uidReserva, online])
 
-  const { cliente, loading: cargandoCliente } = useClienteSeleccionado(clienteId || null)
+  const { cliente, loading: cargandoCliente, error: errorCliente, noEncontrado: clienteNoEncontrado, reintentar: reintentarCliente } = useClienteSeleccionado(clienteId || null)
   // Cuenta corriente solo si Tango la tiene habilitada para el cliente (su
   // condición de venta); a un CONTADO el Facturador le rechaza la cuota.
   const ctaCte = admiteCuentaCorriente(cliente)
@@ -457,6 +458,8 @@ export default function VentaCamion({ volverA = '/chofer' }: { volverA?: string 
           </label>
           <ClienteCombobox value={clienteId} onChange={setClienteId} />
           {clienteId && cargandoCliente && <p className="text-xs text-secundario mt-1">Cargando la ficha del cliente…</p>}
+          {errorCliente && <AvisoErrorCarga className="mt-2" mensaje="No se pudo leer la ficha del cliente (precios y forma de pago). Revisá la señal." onReintentar={reintentarCliente} />}
+          {clienteNoEncontrado && <p className="text-sm text-red-700 mt-1">Este cliente no está en la app. Elegí otro o avisá a la oficina.</p>}
           <SelectorSucursal cliente={cliente} empresa={empresa} value={sucursal} onChange={setSucursal} />
           {reemision && (
             <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900">
