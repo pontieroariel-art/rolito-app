@@ -19,6 +19,28 @@ export function explicarRotas(cambios: number, rotas: number): string | null {
   return `${cambios} ${cambios === 1 ? 'cambio' : 'cambios'} pero ${rotas === 1 ? 'volvió 1 rota' : `volvieron ${rotas} rotas`}: ${sinRota} ${sinRota === 1 ? 'cambio sin su bolsa rota cuenta' : 'cambios sin su bolsa rota cuentan'} como faltante.`
 }
 
+/**
+ * Todo lo que hay que saber de un producto después del conteo, en frases
+ * cortas: de dónde vienen las rotas, cuántas bolsas faltan y adónde van, o
+ * cuántas sobraron (2026-09-26, Ariel: "son bolsas, es dinero al fin y al cabo:
+ * tiene que quedar claro para todos"). Sin conteo todavía no hay nada que decir.
+ */
+export function explicarProducto(p: { cambios: number; rotas?: number; diferencia: number }): string[] {
+  const lineas: string[] = []
+  const rotas = explicarRotas(p.cambios, p.rotas ?? 0)
+  if (rotas) lineas.push(rotas)
+  if (p.diferencia < 0) {
+    const n = -p.diferencia
+    lineas.push(n === 1
+      ? 'Falta 1 bolsa que no volvió ni sana ni rota: va a la diferencia del chofer.'
+      : `Faltan ${n} bolsas que no volvieron ni sanas ni rotas: van a la diferencia del chofer.`)
+  } else if (p.diferencia > 0) {
+    const n = p.diferencia
+    lineas.push(`Volvi${n === 1 ? 'ó 1 bolsa sana' : `eron ${n} bolsas sanas`} de más: no se mueve nada en Tango, revisar con el muelle.`)
+  }
+  return lineas
+}
+
 export interface ItemDescarga { productoId: string; nombre: string; cantidad: number }
 
 /**

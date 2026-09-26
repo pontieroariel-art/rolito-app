@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { explicarProducto } from '@/utils/rotasCambios'
 import { ChevronDown, ChevronUp, Truck } from 'lucide-react'
 import { subscribeRepartoDelChofer, type FuentesRepartoEnVivo } from '@/services/repartoEnVivoService'
 import { agruparRepartoEnVivo, type CamionEnVivo, type EstadoCamion } from '@/utils/repartoEnVivo'
@@ -97,8 +98,8 @@ export default function MiCamionHoyCard({ uid, hoy }: { uid: string; hoy: string
                   <th className="text-right font-normal">Cargué</th>
                   <th className="text-right font-normal">Vendí</th>
                   <th className="text-right font-normal">Cambios</th>
-                  <th className="text-right font-normal">Quedan</th>
-                  {conDescarga && <th className="text-right font-normal">Bajó muelle</th>}
+                  <th className="text-right font-normal">{conDescarga ? 'Debía volver sano' : 'Quedan'}</th>
+                  {conDescarga && <th className="text-right font-normal">Volvió sano</th>}
                 </tr>
               </thead>
               <tbody>
@@ -118,7 +119,17 @@ export default function MiCamionHoyCard({ uid, hoy }: { uid: string; hoy: string
                 ))}
               </tbody>
             </table>
-            {!conDescarga && <p className="text-[11px] text-secundario mt-1">"Quedan" es lo que tenés que devolver: lo cargado menos lo vendido y los cambios. Muelle lo cuenta cuando volvés.</p>}
+            {/* Rotas y faltante claros también para el chofer (2026-09-26): antes
+                del conteo, qué entregar; después, lo mismo que ve caja. */}
+            {!conDescarga && <p className="text-xs text-secundario mt-1">"Quedan" son las bolsas sanas que te quedan arriba. Al volver entregá esas y <b>todas las rotas</b> (las de los cambios y las que se rompieron en el camión): las rotas van a merma y no te cuentan como faltante.</p>}
+            {conDescarga && (() => {
+              const lineas = liq.productos.map((p) => ({ p, textos: explicarProducto(p) })).filter((x) => x.textos.length)
+              return lineas.length > 0 && (
+                <ul className="mt-2 space-y-1 text-xs text-gray-700">
+                  {lineas.map(({ p, textos }) => <li key={p.productoId}><span className="font-medium text-gray-900">{p.nombre}:</span> {textos.join(' ')}</li>)}
+                </ul>
+              )
+            })()}
           </div>
 
           <div>

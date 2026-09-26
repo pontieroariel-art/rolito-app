@@ -1,5 +1,5 @@
 import { AlertTriangle, CheckCircle2, PackageX, Truck } from 'lucide-react'
-import { explicarRotas } from '@/utils/rotasCambios'
+import { explicarProducto } from '@/utils/rotasCambios'
 import { formatoARS } from '@/utils/money'
 import { describirRacks } from '@/utils/envases'
 import type { LiquidacionCalculada, RepartoClasificado } from '@/utils/liquidacion'
@@ -277,11 +277,14 @@ export function DetallePorProducto({ calc, sinDescarga = false }: {
       {/* Cambios y rotas en palabras, por producto (2026-09-26): antes era una
           "diferencia de cambios" suelta que nadie conectaba con el faltante. */}
       {!sinDescarga && (() => {
-        const lineas = calc.productos.map((p) => ({ p, texto: explicarRotas(p.cambios, p.rotas ?? 0) })).filter((x) => x.texto)
+        const lineas = calc.productos.map((p) => ({ p, textos: explicarProducto(p) })).filter((x) => x.textos.length)
         return lineas.length > 0 && (
-          <ul className="space-y-1 text-sm text-gray-700 max-w-3xl">
-            {lineas.map(({ p, texto }) => (
-              <li key={p.productoId}><span className="font-medium text-gray-900">{p.nombre}:</span> {texto}</li>
+          <ul className="space-y-1.5 text-sm text-gray-700 max-w-3xl">
+            {lineas.map(({ p, textos }) => (
+              <li key={p.productoId}>
+                <span className="font-medium text-gray-900">{p.nombre}:</span>{' '}
+                {textos.map((t, i) => <span key={i} className={/diferencia del chofer/.test(t) ? 'font-semibold text-red-700' : undefined}>{i > 0 ? ' ' : ''}{t}</span>)}
+              </li>
             ))}
           </ul>
         )

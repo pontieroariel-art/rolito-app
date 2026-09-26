@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { explicarRotas, resumenDescarga } from './rotasCambios'
+import { explicarProducto, explicarRotas, resumenDescarga } from './rotasCambios'
 
 describe('explicarRotas', () => {
   it('rotas de más: las del camión no son faltante', () => {
@@ -13,6 +13,19 @@ describe('explicarRotas', () => {
   it('iguales, o nada', () => {
     expect(explicarRotas(6, 6)).toBe('6 bolsas rotas: las de los cambios. A merma.')
     expect(explicarRotas(0, 0)).toBeNull()
+  })
+})
+
+describe('explicarProducto', () => {
+  it('ejemplo de Ariel: 5 cambios, 7 rotas, falta 1', () => {
+    expect(explicarProducto({ cambios: 5, rotas: 7, diferencia: -1 })).toEqual([
+      '7 bolsas rotas: 5 de los cambios + 2 rotas en el camión. Todas a merma, no son faltante.',
+      'Falta 1 bolsa que no volvió ni sana ni rota: va a la diferencia del chofer.',
+    ])
+  })
+  it('sobrante y cuadre', () => {
+    expect(explicarProducto({ cambios: 0, rotas: 0, diferencia: 2 })).toEqual(['Volvieron 2 bolsas sanas de más: no se mueve nada en Tango, revisar con el muelle.'])
+    expect(explicarProducto({ cambios: 0, rotas: 0, diferencia: 0 })).toEqual([])
   })
 })
 

@@ -968,6 +968,23 @@ export async function generateLiquidacion(
   })
   let y = finTabla(doc, 60) + 6
 
+  // Rotas, faltante y sobrante en palabras (2026-09-26): lo mismo que la pantalla.
+  // Solo con rotas en el resumen (cierres desde el 17/09): los viejos no las traen.
+  if ((productos as LiquidacionResumenProducto[]).some((p) => p.rotas !== undefined)) {
+    const { explicarProducto } = await import('./rotasCambios')
+    doc.setFontSize(8)
+    for (const p of productos as LiquidacionResumenProducto[]) {
+      const textos = explicarProducto(p)
+      if (!textos.length) continue
+      const lineas = doc.splitTextToSize(`${p.nombre}: ${textos.join(' ')}`, pageW - 28) as string[]
+      doc.setTextColor(textos.some((t) => t.includes('diferencia del chofer')) ? 150 : 60, 40, 40)
+      doc.text(lineas, 14, y)
+      y += lineas.length * 3.6 + 1
+    }
+    doc.setTextColor(0, 0, 0)
+    y += 3
+  }
+
   const signo = (n: number) => (n === 0 ? '0' : n > 0 ? `+${n}` : String(n))
   if (envasesLiq) {
     // Cuadre de envases por tipo (desde 2026-09-07) + cambios vs rotas.
