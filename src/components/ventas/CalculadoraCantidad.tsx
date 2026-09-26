@@ -9,40 +9,49 @@ const money = (n: number) => `$${n.toLocaleString('es-AR')}`
 interface Props {
   open:           boolean
   onClose:        () => void
-  producto:       CatalogProducto
+  /** Solo nombre y unidad: también sirve para un renglón de pedido que no está en el catálogo. */
+  producto:       Pick<CatalogProducto, 'nombre' | 'unidad'>
   precioUnitario: number
   /** false: sin importes (venta en cuenta corriente del chofer). */
   mostrarPrecio?: boolean
   cantidadActual: number
   onConfirm:      (cantidad: number) => void
+  /** Línea de ayuda arriba del número (ej. "Pedido: 100"). */
+  ayuda?:         string
 }
 
 /** Teclado numérico para cargar la cantidad de un producto en la venta. Se abre
- *  al tocar la tarjeta en la botonera. Muestra precio unitario y total en vivo. */
+ *  al tocar la tarjeta en la botonera. Muestra precio unitario y total en vivo.
+ *  Desde el 2026-09-26 también se abre al tocar la cantidad en Entregar pedido
+ *  (pedido de los choferes: bajar de 100 a 50 eran 50 toques del −). */
 export default function CalculadoraCantidad({
-  open, onClose, producto, precioUnitario, cantidadActual, onConfirm, mostrarPrecio = true,
+  open, onClose, producto, precioUnitario, cantidadActual, onConfirm, mostrarPrecio = true, ayuda,
 }: Props) {
   const [buf, setBuf] = useState('')
+  // La cantidad actual se muestra, pero el primer número tipeado la REEMPLAZA
+  // (como un texto seleccionado): abrir en 100 y tocar 5, 0 deja 50, no 10050.
+  // Borrar (⌫) en cambio corrige la cantidad actual cifra por cifra.
+  const [reemplazar, setReemplazar] = useState(true)
 
   // Al abrir, arranca con la cantidad actual (para corregir) o vacío.
   useEffect(() => {
-    if (open) setBuf(cantidadActual ? String(cantidadActual) : '')
+    if (open) { setBuf(cantidadActual ? String(cantidadActual) : ''); setReemplazar(true) }
   }, [open, cantidadActual])
 
   const n = parseInt(buf || '0', 10) || 0
 
-  const push  = (d: string) => setBuf((b) => (b + d).replace(/^0+/, '').slice(0, 5))
-  const back  = () => setBuf((b) => b.slice(0, -1))
-  const clear = () => setBuf('')
+  const push  = (d: string) => { setBuf((b) => ((reemplazar ? '' : b) + d).replace(/^0+/, '').slice(0, 5)); setReemplazar(false) }
+  const back  = () => { setBuf((b) => b.slice(0, -1)); setReemplazar(false) }
+  const clear = () => { setBuf(''); setReemplazar(false) }
   const listo = () => { onConfirm(n); onClose() }
 
   return (
     <Modal open={open} onClose={onClose} title={producto.nombre} variant="light">
       <div className="space-y-4">
-        <p className="text-sm text-secundario -mt-2">{mostrarPrecio ? `${money(precioUnitario)} / ${producto.unidad}` : `Cantidad en ${producto.unidad}`}</p>
+        <p className={`text-sm text-secundario ${ayuda ? '' : '-mt-2'}`}>{ayuda &&<b className="text-base text-gray-900">{ayuda} · </b>}{mostrarPrecio ? `${money(precioUnitario)} / ${producto.unidad}` : `Cantidad en ${producto.unidad}`}</p>
 
         <div className="bg-[#F8F7F2] border border-[#D3D1C7] rounded-xl px-4 py-3 text-right">
-          <span className="text-4xl font-black tabular-nums text-gray-900">{buf || '0'}</span>
+          <span className={`text-4xl font-black tabular-nums ${reemplazar && buf ? 'text-secundario' : 'text-gray-900'}`}>{buf || '0'}</span>
         </div>
         <div className="text-right text-sm font-bold text-accent tabular-nums min-h-[20px]">
           {n > 0 && (mostrarPrecio ? <>{n} × {money(precioUnitario)} = {money(n * precioUnitario)}</> : <>{n} {producto.unidad}</>)}

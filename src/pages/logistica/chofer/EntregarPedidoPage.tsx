@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, CheckCircle2, Mail, Minus, Plus, Tag, FileText, Clock } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, Mail, Minus, Pencil, Plus, Tag, FileText, Clock } from 'lucide-react'
 import Button from '@/components/ui/Button'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
 import SelectorSucursal from '@/components/ventas/SelectorSucursal'
 import SignaturePad, { SignaturePadHandle } from '@/components/heladeras/SignaturePad'
+import CalculadoraCantidad from '@/components/ventas/CalculadoraCantidad'
 import { useAuth } from '@/context/AuthContext'
 import { useDriverOrders } from '@/hooks/useOrders'
 import { useClienteSeleccionado } from '@/hooks/useClienteSeleccionado'
@@ -139,6 +140,25 @@ export default function EntregarPedidoPage() {
 
   const cambiar = (i: number, delta: number) =>
     setRenglones((prev) => prev && prev.map((r, k) => (k === i ? { ...r, cantidad: Math.max(0, r.cantidad + delta) } : r)))
+  const fijar = (i: number, n: number) =>
+    setRenglones((prev) => prev && prev.map((r, k) => (k === i ? { ...r, cantidad: Math.max(0, n) } : r)))
+  // Teclado numérico al tocar la cantidad (2026-09-26, pedido de los choferes:
+  // con solo + y −, bajar de 100 a 50 eran 50 toques).
+  const [calcIdx, setCalcIdx] = useState<number | null>(null)
+  const calcRenglon = calcIdx !== null ? renglones?.[calcIdx] ?? null : null
+  const unidadDe = (productoId: string | null | undefined) => catalogo.find((p) => p.id === productoId)?.unidad ?? 'u.'
+  const calculadora = calcRenglon && (
+    <CalculadoraCantidad
+      open
+      onClose={() => setCalcIdx(null)}
+      producto={{ nombre: calcRenglon.nombre, unidad: unidadDe(calcRenglon.productoId) }}
+      precioUnitario={0}
+      mostrarPrecio={false}
+      ayuda={`Pedido: ${calcRenglon.pedido}`}
+      cantidadActual={calcRenglon.cantidad}
+      onConfirm={(n) => { if (calcIdx !== null) fijar(calcIdx, n) }}
+    />
+  )
 
   const seguirPaso1 = () => {
     setError('')
@@ -312,17 +332,7 @@ export default function EntregarPedidoPage() {
           <div className="rounded-2xl border border-[#D3D1C7] bg-white p-4">
             <p className="text-xs font-bold uppercase tracking-wide text-secundario mb-1">¿Qué bajaste?</p>
             {renglones.map((r, i) => (
-              <div key={`${r.productoId}-${i}`} className="flex items-center justify-between gap-3 py-3 border-t first:border-t-0 border-[#EEEDE6]">
-                <div className="min-w-0">
-                  <p className="font-semibold text-[15px] leading-tight">{r.nombre}</p>
-                  <p className="text-xs text-secundario">pedido: {r.pedido}{!r.productoId ? ' · no está en el catálogo' : ''}</p>
-                </div>
-                <div className="grid grid-cols-[44px_56px_44px] items-center shrink-0">
-                  <button type="button" onClick={() => cambiar(i, -1)} aria-label="Menos" className="h-11 rounded-xl border border-[#D3D1C7] bg-white text-xl font-bold active:scale-95"><Minus size={20} className="mx-auto" /></button>
-                  <span className="text-center text-2xl font-black tabular-nums">{r.cantidad}</span>
-                  <button type="button" onClick={() => cambiar(i, +1)} aria-label="Más" className="h-11 rounded-xl border border-[#D3D1C7] bg-white text-xl font-bold active:scale-95"><Plus size={20} className="mx-auto" /></button>
-                </div>
-              </div>
+              <FilaCantidad key={`${r.productoId}-${i}`} nombre={r.nombre} pedido={r.pedido} sinCatalogo={!r.productoId} cantidad={r.cantidad} onMenos={() => cambiar(i, -1)} onMas={() => cambiar(i, +1)} onTocar={() => setCalcIdx(i)} />
             ))}
           </div>
           {sinCatalogo.length > 0 && (
@@ -338,6 +348,7 @@ export default function EntregarPedidoPage() {
             </div>
           )}
           {error && <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-xl px-3 py-2">{error}</p>}
+          {calculadora}
         </main>
 
         <div className="fixed bottom-0 inset-x-0 bg-white/95 backdrop-blur border-t border-[#D3D1C7] p-3">
@@ -369,20 +380,11 @@ export default function EntregarPedidoPage() {
 
         {paso === 1 && (
           <>
+            {calculadora}
             <div className="rounded-2xl border border-[#D3D1C7] bg-white p-4">
               <p className="text-xs font-bold uppercase tracking-wide text-secundario mb-1">¿Qué entregaste?</p>
               {renglones.map((r, i) => (
-                <div key={`${r.productoId}-${i}`} className="flex items-center justify-between gap-3 py-3 border-t first:border-t-0 border-[#EEEDE6]">
-                  <div className="min-w-0">
-                    <p className="font-semibold text-[15px] leading-tight">{r.nombre}</p>
-                    <p className="text-xs text-secundario">pedido: {r.pedido}{!r.productoId ? ' · no está en el catálogo' : ''}</p>
-                  </div>
-                  <div className="grid grid-cols-[44px_56px_44px] items-center shrink-0">
-                    <button type="button" onClick={() => cambiar(i, -1)} aria-label="Menos" className="h-11 rounded-xl border border-[#D3D1C7] bg-white text-xl font-bold active:scale-95"><Minus size={20} className="mx-auto" /></button>
-                    <span className="text-center text-2xl font-black tabular-nums">{r.cantidad}</span>
-                    <button type="button" onClick={() => cambiar(i, +1)} aria-label="Más" className="h-11 rounded-xl border border-[#D3D1C7] bg-white text-xl font-bold active:scale-95"><Plus size={20} className="mx-auto" /></button>
-                  </div>
-                </div>
+                <FilaCantidad key={`${r.productoId}-${i}`} nombre={r.nombre} pedido={r.pedido} sinCatalogo={!r.productoId} cantidad={r.cantidad} onMenos={() => cambiar(i, -1)} onMas={() => cambiar(i, +1)} onTocar={() => setCalcIdx(i)} />
               ))}
             </div>
             {sinCatalogo.length > 0 && (
@@ -484,6 +486,35 @@ export default function EntregarPedidoPage() {
           {paso === 2 && <Button onClick={seguirPaso2} className="w-full h-14 text-lg font-black">SEGUIR</Button>}
           {paso === 3 && <Button onClick={confirmar} loading={guardando} className="w-full h-14 text-lg font-black">CONFIRMAR ENTREGA</Button>}
         </div>
+      </div>
+    </div>
+  )
+}
+
+// Un renglón del pedido en dos pisos (2026-09-26): arriba el producto y lo
+// pedido, abajo − · cantidad · + a todo el ancho, 56 px de alto, para tocar con
+// el camión en marcha y con guantes. El número es un botón que abre el teclado
+// para tipear lo entregado (pedido de los choferes: bajar de 100 a 50 eran 50
+// toques del −); − y + quedan para ajustar de a uno.
+function FilaCantidad({ nombre, pedido, sinCatalogo, cantidad, onMenos, onMas, onTocar }: {
+  nombre: string; pedido: number; sinCatalogo: boolean; cantidad: number
+  onMenos: () => void; onMas: () => void; onTocar: () => void
+}) {
+  const distinto = cantidad !== pedido
+  return (
+    <div className="py-3 border-t first:border-t-0 border-[#EEEDE6] flex flex-col gap-2">
+      <div className="flex items-baseline justify-between gap-3">
+        <p className="min-w-0 font-bold text-base leading-tight">{nombre}{sinCatalogo && <span className="block text-xs font-normal text-amber-700">no está en el catálogo</span>}</p>
+        <p className="shrink-0 text-sm text-secundario tabular-nums">Pedido <b className="text-gray-900">{pedido}</b></p>
+      </div>
+      <div className="grid grid-cols-[56px_1fr_56px] gap-2">
+        <button type="button" onClick={onMenos} aria-label="Uno menos" className="h-14 rounded-xl border border-[#D3D1C7] bg-white active:scale-95 touch-manipulation"><Minus size={22} className="mx-auto" /></button>
+        <button type="button" onClick={onTocar} aria-label={`Entregado ${cantidad}. Tocá para escribir la cantidad`}
+          className={`h-14 rounded-xl border-2 flex items-center justify-center gap-2 active:scale-[0.98] touch-manipulation ${distinto ? 'border-amber-400 bg-amber-50' : 'border-[#1D9E75]/40 bg-[#F4FBF8]'}`}>
+          <span className="text-3xl font-black tabular-nums text-gray-900">{cantidad}</span>
+          <Pencil size={16} className="text-secundario" />
+        </button>
+        <button type="button" onClick={onMas} aria-label="Uno más" className="h-14 rounded-xl border border-[#D3D1C7] bg-white active:scale-95 touch-manipulation"><Plus size={22} className="mx-auto" /></button>
       </div>
     </div>
   )
