@@ -15,7 +15,7 @@ async function sinPantallaDeError(page: Page) {
 async function loginEmpresa(page: Page, dni: string, password = PASSWORD) {
   await page.goto('/empresa')
   await page.getByLabel('DNI').fill(dni)
-  await page.getByLabel('Contraseña').fill(password)
+  await page.getByLabel('Contraseña', { exact: true }).fill(password)
   await page.getByRole('button', { name: /ingresar/i }).click()
 }
 
@@ -70,7 +70,7 @@ test.describe('login por rol', () => {
   test('cliente entra por CUIT', async ({ page }) => {
     await page.goto('/clientes')
     await page.getByLabel('CUIT').fill('30111111118')
-    await page.getByLabel('Contraseña').fill(PASSWORD)
+    await page.getByLabel('Contraseña', { exact: true }).fill(PASSWORD)
     await page.getByRole('button', { name: /ingresar/i }).click()
     // El cliente del seed tiene varias sucursales: primero elige desde cuál
     // pide (ClientBranchGuard → /sucursal) y recién ahí ve su tablero.
