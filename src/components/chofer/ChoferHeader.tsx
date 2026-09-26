@@ -48,7 +48,7 @@ export default function ChoferHeader({ title, back = false }: { title?: string; 
           <ArrowLeft size={20} />
         </Link>
       ) : (
-        <img src="/isotipo-rolito.png" alt="Rolito" className="w-9 h-9 rounded-lg object-contain" />
+        <img src="/isotipo-rolito.webp" alt="Rolito" className="w-9 h-9 rounded-lg object-contain" />
       )}
       <div className="flex-1 min-w-0">
         <p className="text-sm font-bold leading-tight truncate">

@@ -24,8 +24,12 @@
     <link rel="dns-prefetch" href="https://firebaseapp.com" />
     <!-- <link>, no @import en index.css: @import es render-blocking en cadena
          (hay que bajar y parsear todo el CSS antes de descubrirlo). Con <link>
-         se descubre en paralelo con el resto del <head>. -->
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" />
+         se descubre en paralelo con el resto del <head>.
+         Sin bloquear el primer pintado (2026-09-26, auditoría del chofer, R4):
+         se baja como preload y se aplica al llegar; mientras tanto se ve la
+         fuente del sistema (display=swap ya lo hacía así con la fuente). -->
+    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" onload="this.onload=null;this.rel='stylesheet'" />
+    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" /></noscript>
   </head>
   <body>
     <div id="root"></div>

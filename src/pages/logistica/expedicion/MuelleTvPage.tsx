@@ -347,7 +347,7 @@ export default function MuelleTvPage() {
           <div className="flex-1 flex items-center justify-center min-w-0">
             {/* Placa blanca: el logo va a color, con su verde y su bajada. */}
             <div className="bg-white rounded-2xl px-7 py-2.5 flex items-center">
-              <img src="/logo-rolito.png" alt="Rolito" className="h-[72px] w-auto" />
+              <img src="/logo-rolito.webp" alt="Rolito" className="h-[72px] w-auto" />
             </div>
           </div>
         )}

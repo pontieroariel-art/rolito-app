@@ -145,7 +145,7 @@ export default function TurnosVentanillaPage() {
   return (
     <div className="min-h-screen min-h-dvh bg-[#F8F7F2]">
       <div className="bg-white border-b border-[#D3D1C7] px-4 py-3 flex items-center justify-between">
-        <img src="/logo-rolito.png" alt="Rolito" className="h-8 w-auto" />
+        <img src="/logo-rolito.webp" alt="Rolito" className="h-8 w-auto" />
         <p className="text-sm text-secundario">{PLANTAS[plantaId].label}</p>
       </div>
 

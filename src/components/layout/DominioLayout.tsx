@@ -175,7 +175,7 @@ export default function DominioLayout({ children }: { children?: ReactNode }) {
       {/* Cabecera de escritorio: logo, dominio, buscador, clima, cuenta */}
       <header className="hidden md:flex sticky top-0 z-40 items-center gap-3 h-14 px-4 bg-white border-b border-[#D3D1C7]">
         <Link to={homeActivo} className="flex items-center shrink-0">
-          <img src="/logo-rolito.png" alt="Rolito" width={82} height={28} className="h-7 w-auto object-contain" />
+          <img src="/logo-rolito.webp" alt="Rolito" width={82} height={28} className="h-7 w-auto object-contain" />
         </Link>
         {dominios.length > 1
           ? selectorDominios
@@ -198,7 +198,7 @@ export default function DominioLayout({ children }: { children?: ReactNode }) {
       {/* Franja mínima — mobile / tablet angosta */}
       <div className="md:hidden sticky top-0 z-40 bg-white border-b border-[#D3D1C7] px-3 min-h-12 pt-[env(safe-area-inset-top)] flex items-center justify-between">
         <Link to={homeActivo} className="flex items-center">
-          <img src="/logo-rolito.png" alt="Rolito" width={71} height={24} className="h-6 w-auto object-contain" />
+          <img src="/logo-rolito.webp" alt="Rolito" width={71} height={24} className="h-6 w-auto object-contain" />
         </Link>
         <button onClick={() => setOpen((o) => !o)} aria-label={open ? 'Cerrar menú' : 'Abrir menú'} className="text-gray-600 p-3 -mr-3 flex items-center justify-center">
           {open ? <X size={20} /> : <Menu size={20} />}

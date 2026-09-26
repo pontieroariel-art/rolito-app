@@ -75,7 +75,7 @@ export default function Navbar() {
 
         {/* Logo */}
         <Link to="/" className="flex items-center shrink-0 pr-4">
-          <img src="/logo-rolito.png" alt="Rolito" width={118} height={40} className="h-10 w-auto object-contain" />
+          <img src="/logo-rolito.webp" alt="Rolito" width={118} height={40} className="h-10 w-auto object-contain" />
         </Link>
 
         {/* Links desktop */}

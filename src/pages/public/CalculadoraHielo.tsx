@@ -110,13 +110,13 @@ export default function CalculadoraHielo() {
         style={{ background: 'linear-gradient(180deg, #1a6b52 0%, #1D9E75 100%)' }}
       >
         <div className="bg-white rounded-2xl p-2 shadow-lg mb-0 translate-y-1/2">
-          <img src="/isotipo-rolito.png" alt="Rolito" className="w-16 h-16 object-contain" />
+          <img src="/isotipo-rolito.webp" alt="Rolito" className="w-16 h-16 object-contain" />
         </div>
       </div>
 
       {/* Logo */}
       <div className="bg-white flex flex-col items-center pt-12 pb-5 shadow-sm">
-        <img src="/logo-rolito.png" alt="Rolito" width={188} height={64} loading="lazy" className="h-16 w-auto object-contain" />
+        <img src="/logo-rolito.webp" alt="Rolito" width={188} height={64} loading="lazy" className="h-16 w-auto object-contain" />
       </div>
 
       {/* Contenido */}

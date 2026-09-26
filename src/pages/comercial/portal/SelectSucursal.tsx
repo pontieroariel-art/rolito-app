@@ -22,7 +22,7 @@ export default function SelectSucursal() {
       {/* Logo */}
       <div className="mb-8 flex flex-col items-center gap-3">
         <div className="bg-white rounded-2xl p-2 shadow-lg border border-[#E7E5DC]">
-          <img src="/isotipo-rolito.png" alt="Rolito" className="w-14 h-14 object-contain" />
+          <img src="/isotipo-rolito.webp" alt="Rolito" className="w-14 h-14 object-contain" />
         </div>
         <div className="text-center">
           <p className="text-gray-900 font-semibold text-lg">
