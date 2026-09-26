@@ -1,3 +1,4 @@
+import { productosFabricaTopeados } from '../services/entregaFabricaTope'
 import { onDocumentCreated, onDocumentUpdated } from 'firebase-functions/v2/firestore'
 import { controlarRecibo } from '../services/cobranzasControl'
 import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore'
@@ -506,7 +507,8 @@ async function escribirCierreMercaderia(
     ventas,
     cambios: cambios.docs.map((d) => d.data() as ItemMercaderia),
     descargas: descargas.docs.map((d) => ({ id: d.id, ...(d.data() as object) })),
-    entregasFabrica: pedidosFabrica.docs.map((d) => ({ productos: (d.data().entregaFabrica?.productos ?? []) as ItemMercaderia[] })),
+    // Topeado a lo pedido (2026-09-26, auditoría del chofer, C4).
+    entregasFabrica: pedidosFabrica.docs.map((d) => ({ productos: productosFabricaTopeados(d.data().products, d.data().entregaFabrica?.productos).productos as ItemMercaderia[] })),
     umbral: normalizarUmbralFaltantes(configLiq.data()?.faltantes),
     // El cierre pertenece al día del VIAJE, no al del conteo (2026-09-17).
     diaReparto: typeof descarga.diaReparto === 'string' ? descarga.diaReparto : dia,

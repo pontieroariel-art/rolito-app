@@ -1,4 +1,5 @@
 import { claveDia } from '@/utils/diaReparto'
+import { conEntregaFabricaTopeada } from '@/utils/entregaFabrica'
 import { collection, onSnapshot, query, where, Timestamp } from 'firebase/firestore'
 import { auth, db } from './firebase'
 import { onSnapshotError } from './observability'
@@ -6,7 +7,7 @@ import { CambioCamion, Cobranza, DescargaCamion, EntregaFabrica, Order, RemitoCa
 
 /** Las entregas con remito de fábrica de una lista de pedidos (solo los que la tienen). */
 const entregasDe = (snap: { docs: { data(): unknown }[] }): EntregaFabrica[] =>
-  snap.docs.map((d) => (d.data() as Order).entregaFabrica).filter((e): e is EntregaFabrica => !!e)
+  snap.docs.map((d) => conEntregaFabricaTopeada(d.data() as Order).entregaFabrica).filter((e): e is EntregaFabrica => !!e)
 
 // Fuentes del "Reparto en vivo" del supervisor: todo lo del día, de todos los
 // camiones y las dos plantas. Cinco suscripciones acotadas por fecha (rango de

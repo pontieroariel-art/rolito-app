@@ -76,6 +76,15 @@ service cloud.firestore {
         && f <= request.time + duration.value(15, 'm')
         && f > request.time - duration.value(7, 'd');
     }
+    // El viaje de una venta, cobranza o entrega de fábrica tiene que ser del
+    // mismo usuario (2026-09-26, auditoría del chofer, C4 y C5): el server busca
+    // lo de un viaje por `remitoId` sin mirar el chofer, así que un remitoId
+    // ajeno metía la venta o la plata en la liquidación de otro. Sin viaje
+    // (null o ausente) se ubica por chofer y día, como antes. Un solo get.
+    function viajePropio(remitoId) {
+      return remitoId == null
+        || get(/databases/$(database)/documents/remitosCarga/$(remitoId)).data.choferId == request.auth.uid;
+    }
 
     // super_admin NO es combinable: nunca se otorga como rol adicional (lo
     // impide rolesExtraOk en /users), así que se pregunta por el rol principal.
@@ -654,7 +663,12 @@ service cloud.firestore {
           .hasOnly(['status', 'productosEntregados', 'entregaParcial', 'notaEntrega', 'updatedAt', 'historialAcciones', 'entregaFabrica']) &&
         (!('entregaFabrica' in request.resource.data.diff(resource.data).affectedKeys())
           || (resource.data.get('entregaSinComprobante', false) == true
-              && request.resource.data.entregaFabrica.choferId == request.auth.uid));
+              && request.resource.data.entregaFabrica.choferId == request.auth.uid
+              // Una sola vez y en SU viaje (2026-09-26, auditoría del chofer, C4):
+              // reescribirla permitía inflar cantidades y hacer desaparecer
+              // mercadería sin faltante, y un remito ajeno la imputaba a otro viaje.
+              && !('entregaFabrica' in resource.data)
+              && viajePropio(request.resource.data.entregaFabrica.get('remitoId', null))));
 
       // Chofer marca "no entregado": reprograma su propio pedido asignado al
       // día siguiente y lo libera (vuelve a bandeja sin chofer, para que

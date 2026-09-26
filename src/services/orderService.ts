@@ -1,3 +1,4 @@
+import { conEntregaFabricaTopeada } from '@/utils/entregaFabrica'
 import {
   collection,
   addDoc,
@@ -262,7 +263,8 @@ export const entregarConRemitoDeFabrica = (
 // Las entregas con remito de fábrica se buscan por los campos de la entrega
 // (dos igualdades: sin índice compuesto). Caja y tesorería leen `orders`
 // desde el 2026-09-23; el chofer solo las suyas (driverId == su email).
-const mapOrders = (snap: { docs: { id: string; data(): unknown }[] }) => snap.docs.map((d) => ({ id: d.id, ...(d.data() as object) }) as Order)
+// La entrega de fábrica se lee topeada a lo pedido (2026-09-26, auditoría del chofer, C4).
+const mapOrders = (snap: { docs: { id: string; data(): unknown }[] }) => snap.docs.map((d) => conEntregaFabricaTopeada({ id: d.id, ...(d.data() as object) } as Order))
 
 /** Las de un chofer en un día (liquidación de caja). */
 export const subscribeEntregasFabricaChofer = (choferId: string, dia: string, callback: (orders: Order[]) => void, onError?: (e: Error) => void) =>

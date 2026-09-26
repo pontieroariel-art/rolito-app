@@ -18,6 +18,7 @@
  * cálculo falla, la transferencia de stock a Tango se encola igual.
  */
 
+import { productosFabricaTopeados } from '../services/entregaFabricaTope'
 import { onDocumentCreated } from 'firebase-functions/v2/firestore'
 import { getFirestore, Timestamp } from 'firebase-admin/firestore'
 import { calcularRevision, normalizarUmbralFaltantes, type ItemContado } from '../services/revisionDescarga'
@@ -80,7 +81,8 @@ export const onDescargaContada = onDocumentCreated(
           items:      (d.data().items ?? []) as ItemContado[],
         })),
         umbral,
-        pedidosFabrica.docs.map((d) => ({ productos: (d.data().entregaFabrica?.productos ?? []) as ItemContado[] })),
+        // Topeado a lo pedido (2026-09-26, auditoría del chofer, C4).
+        pedidosFabrica.docs.map((d) => ({ productos: productosFabricaTopeados(d.data().products, d.data().entregaFabrica?.productos).productos as ItemContado[] })),
       )
 
       await event.data!.ref.update({ revision: { ...r, calculadoEn: Timestamp.now() } })

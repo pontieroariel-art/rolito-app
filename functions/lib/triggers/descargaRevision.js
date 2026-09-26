@@ -21,6 +21,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.onDescargaContada = void 0;
 exports.rangoDiaArgentino = rangoDiaArgentino;
+const entregaFabricaTope_1 = require("../services/entregaFabricaTope");
 const firestore_1 = require("firebase-functions/v2/firestore");
 const firestore_2 = require("firebase-admin/firestore");
 const revisionDescarga_1 = require("../services/revisionDescarga");
@@ -70,7 +71,9 @@ exports.onDescargaContada = (0, firestore_1.onDocumentCreated)('descargasCamion/
             id: d.id,
             rectificaA: d.data().rectificaA,
             items: (d.data().items ?? []),
-        })), umbral, pedidosFabrica.docs.map((d) => ({ productos: (d.data().entregaFabrica?.productos ?? []) })));
+        })), umbral, 
+        // Topeado a lo pedido (2026-09-26, auditoría del chofer, C4).
+        pedidosFabrica.docs.map((d) => ({ productos: (0, entregaFabricaTope_1.productosFabricaTopeados)(d.data().products, d.data().entregaFabrica?.productos).productos })));
         await event.data.ref.update({ revision: { ...r, calculadoEn: firestore_2.Timestamp.now() } });
     }
     catch (err) {

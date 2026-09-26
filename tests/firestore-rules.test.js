@@ -415,7 +415,12 @@ describe('orders — actualización por el chofer asignado', () => {
 
 // ── orders: entrega con remito de fábrica (Coto/Carrefour, 2026-09-23) ───────
 describe('orders — entrega con remito de fábrica', () => {
-  const seedChofer = () => seed((d) => setDoc(doc(d, 'users/ch'), { rol: 'chofer', estado: 'activo', email: 'ch@x.com' }))
+  // El viaje rem1 es del chofer: desde el 2026-09-26 la regla exige que la
+  // entrega de fábrica vaya a un viaje propio (auditoría del chofer, C4).
+  const seedChofer = () => seed(async (d) => {
+    await setDoc(doc(d, 'users/ch'), { rol: 'chofer', estado: 'activo', email: 'ch@x.com' })
+    await setDoc(doc(d, 'remitosCarga/rem1'), { choferId: 'ch', camionId: 'cam1', estado: 'salido', fecha: new Date() })
+  })
   const seedPedido = (extra = {}) => seed((d) => setDoc(doc(d, 'orders/o1'), pedido({ driverId: 'ch@x.com', ...extra })))
   const entrega = (choferId = 'ch') => ({
     choferId, choferNombre: 'Chofer Uno', remitoId: 'rem1', remitoCodigo: 'RC-DT-000001', camionId: 'cam1',
@@ -6172,6 +6177,43 @@ describe('el chofer lee las dos mitades de su viaje (2026-09-18)', () => {
     await seedViajes()
     await assertSucceeds(getDoc(doc(db('chof1'), 'liquidaciones/2026-09-18_chof1')))
     await assertFails(getDoc(doc(db('chof1'), 'liquidaciones/2026-09-18_chof2')))
+  })
+})
+
+// ── Auditoría del módulo del chofer (2026-09-26): C4 y C5 ─────────────────────
+// Primero se escribieron para reproducir el hueco (fallaban con las reglas
+// viejas) y después se corrigieron las reglas.
+describe('auditoría chofer — C4: entrega con remito de fábrica', () => {
+  const seedBase = () => seed(async (d) => {
+    await setDoc(doc(d, 'users/ch'), { rol: 'chofer', estado: 'activo', email: 'ch@x.com' })
+    await setDoc(doc(d, 'remitosCarga/rem1'), { choferId: 'ch', camionId: 'cam1', estado: 'salido', fecha: new Date() })
+    await setDoc(doc(d, 'remitosCarga/remOtro'), { choferId: 'otro', camionId: 'cam2', estado: 'salido', fecha: new Date() })
+  })
+  const seedPedido = (extra = {}) => seed((d) => setDoc(doc(d, 'orders/o1'), pedido({ driverId: 'ch@x.com', entregaSinComprobante: true, ...extra })))
+  const entrega = (remitoId = 'rem1', cantidad = 460) => ({
+    choferId: 'ch', choferNombre: 'Chofer Uno', remitoId, remitoCodigo: 'RC-DT-000001', camionId: 'cam1',
+    dia: '2026-09-23', en: new Date(), productos: [{ productoId: 'bolsa_2kg', nombre: 'Hielo bolsa 2kg', cantidad }],
+  })
+  const marcar = (e) => updateDoc(doc(db('ch', 'ch@x.com'), 'orders/o1'), {
+    status: 'entregado', productosEntregados: [{ name: 'Hielo bolsa 2kg', quantity: 460, productoId: 'bolsa_2kg' }],
+    entregaParcial: false, notaEntrega: '', updatedAt: new Date(), entregaFabrica: e,
+  })
+
+  test('el chofer registra la entrega en SU viaje', async () => {
+    await seedBase(); await seedPedido()
+    await assertSucceeds(marcar(entrega('rem1')))
+  })
+  test('sin viaje (remitoId null) también: se ubica por chofer y día', async () => {
+    await seedBase(); await seedPedido()
+    await assertSucceeds(marcar(entrega(null)))
+  })
+  test('NO la imputa al viaje de otro chofer', async () => {
+    await seedBase(); await seedPedido()
+    await assertFails(marcar(entrega('remOtro')))
+  })
+  test('NO reescribe una entrega de fábrica ya registrada (por ejemplo, para inflar cantidades)', async () => {
+    await seedBase(); await seedPedido({ status: 'entregado', entregaFabrica: entrega('rem1', 100) })
+    await assertFails(updateDoc(doc(db('ch', 'ch@x.com'), 'orders/o1'), { entregaFabrica: entrega('rem1', 900), updatedAt: new Date() }))
   })
 })
 
