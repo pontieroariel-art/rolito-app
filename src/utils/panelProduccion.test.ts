@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import type { PalletProduccion } from '@/types'
 import {
-  minutosSinCargar, palletsDelTurno, palletsHasta, palletsPorHora, producidoVsVendido, resumirTurno, vendidoDePlanta,
+  compararTurnos, minutosSinCargar, palletsDelTurno, palletsHasta, palletsPorHora, producidoVsVendido, resumirTurno, vendidoDePlanta,
 } from './panelProduccion'
 
 const T = (h: number, m = 0, dia = 28) => new Date(2026, 8, dia, h, m)
@@ -77,5 +77,32 @@ describe('producido contra vendido', () => {
     expect(vendido).toEqual({ bolsas_2kg_rolito: 920 })
     const [f] = producidoVsVendido(ps, vendido, ['bolsas_2kg_rolito'])
     expect(f).toMatchObject({ producidoPallets: 2, vendidoUnidades: 920, vendidoPallets: 2, balancePallets: 0 })
+  })
+})
+
+describe('compararTurnos', () => {
+  const turnos = [{ nombre: 'Mañana', desde: '06:00', hasta: '14:00' }, { nombre: 'Tarde', desde: '14:00', hasta: '22:00' }]
+  const carlos = { uid: 'c', nombre: 'Carlos' }, dora = { uid: 'd', nombre: 'Dora' }
+  const foto = (nombre: string, dia: string, capitan: { uid: string; nombre: string } | null) => ({ nombre, dia, capitan, dotacion: [] })
+  const ps = [
+    pallet({ en: T(7), turno: foto('Mañana', '2026-09-27', carlos) }),
+    pallet({ en: T(8), turno: foto('Mañana', '2026-09-27', carlos) }),
+    pallet({ en: T(7, 0, 28), turno: foto('Mañana', '2026-09-28', dora) }),
+    pallet({ en: T(15), turno: foto('Tarde', '2026-09-27', dora) }),
+    pallet({ en: T(16), turno: foto('Tarde', '2026-09-27', dora), anulacion: { motivo: 'x', por: { uid: 'e', nombre: 'E' }, en: {} as never } }),
+  ]
+  const r = compararTurnos(ps, turnos, ['2026-09-27', '2026-09-28'], (p) => p.turno!)
+  it('ordena por pallets y calcula horas, ritmo, capitán y evolución', () => {
+    expect(r.turnos.map((t) => [t.nombre, t.pallets, t.turnosTrabajados, t.horas, t.palletsPorHora, t.capitan, t.porDia])).toEqual([
+      ['Mañana', 3, 2, 16, 0.2, 'Carlos', [2, 1]],
+      ['Tarde', 1, 1, 8, 0.1, 'Dora', [1, 0]],
+    ])
+    expect(r.turnos[1]?.anulados).toBe(1)
+  })
+  it('por capitán: promedio por turno al frente', () => {
+    expect(r.capitanes.map((c) => [c.nombre, c.turnos, c.pallets, c.promedioPorTurno])).toEqual([
+      ['Carlos', 1, 2, 2],
+      ['Dora', 2, 2, 1],
+    ])
   })
 })

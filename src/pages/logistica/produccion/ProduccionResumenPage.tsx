@@ -7,11 +7,12 @@ import { useFirestoreSubscription } from '@/hooks/useFirestoreSubscription'
 import { subscribePalletsEnRango } from '@/services/produccionService'
 import { subscribeEstadoTablet, subscribeTurnosPlanta, subscribeVentasProducto, type EstadoTablet, type VentasProductoDia } from '@/services/produccionPanelService'
 import Badge from '@/components/common/Badge'
+import ComparativaTurnos from '@/components/produccion/panel/ComparativaTurnos'
 import { Alerta, BarrasPorHora, CARD, Delta, EquipoTurno, Kpi, ProducidoVendido } from '@/components/produccion/panel/PanelPiezas'
 import {
-  ALERTA_SIN_CARGAR_MIN, minutosSinCargar, palletsDelTurno, palletsHasta, palletsPorHora, producidoVsVendido, resumirTurno, vendidoDePlanta,
+  ALERTA_SIN_CARGAR_MIN, compararTurnos, minutosSinCargar, palletsDelTurno, palletsHasta, palletsPorHora, producidoVsVendido, resumirTurno, vendidoDePlanta,
 } from '@/utils/panelProduccion'
-import { rangoDeTurno, turnoEn, TURNOS_POR_DEFECTO, type TurnoProduccionDef } from '@/utils/turnosProduccion'
+import { fotoTurno, rangoDeTurno, turnoEn, TURNOS_POR_DEFECTO, type TurnoProduccionDef } from '@/utils/turnosProduccion'
 import { PRODUCTOS_HIELO, productosDePlanta } from '@/utils/produccionCatalogo'
 import { PLANTAS, type PalletProduccion, type PlantaId } from '@/types'
 
@@ -86,6 +87,22 @@ export default function ProduccionResumenPage() {
     productos,
   // eslint-disable-next-line react-hooks/exhaustive-deps -- `productos` sale de `planta`
   ), [periodo, delTurno, palletsPeriodo, ventasDias, planta])
+
+  // Comparativa de turnos (2026-09-26): los turnos compiten entre sí.
+  const [periodoComp, setPeriodoComp] = useState<'hoy' | '7d' | '30d'>('7d')
+  const nDias = periodoComp === '30d' ? 30 : periodoComp === '7d' ? 7 : 1
+  const diasComp = useMemo(() => Array.from({ length: nDias }, (_, i) => sumarDias(aDia(ahora), i - nDias + 1)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- se rearma por día, no por cada tick de 30 s
+    [nDias, aDia(ahora)])
+  const compIni = useMemo(() => new Date(`${diasComp[0]}T00:00:00`), [diasComp])
+  const compFin = useMemo(() => new Date(`${sumarDias(diasComp[diasComp.length - 1]!, 1)}T12:00:00`), [diasComp])
+  const { data: palletsComp } = useFirestoreSubscription<PalletProduccion[]>(
+    (cb) => subscribePalletsEnRango(compIni, compFin, cb), [compIni.getTime(), compFin.getTime()], [],
+  )
+  const comparativa = useMemo(() => compararTurnos(
+    palletsComp.filter((p) => p.plantaId === planta), turnos, diasComp,
+    (p) => p.turno ?? fotoTurno(p.fechaFabricacion.toDate(), turnos),
+  ), [palletsComp, planta, turnos, diasComp])
 
   // Tablet: en línea si avisó en los últimos 3 minutos.
   const minTablet = tablet?.ultimaActividad ? Math.floor((ahora.getTime() - tablet.ultimaActividad.toDate().getTime()) / 60_000) : null
@@ -219,6 +236,20 @@ export default function ProduccionResumenPage() {
           <EquipoTurno equipo={resumen.equipo} />
         </section>
       </div>
+
+      {/* Comparativa de turnos. */}
+      <section className={`${CARD} p-4`}>
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+          <h2 className="text-base font-black text-gray-900">Comparativa de turnos</h2>
+          <div className="flex gap-2">
+            {([['hoy', 'Hoy'], ['7d', '7 días'], ['30d', '30 días']] as ['hoy' | '7d' | '30d', string][]).map(([p, l]) => (
+              <button key={p} type="button" onClick={() => setPeriodoComp(p)}
+                className={`h-9 px-3 rounded-xl text-sm font-bold ${periodoComp === p ? 'bg-accent text-white' : 'bg-[#F1EFE8] text-gray-900'}`}>{l}</button>
+            ))}
+          </div>
+        </div>
+        <ComparativaTurnos turnos={comparativa.turnos} capitanes={comparativa.capitanes} dias={diasComp} />
+      </section>
 
       {/* Producido contra vendido. */}
       <section className={`${CARD} p-4`}>

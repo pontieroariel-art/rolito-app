@@ -172,3 +172,98 @@ export function vendidoDePlanta(dias: { porPlanta: Record<string, Record<string,
   }
   return out
 }
+
+// ── Comparativa de turnos (2026-09-26, pedido de Ariel: "que los turnos
+// compitan entre sí") ────────────────────────────────────────────────────────
+
+export interface FilaComparativaTurno {
+  nombre:          string
+  pallets:         number
+  kilos:           number
+  anulados:        number
+  repetidos:       number
+  /** Turnos que cargaron al menos un pallet en el período. */
+  turnosTrabajados: number
+  /** Horas de esos turnos (duración configurada × turnos trabajados). */
+  horas:           number
+  palletsPorHora:  number
+  /** Capitán que más veces estuvo al frente de este turno en el período. */
+  capitan:         string | null
+  /** Pallets por día del período, en orden, para el mini gráfico. */
+  porDia:          number[]
+}
+
+export interface FilaCapitan {
+  uid:         string
+  nombre:      string
+  turnos:      number
+  pallets:     number
+  anulados:    number
+  promedioPorTurno: number
+}
+
+const horasDeTurno = (t: { desde: string; hasta: string }) => {
+  const [dh, dm] = t.desde.split(':').map(Number)
+  const [hh, hm] = t.hasta.split(':').map(Number)
+  const d = (dh ?? 0) * 60 + (dm ?? 0), h = (hh ?? 0) * 60 + (hm ?? 0)
+  return ((h > d ? h - d : h + 1440 - d) || 1440) / 60
+}
+
+/**
+ * Compara los turnos de un período. `dias` = los días del período en orden
+ * (YYYY-MM-DD). El turno y el día de cada pallet salen de su foto; los viejos
+ * sin foto, de la configuración actual (`turnoDePallet`).
+ */
+export function compararTurnos(
+  pallets: PalletProduccion[],
+  turnos: { nombre: string; desde: string; hasta: string }[],
+  dias: string[],
+  turnoDePallet: (p: PalletProduccion) => { nombre: string; dia: string; capitan: PersonaTurno | null },
+): { turnos: FilaComparativaTurno[]; capitanes: FilaCapitan[] } {
+  const indiceDia = new Map(dias.map((d, i) => [d, i]))
+  const filas = new Map<string, FilaComparativaTurno & { _turnos: Set<string>; _capitanes: Map<string, number> }>()
+  for (const t of turnos) {
+    filas.set(t.nombre, {
+      nombre: t.nombre, pallets: 0, kilos: 0, anulados: 0, repetidos: 0, turnosTrabajados: 0, horas: 0,
+      palletsPorHora: 0, capitan: null, porDia: dias.map(() => 0), _turnos: new Set(), _capitanes: new Map(),
+    })
+  }
+  const capitanes = new Map<string, FilaCapitan & { _turnos: Set<string> }>()
+
+  for (const p of pallets) {
+    const t = turnoDePallet(p)
+    const i = indiceDia.get(t.dia)
+    if (i === undefined) continue
+    const f = filas.get(t.nombre)
+    if (!f) continue
+    const clave = `${t.dia}|${t.nombre}`
+    const cap = t.capitan
+    let c: (FilaCapitan & { _turnos: Set<string> }) | undefined
+    if (cap) {
+      c = capitanes.get(cap.uid)
+      if (!c) { c = { uid: cap.uid, nombre: cap.nombre, turnos: 0, pallets: 0, anulados: 0, promedioPorTurno: 0, _turnos: new Set() }; capitanes.set(cap.uid, c) }
+      c._turnos.add(clave)
+      f._capitanes.set(cap.nombre, (f._capitanes.get(cap.nombre) ?? 0) + 1)
+    }
+    if (!palletVigente(p)) { f.anulados++; if (c) c.anulados++; continue }
+    f.pallets++
+    f.kilos += p.unidades * (PRODUCTOS_HIELO[p.productoId]?.kgPorUnidad ?? 0)
+    if (p.avisoRepetidoSeg != null) f.repetidos++
+    f.porDia[i] = (f.porDia[i] ?? 0) + 1
+    f._turnos.add(clave)
+    if (c) c.pallets++
+  }
+
+  const turnosOut = [...filas.values()].map(({ _turnos, _capitanes, ...f }) => {
+    const def = turnos.find((t) => t.nombre === f.nombre)!
+    const horas = _turnos.size * horasDeTurno(def)
+    const capitan = [..._capitanes.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null
+    return { ...f, kilos: Math.round(f.kilos), turnosTrabajados: _turnos.size, horas, palletsPorHora: horas ? Math.round((f.pallets / horas) * 10) / 10 : 0, capitan }
+  }).sort((a, b) => b.pallets - a.pallets)
+
+  const capitanesOut = [...capitanes.values()].map(({ _turnos, ...c }) => ({
+    ...c, turnos: _turnos.size, promedioPorTurno: _turnos.size ? Math.round((c.pallets / _turnos.size) * 10) / 10 : 0,
+  })).sort((a, b) => b.promedioPorTurno - a.promedioPorTurno)
+
+  return { turnos: turnosOut, capitanes: capitanesOut }
+}
