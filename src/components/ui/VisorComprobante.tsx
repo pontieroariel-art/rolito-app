@@ -4,6 +4,9 @@ import { descargarArchivo } from '@/utils/compartir'
 import { reportError } from '@/services/observability'
 import type { EnvioComprobante } from '@/utils/envioComprobante'
 
+// Celular: el PDF se dibuja con pdf.js a lo ancho de la pantalla (ver PdfPaginas).
+const PdfPaginas = lazy(() => import('./PdfPaginas'))
+
 // La hoja de envío se carga recién al tocar Enviar: arrastra el armado de
 // comprobantes (facturas, remitos, QR: ~65 KB) y el visor vive en App.tsx,
 // así que con el import directo todo eso entraba en el chunk del login
@@ -111,7 +114,13 @@ function Visor({ c, onCerrar }: { c: ComprobanteAbierto; onCerrar: () => void })
   const [enviando, setEnviando] = useState(false)
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const cerrarRef = useRef<HTMLButtonElement>(null)
-  const sinVisorPdf = !imagen && !puedeMostrarPdf()
+  // En el celular (o sin visor nativo, como en Android) el PDF se dibuja con pdf.js
+  // del ancho de la pantalla; si eso falla, queda la tarjeta de "abrilo aparte".
+  const [pdfjsFallo, setPdfjsFallo] = useState(false)
+  const onPdfjsFallo = useCallback(() => setPdfjsFallo(true), [])
+  const angosto = typeof window !== 'undefined' && window.innerWidth < 640
+  const conPdfjs = !imagen && !pdfjsFallo && (angosto || !puedeMostrarPdf())
+  const sinVisorPdf = !imagen && !conPdfjs && !puedeMostrarPdf()
 
   // blob: URL viva mientras el visor está abierto.
   const url = useMemo(() => (c.blob ? URL.createObjectURL(c.blob) : c.url ?? ''), [c.blob, c.url])
@@ -149,8 +158,8 @@ function Visor({ c, onCerrar }: { c: ComprobanteAbierto; onCerrar: () => void })
     try {
       if (c.onImprimir) { await c.onImprimir(await blobActual()); return }
       const w = iframeRef.current?.contentWindow
-      if (w && !sinVisorPdf && !imagen) { w.focus(); w.print(); return }
-      // Imagen o sin visor de PDF: la pestaña nueva tiene su propio Imprimir.
+      if (w && !sinVisorPdf && !conPdfjs && !imagen) { w.focus(); w.print(); return }
+      // Imagen, PDF dibujado o sin visor de PDF: la pestaña nueva tiene su propio Imprimir.
       window.open(url, '_blank', 'noopener')
     } catch (err) {
       reportError(err, { origen: 'VisorComprobante', accion: 'imprimir' })
@@ -191,6 +200,10 @@ function Visor({ c, onCerrar }: { c: ComprobanteAbierto; onCerrar: () => void })
             <div className="h-full flex items-center justify-center p-4">
               <img src={url} alt={c.titulo} className="max-w-full max-h-full object-contain" />
             </div>
+          ) : conPdfjs ? (
+            <Suspense fallback={<p className="text-sm text-secundario text-center py-10">Preparando el comprobante…</p>}>
+              <PdfPaginas url={url} titulo={c.titulo} onFallo={onPdfjsFallo} />
+            </Suspense>
           ) : sinVisorPdf ? (
             <div className="h-full flex items-center justify-center p-6 text-center">
               <div className="bg-white border border-[#D3D1C7] rounded-2xl p-5 max-w-sm">

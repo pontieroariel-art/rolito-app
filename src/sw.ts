@@ -39,7 +39,7 @@ const PAGINAS_OFICINA = [
   'RendicionesHistorialPage', 'ReporteIncidenciasPage', 'ReportePreciosPage', 'ReporteVentasPage', 'ResumenLogisticaPage',
   'TecnicosPage', 'TiemposMuellePage', 'UserManagement', 'VentasLivePage', 'MockupMuelleTv', 'DiagnosticoTelePage',
 ]
-const CHUNKS_RUNTIME = new RegExp(`/(xlsx|pdfjs|PanolPage|charts|html2canvas|index\\.es|BarcodeScanner|${PAGINAS_OFICINA.join('|')})[\\w.-]*\\.js$`)
+const CHUNKS_RUNTIME = new RegExp(`/(xlsx|pdfjs|PanolPage|charts|html2canvas|index\\.es|BarcodeScanner|pdf\\.worker|${PAGINAS_OFICINA.join('|')})[\\w.-]*\\.m?js$`)
 registerRoute(
   ({ url }) => CHUNKS_RUNTIME.test(url.pathname),
   new StaleWhileRevalidate({
