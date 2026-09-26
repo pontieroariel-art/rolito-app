@@ -108,7 +108,7 @@ export default function LiquidacionesHistorialPage({ base }: { base: '/caja' | '
 
   const columnasCierres: ColumnaHistorial<Liquidacion>[] = [
     { titulo: 'Fecha', csv: (l) => l.fecha, celda: (l) => (
-      <Link to={`${base}/liquidaciones?fecha=${l.fecha}&repartidor=${encodeURIComponent(l.choferId)}`} className="text-accent underline underline-offset-2 whitespace-nowrap tabular-nums">{diaMes(l.fecha)}</Link>
+      <Link to={`${base}/liquidaciones?fecha=${l.fecha}&repartidor=${encodeURIComponent(l.choferId)}`} className="toque text-accent underline underline-offset-2 whitespace-nowrap tabular-nums">{diaMes(l.fecha)}</Link>
     ) },
     { titulo: 'Código', csv: (l) => `${l.codigo ?? ''}${l.cierreArranque ? ' (cierre de arranque)' : ''}`, celda: (l) => (
       <span className="whitespace-nowrap">
