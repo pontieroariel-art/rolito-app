@@ -1,0 +1,4602 @@
+[
+ {
+  "hdr": [
+   "FILLER",
+   "ACT_PPP",
+   "ACT_PREC_U",
+   "ACT_REPOSI",
+   "DESCRIPCIO",
+   "GEN_COSTOS",
+   "REIN_SERIE",
+   "T_COMP",
+   "T_MOVIM",
+   "TALONARIO",
+   "VALORIZADO",
+   "IMPRIME_ETIQUETA_INGRESO",
+   "AJUSTA_UNA_UNIDAD_STOCK",
+   "ID_STA13",
+   "ROW_VERSION",
+   "CAMPOS_ADICIONALES",
+   "COD_STA13",
+   "OBSERVACIONES",
+   "ID_STA17",
+   "GENERA_INGRESO_CON_REVISION"
+  ],
+  "filas": [
+   {
+    "ACT_PPP": "0",
+    "ACT_PREC_U": "0",
+    "ACT_REPOSI": "0",
+    "DESCRIPCIO": "CARGA EN CAMIONES",
+    "GEN_COSTOS": "0",
+    "REIN_SERIE": "1",
+    "T_COMP": "CAR",
+    "T_MOVIM": "T",
+    "TALONARIO": "13",
+    "VALORIZADO": "0",
+    "IMPRIME_ETIQUETA_INGRESO": "N",
+    "AJUSTA_UNA_UNIDAD_STOCK": "0",
+    "ID_STA13": "145",
+    "ROW_VERSION": "0x00000000012C402C",
+    "CAMPOS_ADICIONALES": "<CAMPOS_ADICIONALES />",
+    "COD_STA13": "CAR",
+    "ID_STA17": "13",
+    "GENERA_INGRESO_CON_REVISION": "0"
+   },
+   {
+    "ACT_PPP": "0",
+    "ACT_PREC_U": "0",
+    "ACT_REPOSI": "0",
+    "DESCRIPCIO": "DESCARGA EN CAMIONES",
+    "GEN_COSTOS": "0",
+    "REIN_SERIE": "1",
+    "T_COMP": "DES",
+    "T_MOVIM": "T",
+    "TALONARIO": "13",
+    "VALORIZADO": "0",
+    "IMPRIME_ETIQUETA_INGRESO": "N",
+    "AJUSTA_UNA_UNIDAD_STOCK": "0",
+    "ID_STA13": "146",
+    "ROW_VERSION": "0x00000000012C402D",
+    "CAMPOS_ADICIONALES": "<CAMPOS_ADICIONALES />",
+    "COD_STA13": "DES",
+    "ID_STA17": "13",
+    "GENERA_INGRESO_CON_REVISION": "0"
+   },
+   {
+    "ACT_PPP": "0",
+    "ACT_PREC_U": "0",
+    "ACT_REPOSI": "0",
+    "DESCRIPCIO": "PRODUCCION DT",
+    "GEN_COSTOS": "0",
+    "REIN_SERIE": "0",
+    "T_COMP": "PDT",
+    "T_MOVIM": "E",
+    "TALONARIO": "9",
+    "VALORIZADO": "0",
+    "IMPRIME_ETIQUETA_INGRESO": "N",
+    "AJUSTA_UNA_UNIDAD_STOCK": "0",
+    "ID_STA13": "140",
+    "ROW_VERSION": "0x00000000012C4027",
+    "CAMPOS_ADICIONALES": "<CAMPOS_ADICIONALES />",
+    "COD_STA13": "PDT",
+    "ID_STA17": "9",
+    "GENERA_INGRESO_CON_REVISION": "0"
+   },
+   {
+    "ACT_PPP": "0",
+    "ACT_PREC_U": "0",
+    "ACT_REPOSI": "0",
+    "DESCRIPCIO": "PRODUCCION DIARIA",
+    "GEN_COSTOS": "0",
+    "REIN_SERIE": "0",
+    "T_COMP": "PRO",
+    "T_MOVIM": "E",
+    "TALONARIO": "1",
+    "VALORIZADO": "0",
+    "IMPRIME_ETIQUETA_INGRESO": "N",
+    "AJUSTA_UNA_UNIDAD_STOCK": "0",
+    "ID_STA13": "134",
+    "ROW_VERSION": "0x00000000012C4021",
+    "CAMPOS_ADICIONALES": "<CAMPOS_ADICIONALES />",
+    "COD_STA13": "PRO",
+    "ID_STA17": "1",
+    "GENERA_INGRESO_CON_REVISION": "0"
+   },
+   {
+    "ACT_PPP": "0",
+    "ACT_PREC_U": "0",
+    "ACT_REPOSI": "0",
+    "DESCRIPCIO": "VENTA PROMO APP",
+    "GEN_COSTOS": "0",
+    "REIN_SERIE": "0",
+    "T_COMP": "VPR",
+    "T_MOVIM": "S",
+    "TALONARIO": "900",
+    "VALORIZADO": "0",
+    "IMPRIME_ETIQUETA_INGRESO": "N",
+    "ID_STA13": "150",
+    "ROW_VERSION": "0x000000000C6CB5D1",
+    "COD_STA13": "VPR",
+    "ID_STA17": "14",
+    "GENERA_INGRESO_CON_REVISION": "0"
+   }
+  ]
+ },
+ {
+  "hdr": [
+   "TALONARIO",
+   "ID_STA17",
+   "DESCRIP",
+   "SUCURSAL",
+   "PROXIMO"
+  ],
+  "filas": [
+   {
+    "TALONARIO": "1",
+    "ID_STA17": "1",
+    "DESCRIP": "PRODUCCION",
+    "SUCURSAL": "1",
+    "PROXIMO": "2916"
+   },
+   {
+    "TALONARIO": "2",
+    "ID_STA17": "2",
+    "DESCRIP": "INGRESO STOCK",
+    "SUCURSAL": "1",
+    "PROXIMO": "93272"
+   },
+   {
+    "TALONARIO": "3",
+    "ID_STA17": "3",
+    "DESCRIP": "TRASLADO DE MERC ENTRE DEP",
+    "SUCURSAL": "1",
+    "PROXIMO": "1"
+   },
+   {
+    "TALONARIO": "4",
+    "ID_STA17": "4",
+    "DESCRIP": "EGRESOS DE MERCADERIA",
+    "SUCURSAL": "1",
+    "PROXIMO": "1890"
+   },
+   {
+    "TALONARIO": "5",
+    "ID_STA17": "5",
+    "DESCRIP": "AJUSTE DE STOCK",
+    "SUCURSAL": "1",
+    "PROXIMO": "16"
+   },
+   {
+    "TALONARIO": "6",
+    "ID_STA17": "6",
+    "DESCRIP": "MERMAS",
+    "SUCURSAL": "1",
+    "PROXIMO": "137"
+   },
+   {
+    "TALONARIO": "7",
+    "ID_STA17": "7",
+    "DESCRIP": "CONTROL DE PALLETS",
+    "SUCURSAL": "33",
+    "PROXIMO": "2"
+   },
+   {
+    "TALONARIO": "8",
+    "ID_STA17": "8",
+    "DESCRIP": "PRODUCCION MERLO",
+    "SUCURSAL": "2",
+    "PROXIMO": "83"
+   },
+   {
+    "TALONARIO": "9",
+    "ID_STA17": "9",
+    "DESCRIP": "PRODUCCION DT",
+    "SUCURSAL": "1",
+    "PROXIMO": "122819"
+   },
+   {
+    "TALONARIO": "10",
+    "ID_STA17": "10",
+    "DESCRIP": "EGRESOS II DT",
+    "SUCURSAL": "101",
+    "PROXIMO": "39"
+   },
+   {
+    "TALONARIO": "11",
+    "ID_STA17": "11",
+    "DESCRIP": "EGRESOS II MERLO",
+    "SUCURSAL": "102",
+    "PROXIMO": "3"
+   },
+   {
+    "TALONARIO": "12",
+    "ID_STA17": "12",
+    "DESCRIP": "VTAS. CONT FISCAL MERLO",
+    "SUCURSAL": "133",
+    "PROXIMO": "1"
+   },
+   {
+    "TALONARIO": "13",
+    "ID_STA17": "13",
+    "DESCRIP": "TRASLADO ENTRE DEPOSITOS",
+    "SUCURSAL": "25",
+    "PROXIMO": "68146"
+   },
+   {
+    "TALONARIO": "900",
+    "ID_STA17": "14",
+    "DESCRIP": "VENTA PROMO APP ROLITO",
+    "SUCURSAL": "900",
+    "PROXIMO": "453"
+   }
+  ]
+ },
+ {
+  "hdr": [
+   "ID_STA14",
+   "FILLER",
+   "COD_PRO_CL",
+   "COTIZ",
+   "ESTADO_MOV",
+   "EXPORTADO",
+   "EXP_STOCK",
+   "FECHA_ANU",
+   "FECHA_MOV",
+   "HORA",
+   "LISTA_REM",
+   "LOTE",
+   "LOTE_ANU",
+   "MON_CTE",
+   "MOTIVO_REM",
+   "N_COMP",
+   "N_REMITO",
+   "NCOMP_IN_S",
+   "NCOMP_ORIG",
+   "NRO_SUCURS",
+   "OBSERVACIO",
+   "SUC_ORIG",
+   "T_COMP",
+   "TALONARIO",
+   "TCOMP_IN_S",
+   "TCOMP_ORIG",
+   "USUARIO",
+   "COD_TRANSP",
+   "HORA_COMP",
+   "ID_A_RENTA",
+   "DOC_ELECTR",
+   "COD_CLASIF",
+   "AUDIT_IMP",
+   "IMP_IVA",
+   "IMP_OTIMP",
+   "IMPORTE_BO",
+   "IMPORTE_TO",
+   "DIFERENCIA",
+   "SUC_DESTIN",
+   "T_DOC_DTE",
+   "LEYENDA1",
+   "LEYENDA2",
+   "LEYENDA3",
+   "LEYENDA4",
+   "LEYENDA5",
+   "DCTO_CLIEN",
+   "T_INT_ORI",
+   "N_INT_ORI",
+   "FECHA_INGRESO",
+   "HORA_INGRESO",
+   "USUARIO_INGRESO",
+   "TERMINAL_INGRESO",
+   "IMPORTE_TOTAL_CON_IMPUESTOS",
+   "CANTIDAD_KILOS",
+   "ID_DIRECCION_ENTREGA",
+   "IMPORTE_GRAVADO",
+   "IMPORTE_EXENTO",
+   "ID_STA13",
+   "NRO_SUCURSAL_DESTINO_REMITO",
+   "ROW_VERSION",
+   "ID_GVA14",
+   "CAMPOS_ADICIONALES",
+   "COD_DEPOSI",
+   "COND_VTA",
+   "IMPORTE_INGRESADO_REMITO",
+   "IMPORTE_TOTAL_REMITO",
+   "CANTIDAD_TOTAL",
+   "CANTIDAD_TOTAL_INSUMOS_KIT",
+   "HORA_ANU",
+   "USUARIO_ANU",
+   "TERMINAL_ANU"
+  ],
+  "filas": [
+   {
+    "ID_STA14": "892722",
+    "COTIZ": "1.0000000",
+    "EXPORTADO": "0",
+    "EXP_STOCK": "0",
+    "FECHA_ANU": "1800-01-01 00:00:00.000",
+    "FECHA_MOV": "2026-09-24 00:00:00.000",
+    "HORA": "0000",
+    "LISTA_REM": "0",
+    "LOTE": "0",
+    "LOTE_ANU": "0",
+    "MON_CTE": "1",
+    "N_COMP": "0000100122818",
+    "NCOMP_IN_S": "00219348",
+    "NRO_SUCURS": "0",
+    "OBSERVACIO": "PRODUCCION TORCUATO T.T",
+    "SUC_ORIG": "0",
+    "T_COMP": "PDT",
+    "TALONARIO": "9",
+    "TCOMP_IN_S": "VE",
+    "USUARIO": "SUPERVISOR",
+    "HORA_COMP": "080733",
+    "ID_A_RENTA": "0",
+    "DOC_ELECTR": "0",
+    "IMP_IVA": "0.0000000",
+    "IMP_OTIMP": "0.0000000",
+    "IMPORTE_BO": "0.0000000",
+    "IMPORTE_TO": "0.0000000",
+    "DIFERENCIA": "N",
+    "SUC_DESTIN": "0",
+    "DCTO_CLIEN": "0.0000000",
+    "FECHA_INGRESO": "2026-09-25 00:00:00.000",
+    "HORA_INGRESO": "080733",
+    "USUARIO_INGRESO": "SUPERVISOR",
+    "TERMINAL_INGRESO": "RHIELOTS",
+    "IMPORTE_TOTAL_CON_IMPUESTOS": "0.0000000",
+    "CANTIDAD_KILOS": "0.0000000",
+    "IMPORTE_GRAVADO": "0.0000000",
+    "IMPORTE_EXENTO": "0.0000000",
+    "ID_STA13": "140",
+    "NRO_SUCURSAL_DESTINO_REMITO": "0",
+    "ROW_VERSION": "0x000000000C6E6FDF",
+    "COND_VTA": "0",
+    "IMPORTE_INGRESADO_REMITO": "0.0000000",
+    "IMPORTE_TOTAL_REMITO": "0.0000000",
+    "CANTIDAD_TOTAL": "0.0000000",
+    "CANTIDAD_TOTAL_INSUMOS_KIT": "0.0000000"
+   },
+   {
+    "ID_STA14": "892682",
+    "COTIZ": "1.0000000",
+    "EXPORTADO": "0",
+    "EXP_STOCK": "0",
+    "FECHA_ANU": "1800-01-01 00:00:00.000",
+    "FECHA_MOV": "2026-09-24 00:00:00.000",
+    "HORA": "0000",
+    "LISTA_REM": "0",
+    "LOTE": "0",
+    "LOTE_ANU": "0",
+    "MON_CTE": "1",
+    "N_COMP": "0000100122817",
+    "NCOMP_IN_S": "00219346",
+    "NRO_SUCURS": "0",
+    "OBSERVACIO": "PRODUCCION LIQUIDOS",
+    "SUC_ORIG": "0",
+    "T_COMP": "PDT",
+    "TALONARIO": "9",
+    "TCOMP_IN_S": "VE",
+    "USUARIO": "SUPERVISOR",
+    "HORA_COMP": "164716",
+    "ID_A_RENTA": "0",
+    "DOC_ELECTR": "0",
+    "IMP_IVA": "0.0000000",
+    "IMP_OTIMP": "0.0000000",
+    "IMPORTE_BO": "0.0000000",
+    "IMPORTE_TO": "0.0000000",
+    "DIFERENCIA": "N",
+    "SUC_DESTIN": "0",
+    "DCTO_CLIEN": "0.0000000",
+    "FECHA_INGRESO": "2026-09-24 00:00:00.000",
+    "HORA_INGRESO": "164716",
+    "USUARIO_INGRESO": "SUPERVISOR",
+    "TERMINAL_INGRESO": "RHIELOTS",
+    "IMPORTE_TOTAL_CON_IMPUESTOS": "0.0000000",
+    "CANTIDAD_KILOS": "0.0000000",
+    "IMPORTE_GRAVADO": "0.0000000",
+    "IMPORTE_EXENTO": "0.0000000",
+    "ID_STA13": "140",
+    "NRO_SUCURSAL_DESTINO_REMITO": "0",
+    "ROW_VERSION": "0x000000000C6E649F",
+    "COND_VTA": "0",
+    "IMPORTE_INGRESADO_REMITO": "0.0000000",
+    "IMPORTE_TOTAL_REMITO": "0.0000000",
+    "CANTIDAD_TOTAL": "0.0000000",
+    "CANTIDAD_TOTAL_INSUMOS_KIT": "0.0000000"
+   },
+   {
+    "ID_STA14": "892680",
+    "COTIZ": "1.0000000",
+    "EXPORTADO": "0",
+    "EXP_STOCK": "0",
+    "FECHA_ANU": "1800-01-01 00:00:00.000",
+    "FECHA_MOV": "2026-09-24 00:00:00.000",
+    "HORA": "0000",
+    "LISTA_REM": "0",
+    "LOTE": "0",
+    "LOTE_ANU": "0",
+    "MON_CTE": "1",
+    "N_COMP": "0000100122816",
+    "NCOMP_IN_S": "00219345",
+    "NRO_SUCURS": "0",
+    "OBSERVACIO": "PRODUCCION TORCUATO T.M",
+    "SUC_ORIG": "0",
+    "T_COMP": "PDT",
+    "TALONARIO": "9",
+    "TCOMP_IN_S": "VE",
+    "USUARIO": "SUPERVISOR",
+    "HORA_COMP": "163426",
+    "ID_A_RENTA": "0",
+    "DOC_ELECTR": "0",
+    "IMP_IVA": "0.0000000",
+    "IMP_OTIMP": "0.0000000",
+    "IMPORTE_BO": "0.0000000",
+    "IMPORTE_TO": "0.0000000",
+    "DIFERENCIA": "N",
+    "SUC_DESTIN": "0",
+    "DCTO_CLIEN": "0.0000000",
+    "FECHA_INGRESO": "2026-09-24 00:00:00.000",
+    "HORA_INGRESO": "163426",
+    "USUARIO_INGRESO": "SUPERVISOR",
+    "TERMINAL_INGRESO": "RHIELOTS",
+    "IMPORTE_TOTAL_CON_IMPUESTOS": "0.0000000",
+    "CANTIDAD_KILOS": "0.0000000",
+    "IMPORTE_GRAVADO": "0.0000000",
+    "IMPORTE_EXENTO": "0.0000000",
+    "ID_STA13": "140",
+    "NRO_SUCURSAL_DESTINO_REMITO": "0",
+    "ROW_VERSION": "0x000000000C6E61A2",
+    "COND_VTA": "0",
+    "IMPORTE_INGRESADO_REMITO": "0.0000000",
+    "IMPORTE_TOTAL_REMITO": "0.0000000",
+    "CANTIDAD_TOTAL": "0.0000000",
+    "CANTIDAD_TOTAL_INSUMOS_KIT": "0.0000000"
+   },
+   {
+    "ID_STA14": "892559",
+    "COTIZ": "1.0000000",
+    "EXPORTADO": "0",
+    "EXP_STOCK": "0",
+    "FECHA_ANU": "1800-01-01 00:00:00.000",
+    "FECHA_MOV": "2026-09-23 00:00:00.000",
+    "HORA": "0000",
+    "LISTA_REM": "0",
+    "LOTE": "0",
+    "LOTE_ANU": "0",
+    "MON_CTE": "1",
+    "N_COMP": "0000100122815",
+    "NCOMP_IN_S": "00219343",
+    "NRO_SUCURS": "0",
+    "OBSERVACIO": "PRODUCCION TORCUATO T.T",
+    "SUC_ORIG": "0",
+    "T_COMP": "PDT",
+    "TALONARIO": "9",
+    "TCOMP_IN_S": "VE",
+    "USUARIO": "SUPERVISOR",
+    "HORA_COMP": "080823",
+    "ID_A_RENTA": "0",
+    "DOC_ELECTR": "0",
+    "IMP_IVA": "0.0000000",
+    "IMP_OTIMP": "0.0000000",
+    "IMPORTE_BO": "0.0000000",
+    "IMPORTE_TO": "0.0000000",
+    "DIFERENCIA": "N",
+    "SUC_DESTIN": "0",
+    "DCTO_CLIEN": "0.0000000",
+    "FECHA_INGRESO": "2026-09-24 00:00:00.000",
+    "HORA_INGRESO": "080823",
+    "USUARIO_INGRESO": "SUPERVISOR",
+    "TERMINAL_INGRESO": "RHIELOTS",
+    "IMPORTE_TOTAL_CON_IMPUESTOS": "0.0000000",
+    "CANTIDAD_KILOS": "0.0000000",
+    "IMPORTE_GRAVADO": "0.0000000",
+    "IMPORTE_EXENTO": "0.0000000",
+    "ID_STA13": "140",
+    "NRO_SUCURSAL_DESTINO_REMITO": "0",
+    "ROW_VERSION": "0x000000000C6E4F01",
+    "COND_VTA": "0",
+    "IMPORTE_INGRESADO_REMITO": "0.0000000",
+    "IMPORTE_TOTAL_REMITO": "0.0000000",
+    "CANTIDAD_TOTAL": "0.0000000",
+    "CANTIDAD_TOTAL_INSUMOS_KIT": "0.0000000"
+   },
+   {
+    "ID_STA14": "892506",
+    "COTIZ": "1.0000000",
+    "EXPORTADO": "0",
+    "EXP_STOCK": "0",
+    "FECHA_ANU": "1800-01-01 00:00:00.000",
+    "FECHA_MOV": "2026-09-23 00:00:00.000",
+    "HORA": "0000",
+    "LISTA_REM": "0",
+    "LOTE": "0",
+    "LOTE_ANU": "0",
+    "MON_CTE": "1",
+    "N_COMP": "0000100122814",
+    "NCOMP_IN_S": "00219341",
+    "NRO_SUCURS": "0",
+    "OBSERVACIO": "PRODUCCION LIQUIDOS",
+    "SUC_ORIG": "0",
+    "T_COMP": "PDT",
+    "TALONARIO": "9",
+    "TCOMP_IN_S": "VE",
+    "USUARIO": "SUPERVISOR",
+    "HORA_COMP": "155414",
+    "ID_A_RENTA": "0",
+    "DOC_ELECTR": "0",
+    "IMP_IVA": "0.0000000",
+    "IMP_OTIMP": "0.0000000",
+    "IMPORTE_BO": "0.0000000",
+    "IMPORTE_TO": "0.0000000",
+    "DIFERENCIA": "N",
+    "SUC_DESTIN": "0",
+    "DCTO_CLIEN": "0.0000000",
+    "FECHA_INGRESO": "2026-09-23 00:00:00.000",
+    "HORA_INGRESO": "155414",
+    "USUARIO_INGRESO": "SUPERVISOR",
+    "TERMINAL_INGRESO": "RHIELOTS",
+    "IMPORTE_TOTAL_CON_IMPUESTOS": "0.0000000",
+    "CANTIDAD_KILOS": "0.0000000",
+    "IMPORTE_GRAVADO": "0.0000000",
+    "IMPORTE_EXENTO": "0.0000000",
+    "ID_STA13": "140",
+    "NRO_SUCURSAL_DESTINO_REMITO": "0",
+    "ROW_VERSION": "0x000000000C6E4B85",
+    "COND_VTA": "0",
+    "IMPORTE_INGRESADO_REMITO": "0.0000000",
+    "IMPORTE_TOTAL_REMITO": "0.0000000",
+    "CANTIDAD_TOTAL": "0.0000000",
+    "CANTIDAD_TOTAL_INSUMOS_KIT": "0.0000000"
+   }
+  ]
+ },
+ {
+  "hdr": [
+   "ID_STA20",
+   "FILLER",
+   "CAN_EQUI_V",
+   "CANT_DEV",
+   "CANT_OC",
+   "CANT_PEND",
+   "CANT_SCRAP",
+   "CANTIDAD",
+   "CANT_FACTU",
+   "COD_ARTICU",
+   "COD_DEPOSI",
+   "DEPOSI_DDE",
+   "EQUIVALENC",
+   "FECHA_MOV",
+   "N_ORDEN_CO",
+   "N_RENGL_OC",
+   "N_RENGL_S",
+   "NCOMP_IN_S",
+   "PLISTA_REM",
+   "PPP_EX",
+   "PPP_LO",
+   "PRECIO",
+   "PRECIO_REM",
+   "TCOMP_IN_S",
+   "TIPO_MOV",
+   "COD_CLASIF",
+   "DCTO_FACTU",
+   "CANT_DEV_2",
+   "CANT_PEND_2",
+   "CANTIDAD_2",
+   "CANT_FACTU_2",
+   "CANT_OC_2",
+   "ID_MEDIDA_STOCK_2",
+   "ID_MEDIDA_STOCK",
+   "ID_MEDIDA_VENTAS",
+   "ID_MEDIDA_COMPRA",
+   "UNIDAD_MEDIDA_SELECCIONADA",
+   "PRECIO_REMITO_VENTAS",
+   "RENGL_PADR",
+   "COD_ARTICU_KIT",
+   "PROMOCION",
+   "PRECIO_ADICIONAL_KIT",
+   "TALONARIO_OC",
+   "ID_STA11",
+   "ID_STA14",
+   "ROW_VERSION",
+   "COD_DEPOSI_INGRESO",
+   "OBSERVACIONES",
+   "IMPUESTO_INTERNO_FIJO",
+   "IMPORTE_SIN_IMPUESTOS",
+   "IMPORTE_CON_IMPUESTOS",
+   "BASE_CALCULO_II_VARIABLE",
+   "CANTIDAD_PARTIDAS",
+   "CANTIDAD_PARTIDAS_2",
+   "NRO_OC_COMP"
+  ],
+  "filas": [
+   {
+    "ID_STA20": "1377442",
+    "CAN_EQUI_V": "1.0000000",
+    "CANT_DEV": "0.0000000",
+    "CANT_OC": "0.0000000",
+    "CANT_PEND": "0.0000000",
+    "CANT_SCRAP": "0.0000000",
+    "CANTIDAD": "7360.0000000",
+    "CANT_FACTU": "0.0000000",
+    "COD_ARTICU": "PTHIBOLROLI0002",
+    "COD_DEPOSI": "01",
+    "EQUIVALENC": "1.0000000",
+    "FECHA_MOV": "2026-09-24 00:00:00.000",
+    "N_RENGL_OC": "0",
+    "N_RENGL_S": "1",
+    "NCOMP_IN_S": "00219348",
+    "PLISTA_REM": "0.0000000",
+    "PPP_EX": "0.0000000",
+    "PPP_LO": "0.0000000",
+    "PRECIO": "0.0000000",
+    "PRECIO_REM": "0.0000000",
+    "TCOMP_IN_S": "VE",
+    "TIPO_MOV": "E",
+    "DCTO_FACTU": "0.0000000",
+    "CANT_DEV_2": "0.0000000",
+    "CANT_PEND_2": "0.0000000",
+    "CANTIDAD_2": "0.0000000",
+    "CANT_FACTU_2": "0.0000000",
+    "CANT_OC_2": "0.0000000",
+    "ID_MEDIDA_STOCK": "17",
+    "UNIDAD_MEDIDA_SELECCIONADA": "P",
+    "PRECIO_REMITO_VENTAS": "0.0000000",
+    "RENGL_PADR": "0",
+    "PROMOCION": "0",
+    "PRECIO_ADICIONAL_KIT": "0.0000000",
+    "TALONARIO_OC": "0",
+    "ID_STA11": "1465",
+    "ID_STA14": "892722",
+    "ROW_VERSION": "0x000000000C6E6FE2",
+    "IMPUESTO_INTERNO_FIJO": "0.0000000",
+    "IMPORTE_SIN_IMPUESTOS": "0.0000000",
+    "IMPORTE_CON_IMPUESTOS": "0.0000000",
+    "BASE_CALCULO_II_VARIABLE": "0.0000000",
+    "CANTIDAD_PARTIDAS": "0.0000000",
+    "CANTIDAD_PARTIDAS_2": "0.0000000"
+   },
+   {
+    "ID_STA20": "1377443",
+    "CAN_EQUI_V": "1.0000000",
+    "CANT_DEV": "0.0000000",
+    "CANT_OC": "0.0000000",
+    "CANT_PEND": "0.0000000",
+    "CANT_SCRAP": "0.0000000",
+    "CANTIDAD": "1496.0000000",
+    "CANT_FACTU": "0.0000000",
+    "COD_ARTICU": "PTHIBOLROLI0010",
+    "COD_DEPOSI": "01",
+    "EQUIVALENC": "1.0000000",
+    "FECHA_MOV": "2026-09-24 00:00:00.000",
+    "N_RENGL_OC": "0",
+    "N_RENGL_S": "2",
+    "NCOMP_IN_S": "00219348",
+    "PLISTA_REM": "0.0000000",
+    "PPP_EX": "0.0000000",
+    "PPP_LO": "0.0000000",
+    "PRECIO": "0.0000000",
+    "PRECIO_REM": "0.0000000",
+    "TCOMP_IN_S": "VE",
+    "TIPO_MOV": "E",
+    "DCTO_FACTU": "0.0000000",
+    "CANT_DEV_2": "0.0000000",
+    "CANT_PEND_2": "0.0000000",
+    "CANTIDAD_2": "0.0000000",
+    "CANT_FACTU_2": "0.0000000",
+    "CANT_OC_2": "0.0000000",
+    "ID_MEDIDA_STOCK": "17",
+    "UNIDAD_MEDIDA_SELECCIONADA": "P",
+    "PRECIO_REMITO_VENTAS": "0.0000000",
+    "RENGL_PADR": "0",
+    "PROMOCION": "0",
+    "PRECIO_ADICIONAL_KIT": "0.0000000",
+    "TALONARIO_OC": "0",
+    "ID_STA11": "1815",
+    "ID_STA14": "892722",
+    "ROW_VERSION": "0x000000000C6E6FE8",
+    "IMPUESTO_INTERNO_FIJO": "0.0000000",
+    "IMPORTE_SIN_IMPUESTOS": "0.0000000",
+    "IMPORTE_CON_IMPUESTOS": "0.0000000",
+    "BASE_CALCULO_II_VARIABLE": "0.0000000",
+    "CANTIDAD_PARTIDAS": "0.0000000",
+    "CANTIDAD_PARTIDAS_2": "0.0000000"
+   },
+   {
+    "ID_STA20": "1377444",
+    "CAN_EQUI_V": "1.0000000",
+    "CANT_DEV": "0.0000000",
+    "CANT_OC": "0.0000000",
+    "CANT_PEND": "0.0000000",
+    "CANT_SCRAP": "0.0000000",
+    "CANTIDAD": "560.0000000",
+    "CANT_FACTU": "0.0000000",
+    "COD_ARTICU": "PTHIBOLPICA0010",
+    "COD_DEPOSI": "01",
+    "EQUIVALENC": "1.0000000",
+    "FECHA_MOV": "2026-09-24 00:00:00.000",
+    "N_RENGL_OC": "0",
+    "N_RENGL_S": "3",
+    "NCOMP_IN_S": "00219348",
+    "PLISTA_REM": "0.0000000",
+    "PPP_EX": "0.0000000",
+    "PPP_LO": "0.0000000",
+    "PRECIO": "0.0000000",
+    "PRECIO_REM": "0.0000000",
+    "TCOMP_IN_S": "VE",
+    "TIPO_MOV": "E",
+    "DCTO_FACTU": "0.0000000",
+    "CANT_DEV_2": "0.0000000",
+    "CANT_PEND_2": "0.0000000",
+    "CANTIDAD_2": "0.0000000",
+    "CANT_FACTU_2": "0.0000000",
+    "CANT_OC_2": "0.0000000",
+    "ID_MEDIDA_STOCK": "17",
+    "UNIDAD_MEDIDA_SELECCIONADA": "P",
+    "PRECIO_REMITO_VENTAS": "0.0000000",
+    "RENGL_PADR": "0",
+    "PROMOCION": "0",
+    "PRECIO_ADICIONAL_KIT": "0.0000000",
+    "TALONARIO_OC": "0",
+    "ID_STA11": "1820",
+    "ID_STA14": "892722",
+    "ROW_VERSION": "0x000000000C6E6FEE",
+    "IMPUESTO_INTERNO_FIJO": "0.0000000",
+    "IMPORTE_SIN_IMPUESTOS": "0.0000000",
+    "IMPORTE_CON_IMPUESTOS": "0.0000000",
+    "BASE_CALCULO_II_VARIABLE": "0.0000000",
+    "CANTIDAD_PARTIDAS": "0.0000000",
+    "CANTIDAD_PARTIDAS_2": "0.0000000"
+   },
+   {
+    "ID_STA20": "1377343",
+    "CAN_EQUI_V": "1.0000000",
+    "CANT_DEV": "0.0000000",
+    "CANT_OC": "0.0000000",
+    "CANT_PEND": "0.0000000",
+    "CANT_SCRAP": "0.0000000",
+    "CANTIDAD": "840.0000000",
+    "CANT_FACTU": "0.0000000",
+    "COD_ARTICU": "PTADDES006",
+    "COD_DEPOSI": "01",
+    "EQUIVALENC": "1.0000000",
+    "FECHA_MOV": "2026-09-24 00:00:00.000",
+    "N_RENGL_OC": "0",
+    "N_RENGL_S": "1",
+    "NCOMP_IN_S": "00219346",
+    "PLISTA_REM": "0.0000000",
+    "PPP_EX": "0.0000000",
+    "PPP_LO": "0.0000000",
+    "PRECIO": "0.0000000",
+    "PRECIO_REM": "0.0000000",
+    "TCOMP_IN_S": "VE",
+    "TIPO_MOV": "E",
+    "DCTO_FACTU": "0.0000000",
+    "CANT_DEV_2": "0.0000000",
+    "CANT_PEND_2": "0.0000000",
+    "CANTIDAD_2": "0.0000000",
+    "CANT_FACTU_2": "0.0000000",
+    "CANT_OC_2": "0.0000000",
+    "ID_MEDIDA_STOCK": "17",
+    "UNIDAD_MEDIDA_SELECCIONADA": "P",
+    "PRECIO_REMITO_VENTAS": "0.0000000",
+    "RENGL_PADR": "0",
+    "PROMOCION": "0",
+    "PRECIO_ADICIONAL_KIT": "0.0000000",
+    "TALONARIO_OC": "0",
+    "ID_STA11": "1780",
+    "ID_STA14": "892682",
+    "ROW_VERSION": "0x000000000C6E64A2",
+    "IMPUESTO_INTERNO_FIJO": "0.0000000",
+    "IMPORTE_SIN_IMPUESTOS": "0.0000000",
+    "IMPORTE_CON_IMPUESTOS": "0.0000000",
+    "BASE_CALCULO_II_VARIABLE": "0.0000000",
+    "CANTIDAD_PARTIDAS": "0.0000000",
+    "CANTIDAD_PARTIDAS_2": "0.0000000"
+   },
+   {
+    "ID_STA20": "1377344",
+    "CAN_EQUI_V": "1.0000000",
+    "CANT_DEV": "0.0000000",
+    "CANT_OC": "0.0000000",
+    "CANT_PEND": "0.0000000",
+    "CANT_SCRAP": "0.0000000",
+    "CANTIDAD": "336.0000000",
+    "CANT_FACTU": "0.0000000",
+    "COD_ARTICU": "PTANNAT0006SG",
+    "COD_DEPOSI": "01",
+    "EQUIVALENC": "1.0000000",
+    "FECHA_MOV": "2026-09-24 00:00:00.000",
+    "N_RENGL_OC": "0",
+    "N_RENGL_S": "2",
+    "NCOMP_IN_S": "00219346",
+    "PLISTA_REM": "0.0000000",
+    "PPP_EX": "0.0000000",
+    "PPP_LO": "0.0000000",
+    "PRECIO": "0.0000000",
+    "PRECIO_REM": "0.0000000",
+    "TCOMP_IN_S": "VE",
+    "TIPO_MOV": "E",
+    "DCTO_FACTU": "0.0000000",
+    "CANT_DEV_2": "0.0000000",
+    "CANT_PEND_2": "0.0000000",
+    "CANTIDAD_2": "0.0000000",
+    "CANT_FACTU_2": "0.0000000",
+    "CANT_OC_2": "0.0000000",
+    "ID_MEDIDA_STOCK": "17",
+    "UNIDAD_MEDIDA_SELECCIONADA": "P",
+    "PRECIO_REMITO_VENTAS": "0.0000000",
+    "RENGL_PADR": "0",
+    "PROMOCION": "0",
+    "PRECIO_ADICIONAL_KIT": "0.0000000",
+    "TALONARIO_OC": "0",
+    "ID_STA11": "1586",
+    "ID_STA14": "892682",
+    "ROW_VERSION": "0x000000000C6E64A8",
+    "IMPUESTO_INTERNO_FIJO": "0.0000000",
+    "IMPORTE_SIN_IMPUESTOS": "0.0000000",
+    "IMPORTE_CON_IMPUESTOS": "0.0000000",
+    "BASE_CALCULO_II_VARIABLE": "0.0000000",
+    "CANTIDAD_PARTIDAS": "0.0000000",
+    "CANTIDAD_PARTIDAS_2": "0.0000000"
+   },
+   {
+    "ID_STA20": "1377345",
+    "CAN_EQUI_V": "1.0000000",
+    "CANT_DEV": "0.0000000",
+    "CANT_OC": "0.0000000",
+    "CANT_PEND": "0.0000000",
+    "CANT_SCRAP": "0.0000000",
+    "CANTIDAD": "168.0000000",
+    "CANT_FACTU": "0.0000000",
+    "COD_ARTICU": "PTACANT0006",
+    "COD_DEPOSI": "01",
+    "EQUIVALENC": "1.0000000",
+    "FECHA_MOV": "2026-09-24 00:00:00.000",
+    "N_RENGL_OC": "0",
+    "N_RENGL_S": "3",
+    "NCOMP_IN_S": "00219346",
+    "PLISTA_REM": "0.0000000",
+    "PPP_EX": "0.0000000",
+    "PPP_LO": "0.0000000",
+    "PRECIO": "0.0000000",
+    "PRECIO_REM": "0.0000000",
+    "TCOMP_IN_S": "VE",
+    "TIPO_MOV": "E",
+    "DCTO_FACTU": "0.0000000",
+    "CANT_DEV_2": "0.0000000",
+    "CANT_PEND_2": "0.0000000",
+    "CANTIDAD_2": "0.0000000",
+    "CANT_FACTU_2": "0.0000000",
+    "CANT_OC_2": "0.0000000",
+    "ID_MEDIDA_STOCK": "17",
+    "UNIDAD_MEDIDA_SELECCIONADA": "P",
+    "PRECIO_REMITO_VENTAS": "0.0000000",
+    "RENGL_PADR": "0",
+    "PROMOCION": "0",
+    "PRECIO_ADICIONAL_KIT": "0.0000000",
+    "TALONARIO_OC": "0",
+    "ID_STA11": "1781",
+    "ID_STA14": "892682",
+    "ROW_VERSION": "0x000000000C6E64AE",
+    "IMPUESTO_INTERNO_FIJO": "0.0000000",
+    "IMPORTE_SIN_IMPUESTOS": "0.0000000",
+    "IMPORTE_CON_IMPUESTOS": "0.0000000",
+    "BASE_CALCULO_II_VARIABLE": "0.0000000",
+    "CANTIDAD_PARTIDAS": "0.0000000",
+    "CANTIDAD_PARTIDAS_2": "0.0000000"
+   },
+   {
+    "ID_STA20": "1377339",
+    "CAN_EQUI_V": "1.0000000",
+    "CANT_DEV": "0.0000000",
+    "CANT_OC": "0.0000000",
+    "CANT_PEND": "0.0000000",
+    "CANT_SCRAP": "0.0000000",
+    "CANTIDAD": "6900.0000000",
+    "CANT_FACTU": "0.0000000",
+    "COD_ARTICU": "PTHIBOLROLI0002",
+    "COD_DEPOSI": "01",
+    "EQUIVALENC": "1.0000000",
+    "FECHA_MOV": "2026-09-24 00:00:00.000",
+    "N_RENGL_OC": "0",
+    "N_RENGL_S": "1",
+    "NCOMP_IN_S": "00219345",
+    "PLISTA_REM": "0.0000000",
+    "PPP_EX": "0.0000000",
+    "PPP_LO": "0.0000000",
+    "PRECIO": "0.0000000",
+    "PRECIO_REM": "0.0000000",
+    "TCOMP_IN_S": "VE",
+    "TIPO_MOV": "E",
+    "DCTO_FACTU": "0.0000000",
+    "CANT_DEV_2": "0.0000000",
+    "CANT_PEND_2": "0.0000000",
+    "CANTIDAD_2": "0.0000000",
+    "CANT_FACTU_2": "0.0000000",
+    "CANT_OC_2": "0.0000000",
+    "ID_MEDIDA_STOCK": "17",
+    "UNIDAD_MEDIDA_SELECCIONADA": "P",
+    "PRECIO_REMITO_VENTAS": "0.0000000",
+    "RENGL_PADR": "0",
+    "PROMOCION": "0",
+    "PRECIO_ADICIONAL_KIT": "0.0000000",
+    "TALONARIO_OC": "0",
+    "ID_STA11": "1465",
+    "ID_STA14": "892680",
+    "ROW_VERSION": "0x000000000C6E61A5",
+    "IMPUESTO_INTERNO_FIJO": "0.0000000",
+    "IMPORTE_SIN_IMPUESTOS": "0.0000000",
+    "IMPORTE_CON_IMPUESTOS": "0.0000000",
+    "BASE_CALCULO_II_VARIABLE": "0.0000000",
+    "CANTIDAD_PARTIDAS": "0.0000000",
+    "CANTIDAD_PARTIDAS_2": "0.0000000"
+   },
+   {
+    "ID_STA20": "1377340",
+    "CAN_EQUI_V": "1.0000000",
+    "CANT_DEV": "0.0000000",
+    "CANT_OC": "0.0000000",
+    "CANT_PEND": "0.0000000",
+    "CANT_SCRAP": "0.0000000",
+    "CANTIDAD": "1496.0000000",
+    "CANT_FACTU": "0.0000000",
+    "COD_ARTICU": "PTHIBOLROLI0010",
+    "COD_DEPOSI": "01",
+    "EQUIVALENC": "1.0000000",
+    "FECHA_MOV": "2026-09-24 00:00:00.000",
+    "N_RENGL_OC": "0",
+    "N_RENGL_S": "2",
+    "NCOMP_IN_S": "00219345",
+    "PLISTA_REM": "0.0000000",
+    "PPP_EX": "0.0000000",
+    "PPP_LO": "0.0000000",
+    "PRECIO": "0.0000000",
+    "PRECIO_REM": "0.0000000",
+    "TCOMP_IN_S": "VE",
+    "TIPO_MOV": "E",
+    "DCTO_FACTU": "0.0000000",
+    "CANT_DEV_2": "0.0000000",
+    "CANT_PEND_2": "0.0000000",
+    "CANTIDAD_2": "0.0000000",
+    "CANT_FACTU_2": "0.0000000",
+    "CANT_OC_2": "0.0000000",
+    "ID_MEDIDA_STOCK": "17",
+    "UNIDAD_MEDIDA_SELECCIONADA": "P",
+    "PRECIO_REMITO_VENTAS": "0.0000000",
+    "RENGL_PADR": "0",
+    "PROMOCION": "0",
+    "PRECIO_ADICIONAL_KIT": "0.0000000",
+    "TALONARIO_OC": "0",
+    "ID_STA11": "1815",
+    "ID_STA14": "892680",
+    "ROW_VERSION": "0x000000000C6E61AC",
+    "IMPUESTO_INTERNO_FIJO": "0.0000000",
+    "IMPORTE_SIN_IMPUESTOS": "0.0000000",
+    "IMPORTE_CON_IMPUESTOS": "0.0000000",
+    "BASE_CALCULO_II_VARIABLE": "0.0000000",
+    "CANTIDAD_PARTIDAS": "0.0000000",
+    "CANTIDAD_PARTIDAS_2": "0.0000000"
+   },
+   {
+    "ID_STA20": "1377341",
+    "CAN_EQUI_V": "1.0000000",
+    "CANT_DEV": "0.0000000",
+    "CANT_OC": "0.0000000",
+    "CANT_PEND": "0.0000000",
+    "CANT_SCRAP": "0.0000000",
+    "CANTIDAD": "560.0000000",
+    "CANT_FACTU": "0.0000000",
+    "COD_ARTICU": "PTHIBOLPICA0010",
+    "COD_DEPOSI": "01",
+    "EQUIVALENC": "1.0000000",
+    "FECHA_MOV": "2026-09-24 00:00:00.000",
+    "N_RENGL_OC": "0",
+    "N_RENGL_S": "3",
+    "NCOMP_IN_S": "00219345",
+    "PLISTA_REM": "0.0000000",
+    "PPP_EX": "0.0000000",
+    "PPP_LO": "0.0000000",
+    "PRECIO": "0.0000000",
+    "PRECIO_REM": "0.0000000",
+    "TCOMP_IN_S": "VE",
+    "TIPO_MOV": "E",
+    "DCTO_FACTU": "0.0000000",
+    "CANT_DEV_2": "0.0000000",
+    "CANT_PEND_2": "0.0000000",
+    "CANTIDAD_2": "0.0000000",
+    "CANT_FACTU_2": "0.0000000",
+    "CANT_OC_2": "0.0000000",
+    "ID_MEDIDA_STOCK": "17",
+    "UNIDAD_MEDIDA_SELECCIONADA": "P",
+    "PRECIO_REMITO_VENTAS": "0.0000000",
+    "RENGL_PADR": "0",
+    "PROMOCION": "0",
+    "PRECIO_ADICIONAL_KIT": "0.0000000",
+    "TALONARIO_OC": "0",
+    "ID_STA11": "1820",
+    "ID_STA14": "892680",
+    "ROW_VERSION": "0x000000000C6E61B2",
+    "IMPUESTO_INTERNO_FIJO": "0.0000000",
+    "IMPORTE_SIN_IMPUESTOS": "0.0000000",
+    "IMPORTE_CON_IMPUESTOS": "0.0000000",
+    "BASE_CALCULO_II_VARIABLE": "0.0000000",
+    "CANTIDAD_PARTIDAS": "0.0000000",
+    "CANTIDAD_PARTIDAS_2": "0.0000000"
+   },
+   {
+    "ID_STA20": "1377108",
+    "CAN_EQUI_V": "1.0000000",
+    "CANT_DEV": "0.0000000",
+    "CANT_OC": "0.0000000",
+    "CANT_PEND": "0.0000000",
+    "CANT_SCRAP": "0.0000000",
+    "CANTIDAD": "7360.0000000",
+    "CANT_FACTU": "0.0000000",
+    "COD_ARTICU": "PTHIBOLROLI0002",
+    "COD_DEPOSI": "01",
+    "EQUIVALENC": "1.0000000",
+    "FECHA_MOV": "2026-09-23 00:00:00.000",
+    "N_RENGL_OC": "0",
+    "N_RENGL_S": "1",
+    "NCOMP_IN_S": "00219343",
+    "PLISTA_REM": "0.0000000",
+    "PPP_EX": "0.0000000",
+    "PPP_LO": "0.0000000",
+    "PRECIO": "0.0000000",
+    "PRECIO_REM": "0.0000000",
+    "TCOMP_IN_S": "VE",
+    "TIPO_MOV": "E",
+    "DCTO_FACTU": "0.0000000",
+    "CANT_DEV_2": "0.0000000",
+    "CANT_PEND_2": "0.0000000",
+    "CANTIDAD_2": "0.0000000",
+    "CANT_FACTU_2": "0.0000000",
+    "CANT_OC_2": "0.0000000",
+    "ID_MEDIDA_STOCK": "17",
+    "UNIDAD_MEDIDA_SELECCIONADA": "P",
+    "PRECIO_REMITO_VENTAS": "0.0000000",
+    "RENGL_PADR": "0",
+    "PROMOCION": "0",
+    "PRECIO_ADICIONAL_KIT": "0.0000000",
+    "TALONARIO_OC": "0",
+    "ID_STA11": "1465",
+    "ID_STA14": "892559",
+    "ROW_VERSION": "0x000000000C6E4F04",
+    "IMPUESTO_INTERNO_FIJO": "0.0000000",
+    "IMPORTE_SIN_IMPUESTOS": "0.0000000",
+    "IMPORTE_CON_IMPUESTOS": "0.0000000",
+    "BASE_CALCULO_II_VARIABLE": "0.0000000",
+    "CANTIDAD_PARTIDAS": "0.0000000",
+    "CANTIDAD_PARTIDAS_2": "0.0000000"
+   },
+   {
+    "ID_STA20": "1377109",
+    "CAN_EQUI_V": "1.0000000",
+    "CANT_DEV": "0.0000000",
+    "CANT_OC": "0.0000000",
+    "CANT_PEND": "0.0000000",
+    "CANT_SCRAP": "0.0000000",
+    "CANTIDAD": "720.0000000",
+    "CANT_FACTU": "0.0000000",
+    "COD_ARTICU": "PTHIBOLPICA0010",
+    "COD_DEPOSI": "01",
+    "EQUIVALENC": "1.0000000",
+    "FECHA_MOV": "2026-09-23 00:00:00.000",
+    "N_RENGL_OC": "0",
+    "N_RENGL_S": "2",
+    "NCOMP_IN_S": "00219343",
+    "PLISTA_REM": "0.0000000",
+    "PPP_EX": "0.0000000",
+    "PPP_LO": "0.0000000",
+    "PRECIO": "0.0000000",
+    "PRECIO_REM": "0.0000000",
+    "TCOMP_IN_S": "VE",
+    "TIPO_MOV": "E",
+    "DCTO_FACTU": "0.0000000",
+    "CANT_DEV_2": "0.0000000",
+    "CANT_PEND_2": "0.0000000",
+    "CANTIDAD_2": "0.0000000",
+    "CANT_FACTU_2": "0.0000000",
+    "CANT_OC_2": "0.0000000",
+    "ID_MEDIDA_STOCK": "17",
+    "UNIDAD_MEDIDA_SELECCIONADA": "P",
+    "PRECIO_REMITO_VENTAS": "0.0000000",
+    "RENGL_PADR": "0",
+    "PROMOCION": "0",
+    "PRECIO_ADICIONAL_KIT": "0.0000000",
+    "TALONARIO_OC": "0",
+    "ID_STA11": "1820",
+    "ID_STA14": "892559",
+    "ROW_VERSION": "0x000000000C6E4F0A",
+    "IMPUESTO_INTERNO_FIJO": "0.0000000",
+    "IMPORTE_SIN_IMPUESTOS": "0.0000000",
+    "IMPORTE_CON_IMPUESTOS": "0.0000000",
+    "BASE_CALCULO_II_VARIABLE": "0.0000000",
+    "CANTIDAD_PARTIDAS": "0.0000000",
+    "CANTIDAD_PARTIDAS_2": "0.0000000"
+   },
+   {
+    "ID_STA20": "1377110",
+    "CAN_EQUI_V": "1.0000000",
+    "CANT_DEV": "0.0000000",
+    "CANT_OC": "0.0000000",
+    "CANT_PEND": "0.0000000",
+    "CANT_SCRAP": "0.0000000",
+    "CANTIDAD": "1672.0000000",
+    "CANT_FACTU": "0.0000000",
+    "COD_ARTICU": "PTHIBOLROLI0010",
+    "COD_DEPOSI": "01",
+    "EQUIVALENC": "1.0000000",
+    "FECHA_MOV": "2026-09-23 00:00:00.000",
+    "N_RENGL_OC": "0",
+    "N_RENGL_S": "3",
+    "NCOMP_IN_S": "00219343",
+    "PLISTA_REM": "0.0000000",
+    "PPP_EX": "0.0000000",
+    "PPP_LO": "0.0000000",
+    "PRECIO": "0.0000000",
+    "PRECIO_REM": "0.0000000",
+    "TCOMP_IN_S": "VE",
+    "TIPO_MOV": "E",
+    "DCTO_FACTU": "0.0000000",
+    "CANT_DEV_2": "0.0000000",
+    "CANT_PEND_2": "0.0000000",
+    "CANTIDAD_2": "0.0000000",
+    "CANT_FACTU_2": "0.0000000",
+    "CANT_OC_2": "0.0000000",
+    "ID_MEDIDA_STOCK": "17",
+    "UNIDAD_MEDIDA_SELECCIONADA": "P",
+    "PRECIO_REMITO_VENTAS": "0.0000000",
+    "RENGL_PADR": "0",
+    "PROMOCION": "0",
+    "PRECIO_ADICIONAL_KIT": "0.0000000",
+    "TALONARIO_OC": "0",
+    "ID_STA11": "1815",
+    "ID_STA14": "892559",
+    "ROW_VERSION": "0x000000000C6E4F10",
+    "IMPUESTO_INTERNO_FIJO": "0.0000000",
+    "IMPORTE_SIN_IMPUESTOS": "0.0000000",
+    "IMPORTE_CON_IMPUESTOS": "0.0000000",
+    "BASE_CALCULO_II_VARIABLE": "0.0000000",
+    "CANTIDAD_PARTIDAS": "0.0000000",
+    "CANTIDAD_PARTIDAS_2": "0.0000000"
+   },
+   {
+    "ID_STA20": "1376983",
+    "CAN_EQUI_V": "1.0000000",
+    "CANT_DEV": "0.0000000",
+    "CANT_OC": "0.0000000",
+    "CANT_PEND": "0.0000000",
+    "CANT_SCRAP": "0.0000000",
+    "CANTIDAD": "168.0000000",
+    "CANT_FACTU": "0.0000000",
+    "COD_ARTICU": "PTACANT0006",
+    "COD_DEPOSI": "01",
+    "EQUIVALENC": "1.0000000",
+    "FECHA_MOV": "2026-09-23 00:00:00.000",
+    "N_RENGL_OC": "0",
+    "N_RENGL_S": "1",
+    "NCOMP_IN_S": "00219341",
+    "PLISTA_REM": "0.0000000",
+    "PPP_EX": "0.0000000",
+    "PPP_LO": "0.0000000",
+    "PRECIO": "0.0000000",
+    "PRECIO_REM": "0.0000000",
+    "TCOMP_IN_S": "VE",
+    "TIPO_MOV": "E",
+    "DCTO_FACTU": "0.0000000",
+    "CANT_DEV_2": "0.0000000",
+    "CANT_PEND_2": "0.0000000",
+    "CANTIDAD_2": "0.0000000",
+    "CANT_FACTU_2": "0.0000000",
+    "CANT_OC_2": "0.0000000",
+    "ID_MEDIDA_STOCK": "17",
+    "UNIDAD_MEDIDA_SELECCIONADA": "P",
+    "PRECIO_REMITO_VENTAS": "0.0000000",
+    "RENGL_PADR": "0",
+    "PROMOCION": "0",
+    "PRECIO_ADICIONAL_KIT": "0.0000000",
+    "TALONARIO_OC": "0",
+    "ID_STA11": "1781",
+    "ID_STA14": "892506",
+    "ROW_VERSION": "0x000000000C6E4B88",
+    "IMPUESTO_INTERNO_FIJO": "0.0000000",
+    "IMPORTE_SIN_IMPUESTOS": "0.0000000",
+    "IMPORTE_CON_IMPUESTOS": "0.0000000",
+    "BASE_CALCULO_II_VARIABLE": "0.0000000",
+    "CANTIDAD_PARTIDAS": "0.0000000",
+    "CANTIDAD_PARTIDAS_2": "0.0000000"
+   },
+   {
+    "ID_STA20": "1376984",
+    "CAN_EQUI_V": "1.0000000",
+    "CANT_DEV": "0.0000000",
+    "CANT_OC": "0.0000000",
+    "CANT_PEND": "0.0000000",
+    "CANT_SCRAP": "0.0000000",
+    "CANTIDAD": "1176.0000000",
+    "CANT_FACTU": "0.0000000",
+    "COD_ARTICU": "PTADDES006",
+    "COD_DEPOSI": "01",
+    "EQUIVALENC": "1.0000000",
+    "FECHA_MOV": "2026-09-23 00:00:00.000",
+    "N_RENGL_OC": "0",
+    "N_RENGL_S": "2",
+    "NCOMP_IN_S": "00219341",
+    "PLISTA_REM": "0.0000000",
+    "PPP_EX": "0.0000000",
+    "PPP_LO": "0.0000000",
+    "PRECIO": "0.0000000",
+    "PRECIO_REM": "0.0000000",
+    "TCOMP_IN_S": "VE",
+    "TIPO_MOV": "E",
+    "DCTO_FACTU": "0.0000000",
+    "CANT_DEV_2": "0.0000000",
+    "CANT_PEND_2": "0.0000000",
+    "CANTIDAD_2": "0.0000000",
+    "CANT_FACTU_2": "0.0000000",
+    "CANT_OC_2": "0.0000000",
+    "ID_MEDIDA_STOCK": "17",
+    "UNIDAD_MEDIDA_SELECCIONADA": "P",
+    "PRECIO_REMITO_VENTAS": "0.0000000",
+    "RENGL_PADR": "0",
+    "PROMOCION": "0",
+    "PRECIO_ADICIONAL_KIT": "0.0000000",
+    "TALONARIO_OC": "0",
+    "ID_STA11": "1780",
+    "ID_STA14": "892506",
+    "ROW_VERSION": "0x000000000C6E4B8E",
+    "IMPUESTO_INTERNO_FIJO": "0.0000000",
+    "IMPORTE_SIN_IMPUESTOS": "0.0000000",
+    "IMPORTE_CON_IMPUESTOS": "0.0000000",
+    "BASE_CALCULO_II_VARIABLE": "0.0000000",
+    "CANTIDAD_PARTIDAS": "0.0000000",
+    "CANTIDAD_PARTIDAS_2": "0.0000000"
+   }
+  ]
+ },
+ {
+  "hdr": [
+   "mes",
+   "comprobantes"
+  ],
+  "filas": [
+   {
+    "mes": "2025-09",
+    "comprobantes": "377"
+   },
+   {
+    "mes": "2025-10",
+    "comprobantes": "2664"
+   },
+   {
+    "mes": "2025-11",
+    "comprobantes": "1847"
+   },
+   {
+    "mes": "2025-12",
+    "comprobantes": "2886"
+   },
+   {
+    "mes": "2026-01",
+    "comprobantes": "3029"
+   },
+   {
+    "mes": "2026-02",
+    "comprobantes": "1580"
+   },
+   {
+    "mes": "2026-03",
+    "comprobantes": "2236"
+   },
+   {
+    "mes": "2026-04",
+    "comprobantes": "1217"
+   },
+   {
+    "mes": "2026-05",
+    "comprobantes": "1166"
+   },
+   {
+    "mes": "2026-06",
+    "comprobantes": "1259"
+   },
+   {
+    "mes": "2026-07",
+    "comprobantes": "1471"
+   },
+   {
+    "mes": "2026-08",
+    "comprobantes": "1120"
+   },
+   {
+    "mes": "2026-09",
+    "comprobantes": "62"
+   },
+   {
+    "mes": "2309-01",
+    "comprobantes": "1"
+   }
+  ]
+ },
+ {
+  "hdr": [
+   "COD_ARTICU",
+   "DESCRIPCIO",
+   "COD_DEPOSI",
+   "renglones",
+   "cantidad"
+  ],
+  "filas": [
+   {
+    "COD_ARTICU": "PTHIBOLROLI0002",
+    "DESCRIPCIO": "HIELO EN BOLSA ROLITO 2 KG",
+    "COD_DEPOSI": "01",
+    "renglones": "527",
+    "cantidad": "476891.0000000"
+   },
+   {
+    "COD_ARTICU": "PTHIBOLROLI0003",
+    "DESCRIPCIO": "HIELO EN BOLSA ROLITO 3 KG",
+    "COD_DEPOSI": "01",
+    "renglones": "689",
+    "cantidad": "298621.0000000"
+   },
+   {
+    "COD_ARTICU": "PTHIBOLROLI0010",
+    "DESCRIPCIO": "HIELO EN BOLSA ROLITO 10 KG",
+    "COD_DEPOSI": "01",
+    "renglones": "635",
+    "cantidad": "98904.0000000"
+   },
+   {
+    "COD_ARTICU": "PTHIBOLPICA0010",
+    "DESCRIPCIO": "HIELO EN BOLSA PICADO 10 KG",
+    "COD_DEPOSI": "01",
+    "renglones": "585",
+    "cantidad": "71936.0000000"
+   },
+   {
+    "COD_ARTICU": "PTADDES006",
+    "DESCRIPCIO": "AGUA DESMINERALIZADA 6 LTS",
+    "COD_DEPOSI": "01",
+    "renglones": "217",
+    "cantidad": "53844.0000000"
+   },
+   {
+    "COD_ARTICU": "PTHIBOLESCA0010",
+    "DESCRIPCIO": "HIELO EN BOLSA ESCAMAS 10 KG",
+    "COD_DEPOSI": "01",
+    "renglones": "137",
+    "cantidad": "17220.0000000"
+   },
+   {
+    "COD_ARTICU": "PTHIBOLROLI0002",
+    "DESCRIPCIO": "HIELO EN BOLSA ROLITO 2 KG",
+    "COD_DEPOSI": "02",
+    "renglones": "1",
+    "cantidad": "9200.0000000"
+   },
+   {
+    "COD_ARTICU": "PTACANT0006",
+    "DESCRIPCIO": "BIDON AGUA ANTICORROSIVO 6 LTS",
+    "COD_DEPOSI": "01",
+    "renglones": "71",
+    "cantidad": "7896.0000000"
+   },
+   {
+    "COD_ARTICU": "PTPLENBI005",
+    "DESCRIPCIO": "BIDON AUXILIAR 5 LTS",
+    "COD_DEPOSI": "01",
+    "renglones": "2",
+    "cantidad": "4719.0000000"
+   },
+   {
+    "COD_ARTICU": "PTADDES001",
+    "DESCRIPCIO": "AGUA DESMINERALIZADA 1 LT x 6u",
+    "COD_DEPOSI": "01",
+    "renglones": "18",
+    "cantidad": "3500.0000000"
+   },
+   {
+    "COD_ARTICU": "PTANNAT0006SG",
+    "DESCRIPCIO": "AGUA NATURAL 6 LTS.S/G",
+    "COD_DEPOSI": "01",
+    "renglones": "19",
+    "cantidad": "2562.0000000"
+   },
+   {
+    "COD_ARTICU": "PTADDES006",
+    "DESCRIPCIO": "AGUA DESMINERALIZADA 6 LTS",
+    "COD_DEPOSI": "02",
+    "renglones": "1",
+    "cantidad": "1176.0000000"
+   },
+   {
+    "COD_ARTICU": "1.TARIMA H / A",
+    "DESCRIPCIO": "TARIMAS PARA HIELO Y AGUAS",
+    "COD_DEPOSI": "01",
+    "renglones": "2",
+    "cantidad": "1000.0000000"
+   },
+   {
+    "COD_ARTICU": "PTHIBOLPICA0010",
+    "DESCRIPCIO": "HIELO EN BOLSA PICADO 10 KG",
+    "COD_DEPOSI": "02",
+    "renglones": "1",
+    "cantidad": "720.0000000"
+   },
+   {
+    "COD_ARTICU": "PTLAVAP001",
+    "DESCRIPCIO": "LIMPIAPARABRISAS 1 LT x 6u",
+    "COD_DEPOSI": "01",
+    "renglones": "2",
+    "cantidad": "166.0000000"
+   },
+   {
+    "COD_ARTICU": "PTHIBOLPICA0015",
+    "DESCRIPCIO": "HIELO EN BOLSA PICADO 15 KG",
+    "COD_DEPOSI": "01",
+    "renglones": "3",
+    "cantidad": "162.0000000"
+   },
+   {
+    "COD_ARTICU": "PTADDES001",
+    "DESCRIPCIO": "AGUA DESMINERALIZADA 1 LT x 6u",
+    "COD_DEPOSI": "02",
+    "renglones": "1",
+    "cantidad": "140.0000000"
+   },
+   {
+    "COD_ARTICU": "PTHIBOLROLI0015",
+    "DESCRIPCIO": "HIELO EN BOLSA ROLITO 15 KG",
+    "COD_DEPOSI": "01",
+    "renglones": "1",
+    "cantidad": "80.0000000"
+   }
+  ]
+ },
+ {
+  "hdr": [
+   "COD_ARTICU",
+   "COD_DEPOSI",
+   "CANT_STOCK"
+  ],
+  "filas": [
+   {
+    "COD_ARTICU": "PTHIBARRA",
+    "COD_DEPOSI": "01",
+    "CANT_STOCK": "529.0000000"
+   },
+   {
+    "COD_ARTICU": "PTHIBOLCEME0015",
+    "COD_DEPOSI": "01",
+    "CANT_STOCK": "0.0000000"
+   },
+   {
+    "COD_ARTICU": "PTHIBOLESCA0010",
+    "COD_DEPOSI": "01",
+    "CANT_STOCK": "1917.0000000"
+   },
+   {
+    "COD_ARTICU": "PTHIBOLESCA0015",
+    "COD_DEPOSI": "01",
+    "CANT_STOCK": "0.0000000"
+   },
+   {
+    "COD_ARTICU": "PTHIBOLESCA0018",
+    "COD_DEPOSI": "01",
+    "CANT_STOCK": "0.0000000"
+   },
+   {
+    "COD_ARTICU": "PTHIBOLPICA0010",
+    "COD_DEPOSI": "01",
+    "CANT_STOCK": "39581.0000000"
+   },
+   {
+    "COD_ARTICU": "PTHIBOLPICA0015",
+    "COD_DEPOSI": "01",
+    "CANT_STOCK": "1143.0000000"
+   },
+   {
+    "COD_ARTICU": "PTHIBOLROLI0002",
+    "COD_DEPOSI": "01",
+    "CANT_STOCK": "424884.0000000"
+   },
+   {
+    "COD_ARTICU": "PTHIBOLROLI0003",
+    "COD_DEPOSI": "01",
+    "CANT_STOCK": "141454.0000000"
+   },
+   {
+    "COD_ARTICU": "PTHIBOLROLI0004",
+    "COD_DEPOSI": "01",
+    "CANT_STOCK": "284.0000000"
+   },
+   {
+    "COD_ARTICU": "PTHIBOLROLI0010",
+    "COD_DEPOSI": "01",
+    "CANT_STOCK": "62345.0000000"
+   },
+   {
+    "COD_ARTICU": "PTHIBOLROLI0015",
+    "COD_DEPOSI": "01",
+    "CANT_STOCK": "774.0000000"
+   },
+   {
+    "COD_ARTICU": "PTHIBARRA",
+    "COD_DEPOSI": "02",
+    "CANT_STOCK": "11356.0000000"
+   },
+   {
+    "COD_ARTICU": "PTHIBOLCEME0015",
+    "COD_DEPOSI": "02",
+    "CANT_STOCK": "0.0000000"
+   },
+   {
+    "COD_ARTICU": "PTHIBOLESCA0010",
+    "COD_DEPOSI": "02",
+    "CANT_STOCK": "1322.0000000"
+   },
+   {
+    "COD_ARTICU": "PTHIBOLESCA0015",
+    "COD_DEPOSI": "02",
+    "CANT_STOCK": "446.0000000"
+   },
+   {
+    "COD_ARTICU": "PTHIBOLPICA0010",
+    "COD_DEPOSI": "02",
+    "CANT_STOCK": "4033.0000000"
+   },
+   {
+    "COD_ARTICU": "PTHIBOLPICA0015",
+    "COD_DEPOSI": "02",
+    "CANT_STOCK": "-295.0000000"
+   },
+   {
+    "COD_ARTICU": "PTHIBOLROLI0002",
+    "COD_DEPOSI": "02",
+    "CANT_STOCK": "16019.0000000"
+   },
+   {
+    "COD_ARTICU": "PTHIBOLROLI0003",
+    "COD_DEPOSI": "02",
+    "CANT_STOCK": "9574.0000000"
+   },
+   {
+    "COD_ARTICU": "PTHIBOLROLI0004",
+    "COD_DEPOSI": "02",
+    "CANT_STOCK": "-70.0000000"
+   },
+   {
+    "COD_ARTICU": "PTHIBOLROLI0010",
+    "COD_DEPOSI": "02",
+    "CANT_STOCK": "11979.0000000"
+   },
+   {
+    "COD_ARTICU": "PTHIBOLROLI0015",
+    "COD_DEPOSI": "02",
+    "CANT_STOCK": "0.0000000"
+   }
+  ]
+ },
+ {
+  "hdr": [
+   "dia",
+   "T_COMP",
+   "USUARIO",
+   "comprobantes"
+  ],
+  "filas": [
+   {
+    "dia": "2026-06-01",
+    "T_COMP": "PDT",
+    "comprobantes": "2"
+   },
+   {
+    "dia": "2026-06-01",
+    "T_COMP": "PDT",
+    "USUARIO": "agustinmedero",
+    "comprobantes": "1"
+   },
+   {
+    "dia": "2026-06-01",
+    "T_COMP": "PDT",
+    "USUARIO": "frankriveros",
+    "comprobantes": "35"
+   },
+   {
+    "dia": "2026-06-01",
+    "T_COMP": "PDT",
+    "USUARIO": "jonathanmachado",
+    "comprobantes": "2"
+   },
+   {
+    "dia": "2026-06-01",
+    "T_COMP": "PDT",
+    "USUARIO": "ulisesparraga",
+    "comprobantes": "6"
+   },
+   {
+    "dia": "2026-06-01",
+    "T_COMP": "PDT",
+    "USUARIO": "walterfran",
+    "comprobantes": "27"
+   },
+   {
+    "dia": "2026-06-01",
+    "T_COMP": "PRO",
+    "USUARIO": "gabrielgarcia",
+    "comprobantes": "5"
+   },
+   {
+    "dia": "2026-06-01",
+    "T_COMP": "PRO",
+    "USUARIO": "lautaropereyra",
+    "comprobantes": "7"
+   },
+   {
+    "dia": "2026-06-02",
+    "T_COMP": "PDT",
+    "comprobantes": "1"
+   },
+   {
+    "dia": "2026-06-02",
+    "T_COMP": "PDT",
+    "USUARIO": "agustinmedero",
+    "comprobantes": "26"
+   },
+   {
+    "dia": "2026-06-02",
+    "T_COMP": "PDT",
+    "USUARIO": "juandiaz",
+    "comprobantes": "1"
+   },
+   {
+    "dia": "2026-06-02",
+    "T_COMP": "PDT",
+    "USUARIO": "ulisesparraga",
+    "comprobantes": "4"
+   },
+   {
+    "dia": "2026-06-02",
+    "T_COMP": "PDT",
+    "USUARIO": "walterfran",
+    "comprobantes": "22"
+   },
+   {
+    "dia": "2026-06-02",
+    "T_COMP": "PRO",
+    "USUARIO": "adrianandrada",
+    "comprobantes": "1"
+   },
+   {
+    "dia": "2026-06-02",
+    "T_COMP": "PRO",
+    "USUARIO": "gabrielgarcia",
+    "comprobantes": "4"
+   },
+   {
+    "dia": "2026-06-02",
+    "T_COMP": "PRO",
+    "USUARIO": "lautaropereyra",
+    "comprobantes": "5"
+   },
+   {
+    "dia": "2026-06-03",
+    "T_COMP": "PDT",
+    "USUARIO": "frankriveros",
+    "comprobantes": "24"
+   },
+   {
+    "dia": "2026-06-03",
+    "T_COMP": "PDT",
+    "USUARIO": "jonathanmachado",
+    "comprobantes": "4"
+   },
+   {
+    "dia": "2026-06-03",
+    "T_COMP": "PDT",
+    "USUARIO": "walterfran",
+    "comprobantes": "20"
+   },
+   {
+    "dia": "2026-06-03",
+    "T_COMP": "PRO",
+    "USUARIO": "gabrielgarcia",
+    "comprobantes": "6"
+   },
+   {
+    "dia": "2026-06-03",
+    "T_COMP": "PRO",
+    "USUARIO": "lautaropereyra",
+    "comprobantes": "4"
+   },
+   {
+    "dia": "2026-06-04",
+    "T_COMP": "PDT",
+    "USUARIO": "frankriveros",
+    "comprobantes": "24"
+   },
+   {
+    "dia": "2026-06-04",
+    "T_COMP": "PDT",
+    "USUARIO": "ulisesparraga",
+    "comprobantes": "6"
+   },
+   {
+    "dia": "2026-06-04",
+    "T_COMP": "PDT",
+    "USUARIO": "walterfran",
+    "comprobantes": "33"
+   },
+   {
+    "dia": "2026-06-04",
+    "T_COMP": "PRO",
+    "USUARIO": "gabrielgarcia",
+    "comprobantes": "5"
+   },
+   {
+    "dia": "2026-06-04",
+    "T_COMP": "PRO",
+    "USUARIO": "lautaropereyra",
+    "comprobantes": "5"
+   },
+   {
+    "dia": "2026-06-05",
+    "T_COMP": "PDT",
+    "comprobantes": "1"
+   },
+   {
+    "dia": "2026-06-05",
+    "T_COMP": "PDT",
+    "USUARIO": "frankriveros",
+    "comprobantes": "35"
+   },
+   {
+    "dia": "2026-06-05",
+    "T_COMP": "PDT",
+    "USUARIO": "jonathanmachado",
+    "comprobantes": "3"
+   },
+   {
+    "dia": "2026-06-05",
+    "T_COMP": "PDT",
+    "USUARIO": "walterfran",
+    "comprobantes": "22"
+   },
+   {
+    "dia": "2026-06-05",
+    "T_COMP": "PRO",
+    "USUARIO": "gabrielgarcia",
+    "comprobantes": "6"
+   },
+   {
+    "dia": "2026-06-05",
+    "T_COMP": "PRO",
+    "USUARIO": "lautaropereyra",
+    "comprobantes": "5"
+   },
+   {
+    "dia": "2026-06-06",
+    "T_COMP": "PRO",
+    "USUARIO": "gabrielgarcia",
+    "comprobantes": "8"
+   },
+   {
+    "dia": "2026-06-06",
+    "T_COMP": "PRO",
+    "USUARIO": "lucascepeda",
+    "comprobantes": "1"
+   },
+   {
+    "dia": "2026-06-07",
+    "T_COMP": "PRO",
+    "USUARIO": "adrianandrada",
+    "comprobantes": "6"
+   },
+   {
+    "dia": "2026-06-08",
+    "T_COMP": "PDT",
+    "USUARIO": "frankriveros",
+    "comprobantes": "12"
+   },
+   {
+    "dia": "2026-06-08",
+    "T_COMP": "PDT",
+    "USUARIO": "jonathanmachado",
+    "comprobantes": "3"
+   },
+   {
+    "dia": "2026-06-08",
+    "T_COMP": "PRO",
+    "USUARIO": "gabrielgarcia",
+    "comprobantes": "2"
+   },
+   {
+    "dia": "2026-06-08",
+    "T_COMP": "PRO",
+    "USUARIO": "lautaropereyra",
+    "comprobantes": "3"
+   },
+   {
+    "dia": "2026-06-08",
+    "T_COMP": "PRO",
+    "USUARIO": "lucascepeda",
+    "comprobantes": "2"
+   },
+   {
+    "dia": "2026-06-09",
+    "T_COMP": "PDT",
+    "comprobantes": "1"
+   },
+   {
+    "dia": "2026-06-09",
+    "T_COMP": "PDT",
+    "USUARIO": "frankriveros",
+    "comprobantes": "21"
+   },
+   {
+    "dia": "2026-06-09",
+    "T_COMP": "PDT",
+    "USUARIO": "jonathanmachado",
+    "comprobantes": "2"
+   },
+   {
+    "dia": "2026-06-09",
+    "T_COMP": "PDT",
+    "USUARIO": "ulisesparraga",
+    "comprobantes": "7"
+   },
+   {
+    "dia": "2026-06-09",
+    "T_COMP": "PRO",
+    "USUARIO": "gabrielgarcia",
+    "comprobantes": "2"
+   },
+   {
+    "dia": "2026-06-09",
+    "T_COMP": "PRO",
+    "USUARIO": "lautaropereyra",
+    "comprobantes": "5"
+   },
+   {
+    "dia": "2026-06-09",
+    "T_COMP": "PRO",
+    "USUARIO": "lucascepeda",
+    "comprobantes": "2"
+   },
+   {
+    "dia": "2026-06-10",
+    "T_COMP": "PDT",
+    "comprobantes": "3"
+   },
+   {
+    "dia": "2026-06-10",
+    "T_COMP": "PDT",
+    "USUARIO": "frankriveros",
+    "comprobantes": "25"
+   },
+   {
+    "dia": "2026-06-10",
+    "T_COMP": "PDT",
+    "USUARIO": "ulisesparraga",
+    "comprobantes": "7"
+   },
+   {
+    "dia": "2026-06-10",
+    "T_COMP": "PDT",
+    "USUARIO": "walterfran",
+    "comprobantes": "18"
+   },
+   {
+    "dia": "2026-06-10",
+    "T_COMP": "PRO",
+    "USUARIO": "lautaropereyra",
+    "comprobantes": "1"
+   },
+   {
+    "dia": "2026-06-11",
+    "T_COMP": "PDT",
+    "USUARIO": "agustinmedero",
+    "comprobantes": "2"
+   },
+   {
+    "dia": "2026-06-11",
+    "T_COMP": "PDT",
+    "USUARIO": "frankriveros",
+    "comprobantes": "24"
+   },
+   {
+    "dia": "2026-06-11",
+    "T_COMP": "PDT",
+    "USUARIO": "ulisesparraga",
+    "comprobantes": "6"
+   },
+   {
+    "dia": "2026-06-11",
+    "T_COMP": "PDT",
+    "USUARIO": "walterfran",
+    "comprobantes": "22"
+   },
+   {
+    "dia": "2026-06-11",
+    "T_COMP": "PRO",
+    "USUARIO": "gabrielgarcia",
+    "comprobantes": "4"
+   },
+   {
+    "dia": "2026-06-11",
+    "T_COMP": "PRO",
+    "USUARIO": "lautaropereyra",
+    "comprobantes": "6"
+   },
+   {
+    "dia": "2026-06-12",
+    "T_COMP": "PDT",
+    "comprobantes": "1"
+   },
+   {
+    "dia": "2026-06-12",
+    "T_COMP": "PDT",
+    "USUARIO": "frankriveros",
+    "comprobantes": "35"
+   },
+   {
+    "dia": "2026-06-12",
+    "T_COMP": "PDT",
+    "USUARIO": "jonathanmachado",
+    "comprobantes": "2"
+   },
+   {
+    "dia": "2026-06-12",
+    "T_COMP": "PDT",
+    "USUARIO": "ulisesparraga",
+    "comprobantes": "6"
+   },
+   {
+    "dia": "2026-06-12",
+    "T_COMP": "PDT",
+    "USUARIO": "walterfran",
+    "comprobantes": "21"
+   },
+   {
+    "dia": "2026-06-12",
+    "T_COMP": "PRO",
+    "USUARIO": "gabrielgarcia",
+    "comprobantes": "3"
+   },
+   {
+    "dia": "2026-06-12",
+    "T_COMP": "PRO",
+    "USUARIO": "lautaropereyra",
+    "comprobantes": "5"
+   },
+   {
+    "dia": "2026-06-12",
+    "T_COMP": "PRO",
+    "USUARIO": "lucascepeda",
+    "comprobantes": "3"
+   },
+   {
+    "dia": "2026-06-13",
+    "T_COMP": "PRO",
+    "USUARIO": "lautaropereyra",
+    "comprobantes": "8"
+   },
+   {
+    "dia": "2026-06-13",
+    "T_COMP": "PRO",
+    "USUARIO": "lucascepeda",
+    "comprobantes": "2"
+   },
+   {
+    "dia": "2026-06-14",
+    "T_COMP": "PRO",
+    "USUARIO": "adrianandrada",
+    "comprobantes": "5"
+   },
+   {
+    "dia": "2026-06-16",
+    "T_COMP": "PDT",
+    "USUARIO": "frankriveros",
+    "comprobantes": "18"
+   },
+   {
+    "dia": "2026-06-16",
+    "T_COMP": "PDT",
+    "USUARIO": "ulisesparraga",
+    "comprobantes": "6"
+   },
+   {
+    "dia": "2026-06-16",
+    "T_COMP": "PDT",
+    "USUARIO": "walterfran",
+    "comprobantes": "27"
+   },
+   {
+    "dia": "2026-06-17",
+    "T_COMP": "PDT",
+    "USUARIO": "frankriveros",
+    "comprobantes": "41"
+   },
+   {
+    "dia": "2026-06-17",
+    "T_COMP": "PDT",
+    "USUARIO": "jonathanmachado",
+    "comprobantes": "2"
+   },
+   {
+    "dia": "2026-06-17",
+    "T_COMP": "PDT",
+    "USUARIO": "ulisesparraga",
+    "comprobantes": "9"
+   },
+   {
+    "dia": "2026-06-17",
+    "T_COMP": "PDT",
+    "USUARIO": "walterfran",
+    "comprobantes": "44"
+   },
+   {
+    "dia": "2026-06-17",
+    "T_COMP": "PRO",
+    "USUARIO": "gabrielgarcia",
+    "comprobantes": "3"
+   },
+   {
+    "dia": "2026-06-17",
+    "T_COMP": "PRO",
+    "USUARIO": "lautaropereyra",
+    "comprobantes": "5"
+   },
+   {
+    "dia": "2026-06-18",
+    "T_COMP": "PDT",
+    "comprobantes": "1"
+   },
+   {
+    "dia": "2026-06-18",
+    "T_COMP": "PDT",
+    "USUARIO": "frankriveros",
+    "comprobantes": "26"
+   },
+   {
+    "dia": "2026-06-18",
+    "T_COMP": "PDT",
+    "USUARIO": "jonathanmachado",
+    "comprobantes": "2"
+   },
+   {
+    "dia": "2026-06-18",
+    "T_COMP": "PDT",
+    "USUARIO": "ulisesparraga",
+    "comprobantes": "7"
+   },
+   {
+    "dia": "2026-06-18",
+    "T_COMP": "PDT",
+    "USUARIO": "walterfran",
+    "comprobantes": "36"
+   },
+   {
+    "dia": "2026-06-18",
+    "T_COMP": "PRO",
+    "USUARIO": "gabrielgarcia",
+    "comprobantes": "5"
+   },
+   {
+    "dia": "2026-06-18",
+    "T_COMP": "PRO",
+    "USUARIO": "lautaropereyra",
+    "comprobantes": "3"
+   },
+   {
+    "dia": "2026-06-19",
+    "T_COMP": "PDT",
+    "USUARIO": "frankriveros",
+    "comprobantes": "34"
+   },
+   {
+    "dia": "2026-06-19",
+    "T_COMP": "PDT",
+    "USUARIO": "ulisesparraga",
+    "comprobantes": "6"
+   },
+   {
+    "dia": "2026-06-19",
+    "T_COMP": "PDT",
+    "USUARIO": "walterfran",
+    "comprobantes": "37"
+   },
+   {
+    "dia": "2026-06-19",
+    "T_COMP": "PRO",
+    "USUARIO": "gabrielgarcia",
+    "comprobantes": "5"
+   },
+   {
+    "dia": "2026-06-19",
+    "T_COMP": "PRO",
+    "USUARIO": "lautaropereyra",
+    "comprobantes": "3"
+   },
+   {
+    "dia": "2026-06-20",
+    "T_COMP": "PRO",
+    "USUARIO": "gabrielgarcia",
+    "comprobantes": "6"
+   },
+   {
+    "dia": "2026-06-20",
+    "T_COMP": "PRO",
+    "USUARIO": "lucascepeda",
+    "comprobantes": "5"
+   },
+   {
+    "dia": "2026-06-22",
+    "T_COMP": "PDT",
+    "USUARIO": "frankriveros",
+    "comprobantes": "24"
+   },
+   {
+    "dia": "2026-06-22",
+    "T_COMP": "PDT",
+    "USUARIO": "jonathanmachado",
+    "comprobantes": "2"
+   },
+   {
+    "dia": "2026-06-22",
+    "T_COMP": "PDT",
+    "USUARIO": "ulisesparraga",
+    "comprobantes": "1"
+   },
+   {
+    "dia": "2026-06-22",
+    "T_COMP": "PDT",
+    "USUARIO": "walterfran",
+    "comprobantes": "43"
+   },
+   {
+    "dia": "2026-06-22",
+    "T_COMP": "PRO",
+    "USUARIO": "gabrielgarcia",
+    "comprobantes": "3"
+   },
+   {
+    "dia": "2026-06-22",
+    "T_COMP": "PRO",
+    "USUARIO": "lautaropereyra",
+    "comprobantes": "2"
+   },
+   {
+    "dia": "2026-06-22",
+    "T_COMP": "PRO",
+    "USUARIO": "miguelbarrientos",
+    "comprobantes": "4"
+   },
+   {
+    "dia": "2026-06-23",
+    "T_COMP": "PDT",
+    "comprobantes": "1"
+   },
+   {
+    "dia": "2026-06-23",
+    "T_COMP": "PDT",
+    "USUARIO": "frankriveros",
+    "comprobantes": "31"
+   },
+   {
+    "dia": "2026-06-23",
+    "T_COMP": "PDT",
+    "USUARIO": "jonathanmachado",
+    "comprobantes": "6"
+   },
+   {
+    "dia": "2026-06-23",
+    "T_COMP": "PDT",
+    "USUARIO": "ulisesparraga",
+    "comprobantes": "1"
+   },
+   {
+    "dia": "2026-06-23",
+    "T_COMP": "PDT",
+    "USUARIO": "walterfran",
+    "comprobantes": "29"
+   },
+   {
+    "dia": "2026-06-23",
+    "T_COMP": "PRO",
+    "USUARIO": "gabrielgarcia",
+    "comprobantes": "4"
+   },
+   {
+    "dia": "2026-06-23",
+    "T_COMP": "PRO",
+    "USUARIO": "lautaropereyra",
+    "comprobantes": "3"
+   },
+   {
+    "dia": "2026-06-24",
+    "T_COMP": "PDT",
+    "comprobantes": "2"
+   },
+   {
+    "dia": "2026-06-24",
+    "T_COMP": "PDT",
+    "USUARIO": "frankriveros",
+    "comprobantes": "24"
+   },
+   {
+    "dia": "2026-06-24",
+    "T_COMP": "PDT",
+    "USUARIO": "jonathanmachado",
+    "comprobantes": "5"
+   },
+   {
+    "dia": "2026-06-24",
+    "T_COMP": "PDT",
+    "USUARIO": "walterfran",
+    "comprobantes": "43"
+   },
+   {
+    "dia": "2026-06-24",
+    "T_COMP": "PRO",
+    "USUARIO": "adrianandrada",
+    "comprobantes": "1"
+   },
+   {
+    "dia": "2026-06-24",
+    "T_COMP": "PRO",
+    "USUARIO": "gabrielgarcia",
+    "comprobantes": "7"
+   },
+   {
+    "dia": "2026-06-24",
+    "T_COMP": "PRO",
+    "USUARIO": "lautaropereyra",
+    "comprobantes": "2"
+   },
+   {
+    "dia": "2026-06-24",
+    "T_COMP": "PRO",
+    "USUARIO": "miguelbarrientos",
+    "comprobantes": "1"
+   },
+   {
+    "dia": "2026-06-25",
+    "T_COMP": "PDT",
+    "USUARIO": "frankriveros",
+    "comprobantes": "30"
+   },
+   {
+    "dia": "2026-06-25",
+    "T_COMP": "PDT",
+    "USUARIO": "jonathanmachado",
+    "comprobantes": "4"
+   },
+   {
+    "dia": "2026-06-25",
+    "T_COMP": "PDT",
+    "USUARIO": "walterfran",
+    "comprobantes": "29"
+   },
+   {
+    "dia": "2026-06-25",
+    "T_COMP": "PRO",
+    "USUARIO": "gabrielgarcia",
+    "comprobantes": "4"
+   },
+   {
+    "dia": "2026-06-25",
+    "T_COMP": "PRO",
+    "USUARIO": "lautaropereyra",
+    "comprobantes": "3"
+   },
+   {
+    "dia": "2026-06-25",
+    "T_COMP": "PRO",
+    "USUARIO": "miguelbarrientos",
+    "comprobantes": "3"
+   },
+   {
+    "dia": "2026-06-26",
+    "T_COMP": "PDT",
+    "USUARIO": "frankriveros",
+    "comprobantes": "23"
+   },
+   {
+    "dia": "2026-06-26",
+    "T_COMP": "PDT",
+    "USUARIO": "jonathanmachado",
+    "comprobantes": "5"
+   },
+   {
+    "dia": "2026-06-26",
+    "T_COMP": "PDT",
+    "USUARIO": "ulisesparraga",
+    "comprobantes": "4"
+   },
+   {
+    "dia": "2026-06-26",
+    "T_COMP": "PDT",
+    "USUARIO": "walterfran",
+    "comprobantes": "35"
+   },
+   {
+    "dia": "2026-06-26",
+    "T_COMP": "PRO",
+    "USUARIO": "gabrielgarcia",
+    "comprobantes": "4"
+   },
+   {
+    "dia": "2026-06-26",
+    "T_COMP": "PRO",
+    "USUARIO": "lautaropereyra",
+    "comprobantes": "6"
+   },
+   {
+    "dia": "2026-06-27",
+    "T_COMP": "PDT",
+    "comprobantes": "1"
+   },
+   {
+    "dia": "2026-06-27",
+    "T_COMP": "PRO",
+    "USUARIO": "adrianandrada",
+    "comprobantes": "3"
+   },
+   {
+    "dia": "2026-06-27",
+    "T_COMP": "PRO",
+    "USUARIO": "lautaropereyra",
+    "comprobantes": "6"
+   },
+   {
+    "dia": "2026-06-29",
+    "T_COMP": "PDT",
+    "comprobantes": "1"
+   },
+   {
+    "dia": "2026-06-29",
+    "T_COMP": "PDT",
+    "USUARIO": "frankriveros",
+    "comprobantes": "15"
+   },
+   {
+    "dia": "2026-06-29",
+    "T_COMP": "PDT",
+    "USUARIO": "jonathanmachado",
+    "comprobantes": "4"
+   },
+   {
+    "dia": "2026-06-29",
+    "T_COMP": "PDT",
+    "USUARIO": "ulisesparraga",
+    "comprobantes": "5"
+   },
+   {
+    "dia": "2026-06-29",
+    "T_COMP": "PDT",
+    "USUARIO": "walterfran",
+    "comprobantes": "24"
+   },
+   {
+    "dia": "2026-06-29",
+    "T_COMP": "PRO",
+    "USUARIO": "adrianandrada",
+    "comprobantes": "2"
+   },
+   {
+    "dia": "2026-06-29",
+    "T_COMP": "PRO",
+    "USUARIO": "gabrielgarcia",
+    "comprobantes": "6"
+   },
+   {
+    "dia": "2026-06-29",
+    "T_COMP": "PRO",
+    "USUARIO": "lautaropereyra",
+    "comprobantes": "1"
+   },
+   {
+    "dia": "2026-06-30",
+    "T_COMP": "PDT",
+    "USUARIO": "frankriveros",
+    "comprobantes": "22"
+   },
+   {
+    "dia": "2026-06-30",
+    "T_COMP": "PDT",
+    "USUARIO": "jonathanmachado",
+    "comprobantes": "3"
+   },
+   {
+    "dia": "2026-06-30",
+    "T_COMP": "PDT",
+    "USUARIO": "ulisesparraga",
+    "comprobantes": "6"
+   },
+   {
+    "dia": "2026-06-30",
+    "T_COMP": "PDT",
+    "USUARIO": "walterfran",
+    "comprobantes": "23"
+   },
+   {
+    "dia": "2026-06-30",
+    "T_COMP": "PRO",
+    "USUARIO": "adrianandrada",
+    "comprobantes": "4"
+   },
+   {
+    "dia": "2026-06-30",
+    "T_COMP": "PRO",
+    "USUARIO": "gabrielgarcia",
+    "comprobantes": "3"
+   },
+   {
+    "dia": "2026-07-01",
+    "T_COMP": "PDT",
+    "USUARIO": "frankriveros",
+    "comprobantes": "23"
+   },
+   {
+    "dia": "2026-07-01",
+    "T_COMP": "PDT",
+    "USUARIO": "jonathanmachado",
+    "comprobantes": "2"
+   },
+   {
+    "dia": "2026-07-01",
+    "T_COMP": "PDT",
+    "USUARIO": "ulisesparraga",
+    "comprobantes": "10"
+   },
+   {
+    "dia": "2026-07-01",
+    "T_COMP": "PDT",
+    "USUARIO": "walterfran",
+    "comprobantes": "25"
+   },
+   {
+    "dia": "2026-07-01",
+    "T_COMP": "PRO",
+    "USUARIO": "adrianandrada",
+    "comprobantes": "3"
+   },
+   {
+    "dia": "2026-07-01",
+    "T_COMP": "PRO",
+    "USUARIO": "gabrielgarcia",
+    "comprobantes": "1"
+   },
+   {
+    "dia": "2026-07-01",
+    "T_COMP": "PRO",
+    "USUARIO": "lautaropereyra",
+    "comprobantes": "2"
+   },
+   {
+    "dia": "2026-07-02",
+    "T_COMP": "PDT",
+    "comprobantes": "1"
+   },
+   {
+    "dia": "2026-07-02",
+    "T_COMP": "PDT",
+    "USUARIO": "frankriveros",
+    "comprobantes": "22"
+   },
+   {
+    "dia": "2026-07-02",
+    "T_COMP": "PDT",
+    "USUARIO": "jonathanmachado",
+    "comprobantes": "2"
+   },
+   {
+    "dia": "2026-07-02",
+    "T_COMP": "PDT",
+    "USUARIO": "ulisesparraga",
+    "comprobantes": "6"
+   },
+   {
+    "dia": "2026-07-02",
+    "T_COMP": "PDT",
+    "USUARIO": "walterfran",
+    "comprobantes": "24"
+   },
+   {
+    "dia": "2026-07-02",
+    "T_COMP": "PRO",
+    "USUARIO": "adrianandrada",
+    "comprobantes": "3"
+   },
+   {
+    "dia": "2026-07-02",
+    "T_COMP": "PRO",
+    "USUARIO": "gabrielgarcia",
+    "comprobantes": "1"
+   },
+   {
+    "dia": "2026-07-02",
+    "T_COMP": "PRO",
+    "USUARIO": "lautaropereyra",
+    "comprobantes": "4"
+   },
+   {
+    "dia": "2026-07-03",
+    "T_COMP": "PDT",
+    "USUARIO": "frankriveros",
+    "comprobantes": "31"
+   },
+   {
+    "dia": "2026-07-03",
+    "T_COMP": "PDT",
+    "USUARIO": "jonathanmachado",
+    "comprobantes": "1"
+   },
+   {
+    "dia": "2026-07-03",
+    "T_COMP": "PDT",
+    "USUARIO": "ulisesparraga",
+    "comprobantes": "3"
+   },
+   {
+    "dia": "2026-07-03",
+    "T_COMP": "PDT",
+    "USUARIO": "walterfran",
+    "comprobantes": "16"
+   },
+   {
+    "dia": "2026-07-03",
+    "T_COMP": "PRO",
+    "USUARIO": "adrianandrada",
+    "comprobantes": "1"
+   },
+   {
+    "dia": "2026-07-03",
+    "T_COMP": "PRO",
+    "USUARIO": "gabrielgarcia",
+    "comprobantes": "4"
+   },
+   {
+    "dia": "2026-07-03",
+    "T_COMP": "PRO",
+    "USUARIO": "lautaropereyra",
+    "comprobantes": "3"
+   },
+   {
+    "dia": "2026-07-04",
+    "T_COMP": "PDT",
+    "comprobantes": "1"
+   },
+   {
+    "dia": "2026-07-04",
+    "T_COMP": "PRO",
+    "USUARIO": "gabrielgarcia",
+    "comprobantes": "6"
+   },
+   {
+    "dia": "2026-07-06",
+    "T_COMP": "PDT",
+    "USUARIO": "frankriveros",
+    "comprobantes": "40"
+   },
+   {
+    "dia": "2026-07-06",
+    "T_COMP": "PDT",
+    "USUARIO": "ulisesparraga",
+    "comprobantes": "7"
+   },
+   {
+    "dia": "2026-07-06",
+    "T_COMP": "PDT",
+    "USUARIO": "walterfran",
+    "comprobantes": "50"
+   },
+   {
+    "dia": "2026-07-06",
+    "T_COMP": "PRO",
+    "USUARIO": "gabrielgarcia",
+    "comprobantes": "3"
+   },
+   {
+    "dia": "2026-07-06",
+    "T_COMP": "PRO",
+    "USUARIO": "lautaropereyra",
+    "comprobantes": "3"
+   },
+   {
+    "dia": "2026-07-07",
+    "T_COMP": "PDT",
+    "USUARIO": "frankriveros",
+    "comprobantes": "32"
+   },
+   {
+    "dia": "2026-07-07",
+    "T_COMP": "PDT",
+    "USUARIO": "ulisesparraga",
+    "comprobantes": "5"
+   },
+   {
+    "dia": "2026-07-07",
+    "T_COMP": "PDT",
+    "USUARIO": "walterfran",
+    "comprobantes": "32"
+   },
+   {
+    "dia": "2026-07-07",
+    "T_COMP": "PRO",
+    "USUARIO": "gabrielgarcia",
+    "comprobantes": "3"
+   },
+   {
+    "dia": "2026-07-07",
+    "T_COMP": "PRO",
+    "USUARIO": "lautaropereyra",
+    "comprobantes": "5"
+   },
+   {
+    "dia": "2026-07-08",
+    "T_COMP": "PDT",
+    "USUARIO": "frankriveros",
+    "comprobantes": "35"
+   },
+   {
+    "dia": "2026-07-08",
+    "T_COMP": "PDT",
+    "USUARIO": "ulisesparraga",
+    "comprobantes": "7"
+   },
+   {
+    "dia": "2026-07-08",
+    "T_COMP": "PDT",
+    "USUARIO": "walterfran",
+    "comprobantes": "40"
+   },
+   {
+    "dia": "2026-07-08",
+    "T_COMP": "PRO",
+    "USUARIO": "gabrielgarcia",
+    "comprobantes": "3"
+   },
+   {
+    "dia": "2026-07-08",
+    "T_COMP": "PRO",
+    "USUARIO": "lautaropereyra",
+    "comprobantes": "1"
+   },
+   {
+    "dia": "2026-07-08",
+    "T_COMP": "PRO",
+    "USUARIO": "lucascepeda",
+    "comprobantes": "3"
+   },
+   {
+    "dia": "2026-07-09",
+    "T_COMP": "PRO",
+    "USUARIO": "adrianandrada",
+    "comprobantes": "3"
+   },
+   {
+    "dia": "2026-07-10",
+    "T_COMP": "PDT",
+    "comprobantes": "1"
+   },
+   {
+    "dia": "2026-07-10",
+    "T_COMP": "PDT",
+    "USUARIO": "frankriveros",
+    "comprobantes": "35"
+   },
+   {
+    "dia": "2026-07-10",
+    "T_COMP": "PDT",
+    "USUARIO": "ulisesparraga",
+    "comprobantes": "6"
+   },
+   {
+    "dia": "2026-07-10",
+    "T_COMP": "PDT",
+    "USUARIO": "walterfran",
+    "comprobantes": "33"
+   },
+   {
+    "dia": "2026-07-10",
+    "T_COMP": "PRO",
+    "USUARIO": "gabrielgarcia",
+    "comprobantes": "4"
+   },
+   {
+    "dia": "2026-07-10",
+    "T_COMP": "PRO",
+    "USUARIO": "lautaropereyra",
+    "comprobantes": "5"
+   },
+   {
+    "dia": "2026-07-11",
+    "T_COMP": "PDT",
+    "comprobantes": "1"
+   },
+   {
+    "dia": "2026-07-11",
+    "T_COMP": "PRO",
+    "USUARIO": "lautaropereyra",
+    "comprobantes": "7"
+   },
+   {
+    "dia": "2026-07-12",
+    "T_COMP": "PRO",
+    "USUARIO": "adrianandrada",
+    "comprobantes": "4"
+   },
+   {
+    "dia": "2026-07-13",
+    "T_COMP": "PDT",
+    "USUARIO": "frankriveros",
+    "comprobantes": "26"
+   },
+   {
+    "dia": "2026-07-13",
+    "T_COMP": "PDT",
+    "USUARIO": "ulisesparraga",
+    "comprobantes": "7"
+   },
+   {
+    "dia": "2026-07-13",
+    "T_COMP": "PDT",
+    "USUARIO": "walterfran",
+    "comprobantes": "25"
+   },
+   {
+    "dia": "2026-07-13",
+    "T_COMP": "PRO",
+    "USUARIO": "adrianandrada",
+    "comprobantes": "4"
+   },
+   {
+    "dia": "2026-07-13",
+    "T_COMP": "PRO",
+    "USUARIO": "lautaropereyra",
+    "comprobantes": "6"
+   },
+   {
+    "dia": "2026-07-14",
+    "T_COMP": "PDT",
+    "USUARIO": "frankriveros",
+    "comprobantes": "24"
+   },
+   {
+    "dia": "2026-07-14",
+    "T_COMP": "PDT",
+    "USUARIO": "jonathanmachado",
+    "comprobantes": "4"
+   },
+   {
+    "dia": "2026-07-14",
+    "T_COMP": "PDT",
+    "USUARIO": "ulisesparraga",
+    "comprobantes": "6"
+   },
+   {
+    "dia": "2026-07-14",
+    "T_COMP": "PDT",
+    "USUARIO": "walterfran",
+    "comprobantes": "25"
+   },
+   {
+    "dia": "2026-07-14",
+    "T_COMP": "PRO",
+    "USUARIO": "adrianandrada",
+    "comprobantes": "1"
+   },
+   {
+    "dia": "2026-07-14",
+    "T_COMP": "PRO",
+    "USUARIO": "gabrielgarcia",
+    "comprobantes": "4"
+   },
+   {
+    "dia": "2026-07-15",
+    "T_COMP": "PDT",
+    "USUARIO": "frankriveros",
+    "comprobantes": "20"
+   },
+   {
+    "dia": "2026-07-15",
+    "T_COMP": "PDT",
+    "USUARIO": "ulisesparraga",
+    "comprobantes": "7"
+   },
+   {
+    "dia": "2026-07-15",
+    "T_COMP": "PRO",
+    "USUARIO": "gabrielgarcia",
+    "comprobantes": "1"
+   },
+   {
+    "dia": "2026-07-15",
+    "T_COMP": "PRO",
+    "USUARIO": "lautaropereyra",
+    "comprobantes": "3"
+   },
+   {
+    "dia": "2026-07-16",
+    "T_COMP": "PDT",
+    "USUARIO": "frankriveros",
+    "comprobantes": "26"
+   },
+   {
+    "dia": "2026-07-16",
+    "T_COMP": "PDT",
+    "USUARIO": "jonathanmachado",
+    "comprobantes": "1"
+   },
+   {
+    "dia": "2026-07-16",
+    "T_COMP": "PDT",
+    "USUARIO": "ulisesparraga",
+    "comprobantes": "6"
+   },
+   {
+    "dia": "2026-07-16",
+    "T_COMP": "PDT",
+    "USUARIO": "walterfran",
+    "comprobantes": "23"
+   },
+   {
+    "dia": "2026-07-16",
+    "T_COMP": "PRO",
+    "USUARIO": "gabrielgarcia",
+    "comprobantes": "6"
+   },
+   {
+    "dia": "2026-07-16",
+    "T_COMP": "PRO",
+    "USUARIO": "lautaropereyra",
+    "comprobantes": "4"
+   },
+   {
+    "dia": "2026-07-17",
+    "T_COMP": "PDT",
+    "USUARIO": "frankriveros",
+    "comprobantes": "27"
+   },
+   {
+    "dia": "2026-07-17",
+    "T_COMP": "PDT",
+    "USUARIO": "jonathanmachado",
+    "comprobantes": "1"
+   },
+   {
+    "dia": "2026-07-17",
+    "T_COMP": "PDT",
+    "USUARIO": "ulisesparraga",
+    "comprobantes": "9"
+   },
+   {
+    "dia": "2026-07-17",
+    "T_COMP": "PDT",
+    "USUARIO": "walterfran",
+    "comprobantes": "25"
+   },
+   {
+    "dia": "2026-07-17",
+    "T_COMP": "PRO",
+    "USUARIO": "adrianandrada",
+    "comprobantes": "2"
+   },
+   {
+    "dia": "2026-07-17",
+    "T_COMP": "PRO",
+    "USUARIO": "gabrielgarcia",
+    "comprobantes": "3"
+   },
+   {
+    "dia": "2026-07-17",
+    "T_COMP": "PRO",
+    "USUARIO": "lautaropereyra",
+    "comprobantes": "3"
+   },
+   {
+    "dia": "2026-07-18",
+    "T_COMP": "PDT",
+    "USUARIO": "walterfran",
+    "comprobantes": "30"
+   },
+   {
+    "dia": "2026-07-18",
+    "T_COMP": "PRO",
+    "USUARIO": "gabrielgarcia",
+    "comprobantes": "3"
+   },
+   {
+    "dia": "2026-07-19",
+    "T_COMP": "PRO",
+    "USUARIO": "adrianandrada",
+    "comprobantes": "4"
+   },
+   {
+    "dia": "2026-07-20",
+    "T_COMP": "PDT",
+    "comprobantes": "3"
+   },
+   {
+    "dia": "2026-07-20",
+    "T_COMP": "PDT",
+    "USUARIO": "agustinmedero",
+    "comprobantes": "23"
+   },
+   {
+    "dia": "2026-07-20",
+    "T_COMP": "PDT",
+    "USUARIO": "frankriveros",
+    "comprobantes": "10"
+   },
+   {
+    "dia": "2026-07-20",
+    "T_COMP": "PDT",
+    "USUARIO": "jonathanmachado",
+    "comprobantes": "6"
+   },
+   {
+    "dia": "2026-07-20",
+    "T_COMP": "PDT",
+    "USUARIO": "ulisesparraga",
+    "comprobantes": "2"
+   },
+   {
+    "dia": "2026-07-20",
+    "T_COMP": "PDT",
+    "USUARIO": "walterfran",
+    "comprobantes": "25"
+   },
+   {
+    "dia": "2026-07-20",
+    "T_COMP": "PRO",
+    "USUARIO": "gabrielgarcia",
+    "comprobantes": "5"
+   },
+   {
+    "dia": "2026-07-20",
+    "T_COMP": "PRO",
+    "USUARIO": "lautaropereyra",
+    "comprobantes": "5"
+   },
+   {
+    "dia": "2026-07-21",
+    "T_COMP": "PDT",
+    "USUARIO": "frankriveros",
+    "comprobantes": "40"
+   },
+   {
+    "dia": "2026-07-21",
+    "T_COMP": "PDT",
+    "USUARIO": "jonathanmachado",
+    "comprobantes": "6"
+   },
+   {
+    "dia": "2026-07-21",
+    "T_COMP": "PDT",
+    "USUARIO": "ulisesparraga",
+    "comprobantes": "1"
+   },
+   {
+    "dia": "2026-07-21",
+    "T_COMP": "PDT",
+    "USUARIO": "walterfran",
+    "comprobantes": "29"
+   },
+   {
+    "dia": "2026-07-21",
+    "T_COMP": "PRO",
+    "USUARIO": "gabrielgarcia",
+    "comprobantes": "3"
+   },
+   {
+    "dia": "2026-07-21",
+    "T_COMP": "PRO",
+    "USUARIO": "lautaropereyra",
+    "comprobantes": "4"
+   },
+   {
+    "dia": "2026-07-21",
+    "T_COMP": "PRO",
+    "USUARIO": "lucascepeda",
+    "comprobantes": "2"
+   },
+   {
+    "dia": "2026-07-22",
+    "T_COMP": "PDT",
+    "USUARIO": "frankriveros",
+    "comprobantes": "41"
+   },
+   {
+    "dia": "2026-07-22",
+    "T_COMP": "PDT",
+    "USUARIO": "jonathanmachado",
+    "comprobantes": "4"
+   },
+   {
+    "dia": "2026-07-22",
+    "T_COMP": "PDT",
+    "USUARIO": "walterfran",
+    "comprobantes": "32"
+   },
+   {
+    "dia": "2026-07-22",
+    "T_COMP": "PRO",
+    "USUARIO": "lautaropereyra",
+    "comprobantes": "3"
+   },
+   {
+    "dia": "2026-07-22",
+    "T_COMP": "PRO",
+    "USUARIO": "lucascepeda",
+    "comprobantes": "2"
+   },
+   {
+    "dia": "2026-07-23",
+    "T_COMP": "PDT",
+    "USUARIO": "frankriveros",
+    "comprobantes": "32"
+   },
+   {
+    "dia": "2026-07-23",
+    "T_COMP": "PDT",
+    "USUARIO": "jonathanmachado",
+    "comprobantes": "8"
+   },
+   {
+    "dia": "2026-07-23",
+    "T_COMP": "PDT",
+    "USUARIO": "walterfran",
+    "comprobantes": "26"
+   },
+   {
+    "dia": "2026-07-23",
+    "T_COMP": "PRO",
+    "USUARIO": "gabrielgarcia",
+    "comprobantes": "4"
+   },
+   {
+    "dia": "2026-07-24",
+    "T_COMP": "PDT",
+    "comprobantes": "2"
+   },
+   {
+    "dia": "2026-07-24",
+    "T_COMP": "PDT",
+    "USUARIO": "frankriveros",
+    "comprobantes": "24"
+   },
+   {
+    "dia": "2026-07-24",
+    "T_COMP": "PDT",
+    "USUARIO": "jonathanmachado",
+    "comprobantes": "7"
+   },
+   {
+    "dia": "2026-07-24",
+    "T_COMP": "PDT",
+    "USUARIO": "walterfran",
+    "comprobantes": "23"
+   },
+   {
+    "dia": "2026-07-24",
+    "T_COMP": "PRO",
+    "USUARIO": "gabrielgarcia",
+    "comprobantes": "5"
+   },
+   {
+    "dia": "2026-07-24",
+    "T_COMP": "PRO",
+    "USUARIO": "lautaropereyra",
+    "comprobantes": "4"
+   },
+   {
+    "dia": "2026-07-25",
+    "T_COMP": "PDT",
+    "comprobantes": "1"
+   },
+   {
+    "dia": "2026-07-25",
+    "T_COMP": "PRO",
+    "USUARIO": "lautaropereyra",
+    "comprobantes": "5"
+   },
+   {
+    "dia": "2026-07-26",
+    "T_COMP": "PRO",
+    "USUARIO": "adrianandrada",
+    "comprobantes": "3"
+   },
+   {
+    "dia": "2026-07-27",
+    "T_COMP": "PDT",
+    "USUARIO": "frankriveros",
+    "comprobantes": "35"
+   },
+   {
+    "dia": "2026-07-27",
+    "T_COMP": "PDT",
+    "USUARIO": "ulisesparraga",
+    "comprobantes": "7"
+   },
+   {
+    "dia": "2026-07-27",
+    "T_COMP": "PDT",
+    "USUARIO": "walterfran",
+    "comprobantes": "29"
+   },
+   {
+    "dia": "2026-07-27",
+    "T_COMP": "PRO",
+    "USUARIO": "adrianandrada",
+    "comprobantes": "3"
+   },
+   {
+    "dia": "2026-07-27",
+    "T_COMP": "PRO",
+    "USUARIO": "lautaropereyra",
+    "comprobantes": "5"
+   },
+   {
+    "dia": "2026-07-28",
+    "T_COMP": "PDT",
+    "USUARIO": "frankriveros",
+    "comprobantes": "37"
+   },
+   {
+    "dia": "2026-07-28",
+    "T_COMP": "PDT",
+    "USUARIO": "ulisesparraga",
+    "comprobantes": "9"
+   },
+   {
+    "dia": "2026-07-28",
+    "T_COMP": "PDT",
+    "USUARIO": "walterfran",
+    "comprobantes": "30"
+   },
+   {
+    "dia": "2026-07-28",
+    "T_COMP": "PRO",
+    "USUARIO": "adrianandrada",
+    "comprobantes": "1"
+   },
+   {
+    "dia": "2026-07-28",
+    "T_COMP": "PRO",
+    "USUARIO": "lautaropereyra",
+    "comprobantes": "4"
+   },
+   {
+    "dia": "2026-07-29",
+    "T_COMP": "PDT",
+    "USUARIO": "frankriveros",
+    "comprobantes": "29"
+   },
+   {
+    "dia": "2026-07-29",
+    "T_COMP": "PDT",
+    "USUARIO": "ulisesparraga",
+    "comprobantes": "11"
+   },
+   {
+    "dia": "2026-07-29",
+    "T_COMP": "PDT",
+    "USUARIO": "walterfran",
+    "comprobantes": "27"
+   },
+   {
+    "dia": "2026-07-29",
+    "T_COMP": "PRO",
+    "USUARIO": "adrianandrada",
+    "comprobantes": "1"
+   },
+   {
+    "dia": "2026-07-29",
+    "T_COMP": "PRO",
+    "USUARIO": "lautaropereyra",
+    "comprobantes": "6"
+   },
+   {
+    "dia": "2026-07-30",
+    "T_COMP": "PDT",
+    "USUARIO": "frankriveros",
+    "comprobantes": "28"
+   },
+   {
+    "dia": "2026-07-30",
+    "T_COMP": "PDT",
+    "USUARIO": "ulisesparraga",
+    "comprobantes": "7"
+   },
+   {
+    "dia": "2026-07-30",
+    "T_COMP": "PDT",
+    "USUARIO": "walterfran",
+    "comprobantes": "28"
+   },
+   {
+    "dia": "2026-07-30",
+    "T_COMP": "PRO",
+    "USUARIO": "lautaropereyra",
+    "comprobantes": "1"
+   },
+   {
+    "dia": "2026-07-31",
+    "T_COMP": "PDT",
+    "USUARIO": "frankriveros",
+    "comprobantes": "31"
+   },
+   {
+    "dia": "2026-07-31",
+    "T_COMP": "PDT",
+    "USUARIO": "jonathanmachado",
+    "comprobantes": "4"
+   },
+   {
+    "dia": "2026-07-31",
+    "T_COMP": "PDT",
+    "USUARIO": "walterfran",
+    "comprobantes": "31"
+   },
+   {
+    "dia": "2026-07-31",
+    "T_COMP": "PRO",
+    "USUARIO": "lautaropereyra",
+    "comprobantes": "10"
+   },
+   {
+    "dia": "2026-08-01",
+    "T_COMP": "PDT",
+    "comprobantes": "1"
+   },
+   {
+    "dia": "2026-08-01",
+    "T_COMP": "PRO",
+    "USUARIO": "lautaropereyra",
+    "comprobantes": "1"
+   },
+   {
+    "dia": "2026-08-02",
+    "T_COMP": "PRO",
+    "USUARIO": "adrianandrada",
+    "comprobantes": "4"
+   },
+   {
+    "dia": "2026-08-03",
+    "T_COMP": "PDT",
+    "comprobantes": "3"
+   },
+   {
+    "dia": "2026-08-03",
+    "T_COMP": "PDT",
+    "USUARIO": "frankriveros",
+    "comprobantes": "51"
+   },
+   {
+    "dia": "2026-08-03",
+    "T_COMP": "PDT",
+    "USUARIO": "jonathanmachado",
+    "comprobantes": "7"
+   },
+   {
+    "dia": "2026-08-03",
+    "T_COMP": "PDT",
+    "USUARIO": "ulisesparraga",
+    "comprobantes": "1"
+   },
+   {
+    "dia": "2026-08-03",
+    "T_COMP": "PDT",
+    "USUARIO": "walterfran",
+    "comprobantes": "41"
+   },
+   {
+    "dia": "2026-08-03",
+    "T_COMP": "PRO",
+    "USUARIO": "gabrielgarcia",
+    "comprobantes": "10"
+   },
+   {
+    "dia": "2026-08-03",
+    "T_COMP": "PRO",
+    "USUARIO": "lautaropereyra",
+    "comprobantes": "9"
+   },
+   {
+    "dia": "2026-08-03",
+    "T_COMP": "PRO",
+    "USUARIO": "lucascepeda",
+    "comprobantes": "1"
+   },
+   {
+    "dia": "2026-08-04",
+    "T_COMP": "PDT",
+    "comprobantes": "1"
+   },
+   {
+    "dia": "2026-08-04",
+    "T_COMP": "PDT",
+    "USUARIO": "frankriveros",
+    "comprobantes": "51"
+   },
+   {
+    "dia": "2026-08-04",
+    "T_COMP": "PDT",
+    "USUARIO": "jonathanmachado",
+    "comprobantes": "8"
+   },
+   {
+    "dia": "2026-08-04",
+    "T_COMP": "PDT",
+    "USUARIO": "walterfran",
+    "comprobantes": "40"
+   },
+   {
+    "dia": "2026-08-04",
+    "T_COMP": "PRO",
+    "USUARIO": "gabrielgarcia",
+    "comprobantes": "13"
+   },
+   {
+    "dia": "2026-08-04",
+    "T_COMP": "PRO",
+    "USUARIO": "lautaropereyra",
+    "comprobantes": "7"
+   },
+   {
+    "dia": "2026-08-04",
+    "T_COMP": "PRO",
+    "USUARIO": "lucascepeda",
+    "comprobantes": "2"
+   },
+   {
+    "dia": "2026-08-05",
+    "T_COMP": "PDT",
+    "comprobantes": "2"
+   },
+   {
+    "dia": "2026-08-05",
+    "T_COMP": "PDT",
+    "USUARIO": "frankriveros",
+    "comprobantes": "44"
+   },
+   {
+    "dia": "2026-08-05",
+    "T_COMP": "PDT",
+    "USUARIO": "jonathanmachado",
+    "comprobantes": "5"
+   },
+   {
+    "dia": "2026-08-05",
+    "T_COMP": "PDT",
+    "USUARIO": "ulisesparraga",
+    "comprobantes": "2"
+   },
+   {
+    "dia": "2026-08-05",
+    "T_COMP": "PDT",
+    "USUARIO": "walterfran",
+    "comprobantes": "38"
+   },
+   {
+    "dia": "2026-08-05",
+    "T_COMP": "PRO",
+    "USUARIO": "gabrielgarcia",
+    "comprobantes": "10"
+   },
+   {
+    "dia": "2026-08-05",
+    "T_COMP": "PRO",
+    "USUARIO": "lautaropereyra",
+    "comprobantes": "9"
+   },
+   {
+    "dia": "2026-08-05",
+    "T_COMP": "PRO",
+    "USUARIO": "lucascepeda",
+    "comprobantes": "2"
+   },
+   {
+    "dia": "2026-08-06",
+    "T_COMP": "PDT",
+    "comprobantes": "1"
+   },
+   {
+    "dia": "2026-08-06",
+    "T_COMP": "PDT",
+    "USUARIO": "frankriveros",
+    "comprobantes": "43"
+   },
+   {
+    "dia": "2026-08-06",
+    "T_COMP": "PDT",
+    "USUARIO": "jonathanmachado",
+    "comprobantes": "5"
+   },
+   {
+    "dia": "2026-08-06",
+    "T_COMP": "PDT",
+    "USUARIO": "walterfran",
+    "comprobantes": "40"
+   },
+   {
+    "dia": "2026-08-06",
+    "T_COMP": "PRO",
+    "USUARIO": "gabrielgarcia",
+    "comprobantes": "13"
+   },
+   {
+    "dia": "2026-08-06",
+    "T_COMP": "PRO",
+    "USUARIO": "lautaropereyra",
+    "comprobantes": "4"
+   },
+   {
+    "dia": "2026-08-06",
+    "T_COMP": "PRO",
+    "USUARIO": "lucascepeda",
+    "comprobantes": "2"
+   },
+   {
+    "dia": "2026-08-07",
+    "T_COMP": "PDT",
+    "USUARIO": "frankriveros",
+    "comprobantes": "45"
+   },
+   {
+    "dia": "2026-08-07",
+    "T_COMP": "PDT",
+    "USUARIO": "jonathanmachado",
+    "comprobantes": "5"
+   },
+   {
+    "dia": "2026-08-07",
+    "T_COMP": "PDT",
+    "USUARIO": "ulisesparraga",
+    "comprobantes": "2"
+   },
+   {
+    "dia": "2026-08-07",
+    "T_COMP": "PDT",
+    "USUARIO": "walterfran",
+    "comprobantes": "37"
+   },
+   {
+    "dia": "2026-08-07",
+    "T_COMP": "PRO",
+    "USUARIO": "gabrielgarcia",
+    "comprobantes": "10"
+   },
+   {
+    "dia": "2026-08-07",
+    "T_COMP": "PRO",
+    "USUARIO": "lautaropereyra",
+    "comprobantes": "7"
+   },
+   {
+    "dia": "2026-08-07",
+    "T_COMP": "PRO",
+    "USUARIO": "lucascepeda",
+    "comprobantes": "3"
+   },
+   {
+    "dia": "2026-08-08",
+    "T_COMP": "PRO",
+    "USUARIO": "lautaropereyra",
+    "comprobantes": "12"
+   },
+   {
+    "dia": "2026-08-09",
+    "T_COMP": "PRO",
+    "USUARIO": "adrianandrada",
+    "comprobantes": "4"
+   },
+   {
+    "dia": "2026-08-10",
+    "T_COMP": "PDT",
+    "USUARIO": "frankriveros",
+    "comprobantes": "40"
+   },
+   {
+    "dia": "2026-08-10",
+    "T_COMP": "PDT",
+    "USUARIO": "jonathanmachado",
+    "comprobantes": "2"
+   },
+   {
+    "dia": "2026-08-10",
+    "T_COMP": "PDT",
+    "USUARIO": "ulisesparraga",
+    "comprobantes": "4"
+   },
+   {
+    "dia": "2026-08-10",
+    "T_COMP": "PDT",
+    "USUARIO": "walterfran",
+    "comprobantes": "39"
+   },
+   {
+    "dia": "2026-08-10",
+    "T_COMP": "PRO",
+    "USUARIO": "adrianandrada",
+    "comprobantes": "2"
+   },
+   {
+    "dia": "2026-08-10",
+    "T_COMP": "PRO",
+    "USUARIO": "gabrielgarcia",
+    "comprobantes": "11"
+   },
+   {
+    "dia": "2026-08-10",
+    "T_COMP": "PRO",
+    "USUARIO": "lautaropereyra",
+    "comprobantes": "6"
+   },
+   {
+    "dia": "2026-08-11",
+    "T_COMP": "PDT",
+    "USUARIO": "frankriveros",
+    "comprobantes": "38"
+   },
+   {
+    "dia": "2026-08-11",
+    "T_COMP": "PDT",
+    "USUARIO": "jonathanmachado",
+    "comprobantes": "2"
+   },
+   {
+    "dia": "2026-08-11",
+    "T_COMP": "PDT",
+    "USUARIO": "ulisesparraga",
+    "comprobantes": "6"
+   },
+   {
+    "dia": "2026-08-11",
+    "T_COMP": "PDT",
+    "USUARIO": "walterfran",
+    "comprobantes": "41"
+   },
+   {
+    "dia": "2026-08-11",
+    "T_COMP": "PRO",
+    "USUARIO": "gabrielgarcia",
+    "comprobantes": "8"
+   },
+   {
+    "dia": "2026-08-11",
+    "T_COMP": "PRO",
+    "USUARIO": "lautaropereyra",
+    "comprobantes": "10"
+   },
+   {
+    "dia": "2026-08-12",
+    "T_COMP": "PDT",
+    "USUARIO": "frankriveros",
+    "comprobantes": "39"
+   },
+   {
+    "dia": "2026-08-12",
+    "T_COMP": "PDT",
+    "USUARIO": "ulisesparraga",
+    "comprobantes": "10"
+   },
+   {
+    "dia": "2026-08-12",
+    "T_COMP": "PDT",
+    "USUARIO": "walterfran",
+    "comprobantes": "39"
+   },
+   {
+    "dia": "2026-08-12",
+    "T_COMP": "PRO",
+    "USUARIO": "gabrielgarcia",
+    "comprobantes": "7"
+   },
+   {
+    "dia": "2026-08-12",
+    "T_COMP": "PRO",
+    "USUARIO": "lautaropereyra",
+    "comprobantes": "10"
+   },
+   {
+    "dia": "2026-08-12",
+    "T_COMP": "PRO",
+    "USUARIO": "lucascepeda",
+    "comprobantes": "3"
+   },
+   {
+    "dia": "2026-08-13",
+    "T_COMP": "PDT",
+    "comprobantes": "1"
+   },
+   {
+    "dia": "2026-08-13",
+    "T_COMP": "PDT",
+    "USUARIO": "flaviolopez",
+    "comprobantes": "13"
+   },
+   {
+    "dia": "2026-08-13",
+    "T_COMP": "PDT",
+    "USUARIO": "frankriveros",
+    "comprobantes": "30"
+   },
+   {
+    "dia": "2026-08-13",
+    "T_COMP": "PDT",
+    "USUARIO": "ulisesparraga",
+    "comprobantes": "6"
+   },
+   {
+    "dia": "2026-08-13",
+    "T_COMP": "PDT",
+    "USUARIO": "walterfran",
+    "comprobantes": "42"
+   },
+   {
+    "dia": "2026-08-13",
+    "T_COMP": "PRO",
+    "USUARIO": "adrianandrada",
+    "comprobantes": "2"
+   },
+   {
+    "dia": "2026-08-13",
+    "T_COMP": "PRO",
+    "USUARIO": "gabrielgarcia",
+    "comprobantes": "6"
+   },
+   {
+    "dia": "2026-08-13",
+    "T_COMP": "PRO",
+    "USUARIO": "lautaropereyra",
+    "comprobantes": "11"
+   },
+   {
+    "dia": "2026-08-14",
+    "T_COMP": "PDT",
+    "comprobantes": "1"
+   },
+   {
+    "dia": "2026-08-14",
+    "T_COMP": "PDT",
+    "USUARIO": "frankriveros",
+    "comprobantes": "45"
+   },
+   {
+    "dia": "2026-08-14",
+    "T_COMP": "PDT",
+    "USUARIO": "jonathanmachado",
+    "comprobantes": "1"
+   },
+   {
+    "dia": "2026-08-14",
+    "T_COMP": "PDT",
+    "USUARIO": "ulisesparraga",
+    "comprobantes": "6"
+   },
+   {
+    "dia": "2026-08-14",
+    "T_COMP": "PDT",
+    "USUARIO": "walterfran",
+    "comprobantes": "53"
+   },
+   {
+    "dia": "2026-08-14",
+    "T_COMP": "PRO",
+    "USUARIO": "adrianandrada",
+    "comprobantes": "1"
+   },
+   {
+    "dia": "2026-08-14",
+    "T_COMP": "PRO",
+    "USUARIO": "gabrielgarcia",
+    "comprobantes": "7"
+   },
+   {
+    "dia": "2026-08-14",
+    "T_COMP": "PRO",
+    "USUARIO": "lautaropereyra",
+    "comprobantes": "13"
+   },
+   {
+    "dia": "2026-08-15",
+    "T_COMP": "PRO",
+    "USUARIO": "gabrielgarcia",
+    "comprobantes": "13"
+   },
+   {
+    "dia": "2026-08-16",
+    "T_COMP": "PRO",
+    "USUARIO": "adrianandrada",
+    "comprobantes": "4"
+   },
+   {
+    "dia": "2026-08-17",
+    "T_COMP": "PRO",
+    "USUARIO": "adrianandrada",
+    "comprobantes": "4"
+   },
+   {
+    "dia": "2026-08-18",
+    "T_COMP": "PDT",
+    "USUARIO": "frankriveros",
+    "comprobantes": "35"
+   },
+   {
+    "dia": "2026-08-18",
+    "T_COMP": "PDT",
+    "USUARIO": "jonathanmachado",
+    "comprobantes": "7"
+   },
+   {
+    "dia": "2026-08-18",
+    "T_COMP": "PDT",
+    "USUARIO": "ulisesparraga",
+    "comprobantes": "1"
+   },
+   {
+    "dia": "2026-08-18",
+    "T_COMP": "PDT",
+    "USUARIO": "walterfran",
+    "comprobantes": "49"
+   },
+   {
+    "dia": "2026-08-18",
+    "T_COMP": "PRO",
+    "USUARIO": "gabrielgarcia",
+    "comprobantes": "14"
+   },
+   {
+    "dia": "2026-08-18",
+    "T_COMP": "PRO",
+    "USUARIO": "lautaropereyra",
+    "comprobantes": "8"
+   },
+   {
+    "dia": "2026-08-18",
+    "T_COMP": "PRO",
+    "USUARIO": "lucascepeda",
+    "comprobantes": "2"
+   },
+   {
+    "dia": "2026-08-19",
+    "T_COMP": "PDT",
+    "USUARIO": "SUPERVISOR",
+    "comprobantes": "2"
+   },
+   {
+    "dia": "2026-08-19",
+    "T_COMP": "PDT",
+    "USUARIO": "flaviolopez",
+    "comprobantes": "27"
+   },
+   {
+    "dia": "2026-08-19",
+    "T_COMP": "PDT",
+    "USUARIO": "jonathanmachado",
+    "comprobantes": "7"
+   },
+   {
+    "dia": "2026-08-19",
+    "T_COMP": "PDT",
+    "USUARIO": "ulisesparraga",
+    "comprobantes": "1"
+   },
+   {
+    "dia": "2026-08-19",
+    "T_COMP": "PDT",
+    "USUARIO": "walterfran",
+    "comprobantes": "34"
+   },
+   {
+    "dia": "2026-08-19",
+    "T_COMP": "PRO",
+    "USUARIO": "gabrielgarcia",
+    "comprobantes": "14"
+   },
+   {
+    "dia": "2026-08-19",
+    "T_COMP": "PRO",
+    "USUARIO": "lautaropereyra",
+    "comprobantes": "5"
+   },
+   {
+    "dia": "2026-08-20",
+    "T_COMP": "PDT",
+    "USUARIO": "SUPERVISOR",
+    "comprobantes": "3"
+   },
+   {
+    "dia": "2026-08-20",
+    "T_COMP": "PRO",
+    "USUARIO": "SUPERVISOR",
+    "comprobantes": "1"
+   },
+   {
+    "dia": "2026-08-21",
+    "T_COMP": "PDT",
+    "USUARIO": "SUPERVISOR",
+    "comprobantes": "3"
+   },
+   {
+    "dia": "2026-08-21",
+    "T_COMP": "PRO",
+    "USUARIO": "SUPERVISOR",
+    "comprobantes": "2"
+   },
+   {
+    "dia": "2026-08-22",
+    "T_COMP": "PRO",
+    "USUARIO": "SUPERVISOR",
+    "comprobantes": "2"
+   },
+   {
+    "dia": "2026-08-23",
+    "T_COMP": "PRO",
+    "USUARIO": "SUPERVISOR",
+    "comprobantes": "1"
+   },
+   {
+    "dia": "2026-08-24",
+    "T_COMP": "PDT",
+    "USUARIO": "SUPERVISOR",
+    "comprobantes": "3"
+   },
+   {
+    "dia": "2026-08-24",
+    "T_COMP": "PRO",
+    "USUARIO": "SUPERVISOR",
+    "comprobantes": "2"
+   },
+   {
+    "dia": "2026-08-25",
+    "T_COMP": "PDT",
+    "USUARIO": "SUPERVISOR",
+    "comprobantes": "3"
+   },
+   {
+    "dia": "2026-08-25",
+    "T_COMP": "PRO",
+    "USUARIO": "SUPERVISOR",
+    "comprobantes": "1"
+   },
+   {
+    "dia": "2026-08-26",
+    "T_COMP": "PDT",
+    "USUARIO": "SUPERVISOR",
+    "comprobantes": "3"
+   },
+   {
+    "dia": "2026-08-26",
+    "T_COMP": "PRO",
+    "USUARIO": "SUPERVISOR",
+    "comprobantes": "1"
+   },
+   {
+    "dia": "2026-08-27",
+    "T_COMP": "PDT",
+    "USUARIO": "SUPERVISOR",
+    "comprobantes": "4"
+   },
+   {
+    "dia": "2026-08-27",
+    "T_COMP": "PRO",
+    "USUARIO": "SUPERVISOR",
+    "comprobantes": "2"
+   },
+   {
+    "dia": "2026-08-28",
+    "T_COMP": "PDT",
+    "USUARIO": "SUPERVISOR",
+    "comprobantes": "4"
+   },
+   {
+    "dia": "2026-08-28",
+    "T_COMP": "PRO",
+    "USUARIO": "SUPERVISOR",
+    "comprobantes": "2"
+   },
+   {
+    "dia": "2026-08-29",
+    "T_COMP": "PRO",
+    "USUARIO": "SUPERVISOR",
+    "comprobantes": "1"
+   },
+   {
+    "dia": "2026-08-30",
+    "T_COMP": "PRO",
+    "USUARIO": "SUPERVISOR",
+    "comprobantes": "1"
+   },
+   {
+    "dia": "2026-08-31",
+    "T_COMP": "PDT",
+    "USUARIO": "SUPERVISOR",
+    "comprobantes": "3"
+   },
+   {
+    "dia": "2026-08-31",
+    "T_COMP": "PRO",
+    "USUARIO": "SUPERVISOR",
+    "comprobantes": "2"
+   }
+  ]
+ },
+ {
+  "hdr": [
+   "ID_STA14",
+   "FILLER",
+   "COD_PRO_CL",
+   "COTIZ",
+   "ESTADO_MOV",
+   "EXPORTADO",
+   "EXP_STOCK",
+   "FECHA_ANU",
+   "FECHA_MOV",
+   "HORA",
+   "LISTA_REM",
+   "LOTE",
+   "LOTE_ANU",
+   "MON_CTE",
+   "MOTIVO_REM",
+   "N_COMP",
+   "N_REMITO",
+   "NCOMP_IN_S",
+   "NCOMP_ORIG",
+   "NRO_SUCURS",
+   "OBSERVACIO",
+   "SUC_ORIG",
+   "T_COMP",
+   "TALONARIO",
+   "TCOMP_IN_S",
+   "TCOMP_ORIG",
+   "USUARIO",
+   "COD_TRANSP",
+   "HORA_COMP",
+   "ID_A_RENTA",
+   "DOC_ELECTR",
+   "COD_CLASIF",
+   "AUDIT_IMP",
+   "IMP_IVA",
+   "IMP_OTIMP",
+   "IMPORTE_BO",
+   "IMPORTE_TO",
+   "DIFERENCIA",
+   "SUC_DESTIN",
+   "T_DOC_DTE",
+   "LEYENDA1",
+   "LEYENDA2",
+   "LEYENDA3",
+   "LEYENDA4",
+   "LEYENDA5",
+   "DCTO_CLIEN",
+   "T_INT_ORI",
+   "N_INT_ORI",
+   "FECHA_INGRESO",
+   "HORA_INGRESO",
+   "USUARIO_INGRESO",
+   "TERMINAL_INGRESO",
+   "IMPORTE_TOTAL_CON_IMPUESTOS",
+   "CANTIDAD_KILOS",
+   "ID_DIRECCION_ENTREGA",
+   "IMPORTE_GRAVADO",
+   "IMPORTE_EXENTO",
+   "ID_STA13",
+   "NRO_SUCURSAL_DESTINO_REMITO",
+   "ROW_VERSION",
+   "ID_GVA14",
+   "CAMPOS_ADICIONALES",
+   "COD_DEPOSI",
+   "COND_VTA",
+   "IMPORTE_INGRESADO_REMITO",
+   "IMPORTE_TOTAL_REMITO",
+   "CANTIDAD_TOTAL",
+   "CANTIDAD_TOTAL_INSUMOS_KIT",
+   "HORA_ANU",
+   "USUARIO_ANU",
+   "TERMINAL_ANU"
+  ],
+  "filas": [
+   {
+    "ID_STA14": "889677",
+    "COTIZ": "1.0000000",
+    "EXPORTADO": "0",
+    "EXP_STOCK": "0",
+    "FECHA_ANU": "1800-01-01 00:00:00.000",
+    "FECHA_MOV": "2026-08-19 00:00:00.000",
+    "HORA": "0000",
+    "LISTA_REM": "0",
+    "LOTE": "0",
+    "LOTE_ANU": "0",
+    "MON_CTE": "1",
+    "N_COMP": "0000100122733",
+    "NCOMP_IN_S": "00219203",
+    "NRO_SUCURS": "0",
+    "OBSERVACIO": "PRODUCCION T.M",
+    "SUC_ORIG": "0",
+    "T_COMP": "PDT",
+    "TALONARIO": "9",
+    "TCOMP_IN_S": "VE",
+    "USUARIO": "SUPERVISOR",
+    "HORA_COMP": "153936",
+    "ID_A_RENTA": "0",
+    "DOC_ELECTR": "0",
+    "IMP_IVA": "0.0000000",
+    "IMP_OTIMP": "0.0000000",
+    "IMPORTE_BO": "0.0000000",
+    "IMPORTE_TO": "0.0000000",
+    "DIFERENCIA": "N",
+    "SUC_DESTIN": "0",
+    "DCTO_CLIEN": "0.0000000",
+    "FECHA_INGRESO": "2026-08-25 00:00:00.000",
+    "HORA_INGRESO": "153936",
+    "USUARIO_INGRESO": "SUPERVISOR",
+    "TERMINAL_INGRESO": "RHIELOTS",
+    "IMPORTE_TOTAL_CON_IMPUESTOS": "0.0000000",
+    "CANTIDAD_KILOS": "0.0000000",
+    "IMPORTE_GRAVADO": "0.0000000",
+    "IMPORTE_EXENTO": "0.0000000",
+    "ID_STA13": "140",
+    "NRO_SUCURSAL_DESTINO_REMITO": "0",
+    "ROW_VERSION": "0x000000000C06BC69",
+    "COND_VTA": "0",
+    "IMPORTE_INGRESADO_REMITO": "0.0000000",
+    "IMPORTE_TOTAL_REMITO": "0.0000000",
+    "CANTIDAD_TOTAL": "0.0000000",
+    "CANTIDAD_TOTAL_INSUMOS_KIT": "0.0000000"
+   },
+   {
+    "ID_STA14": "889666",
+    "COTIZ": "1.0000000",
+    "EXPORTADO": "0",
+    "EXP_STOCK": "0",
+    "FECHA_ANU": "1800-01-01 00:00:00.000",
+    "FECHA_MOV": "2026-08-19 00:00:00.000",
+    "HORA": "0000",
+    "LISTA_REM": "0",
+    "LOTE": "0",
+    "LOTE_ANU": "0",
+    "MON_CTE": "1",
+    "N_COMP": "0000100122729",
+    "NCOMP_IN_S": "00219199",
+    "NRO_SUCURS": "0",
+    "OBSERVACIO": "pRODUCCION SIN INGRESAR T.T",
+    "SUC_ORIG": "0",
+    "T_COMP": "PDT",
+    "TALONARIO": "9",
+    "TCOMP_IN_S": "VE",
+    "USUARIO": "SUPERVISOR",
+    "HORA_COMP": "161125",
+    "ID_A_RENTA": "0",
+    "DOC_ELECTR": "0",
+    "IMP_IVA": "0.0000000",
+    "IMP_OTIMP": "0.0000000",
+    "IMPORTE_BO": "0.0000000",
+    "IMPORTE_TO": "0.0000000",
+    "DIFERENCIA": "N",
+    "SUC_DESTIN": "0",
+    "LEYENDA1": "compensa producci�n faltante turno tarde",
+    "DCTO_CLIEN": "0.0000000",
+    "FECHA_INGRESO": "2026-08-21 00:00:00.000",
+    "HORA_INGRESO": "161125",
+    "USUARIO_INGRESO": "SUPERVISOR",
+    "TERMINAL_INGRESO": "RHIELOTS",
+    "IMPORTE_TOTAL_CON_IMPUESTOS": "0.0000000",
+    "CANTIDAD_KILOS": "0.0000000",
+    "IMPORTE_GRAVADO": "0.0000000",
+    "IMPORTE_EXENTO": "0.0000000",
+    "ID_STA13": "140",
+    "NRO_SUCURSAL_DESTINO_REMITO": "0",
+    "ROW_VERSION": "0x000000000C06B579",
+    "COND_VTA": "0",
+    "IMPORTE_INGRESADO_REMITO": "0.0000000",
+    "IMPORTE_TOTAL_REMITO": "0.0000000",
+    "CANTIDAD_TOTAL": "0.0000000",
+    "CANTIDAD_TOTAL_INSUMOS_KIT": "0.0000000"
+   },
+   {
+    "ID_STA14": "889665",
+    "COTIZ": "1.0000000",
+    "EXPORTADO": "0",
+    "EXP_STOCK": "0",
+    "FECHA_ANU": "1800-01-01 00:00:00.000",
+    "FECHA_MOV": "2026-08-19 00:00:00.000",
+    "HORA": "0000",
+    "LISTA_REM": "0",
+    "LOTE": "0",
+    "LOTE_ANU": "0",
+    "MON_CTE": "1",
+    "N_COMP": "0000100122728",
+    "NCOMP_IN_S": "00219198",
+    "NRO_SUCURS": "0",
+    "SUC_ORIG": "0",
+    "T_COMP": "PDT",
+    "TALONARIO": "9",
+    "TCOMP_IN_S": "VE",
+    "USUARIO": "flaviolopez",
+    "COD_TRANSP": "01",
+    "HORA_COMP": "19:12",
+    "ID_A_RENTA": "0",
+    "DOC_ELECTR": "0",
+    "IMP_IVA": "0.0000000",
+    "IMP_OTIMP": "0.0000000",
+    "IMPORTE_BO": "0.0000000",
+    "IMPORTE_TO": "0.0000000",
+    "DIFERENCIA": "N",
+    "SUC_DESTIN": "0",
+    "DCTO_CLIEN": "0.0000000",
+    "FECHA_INGRESO": "2026-08-19 00:00:00.000",
+    "HORA_INGRESO": "19:12",
+    "USUARIO_INGRESO": "flaviolopez",
+    "TERMINAL_INGRESO": "TELEFONO",
+    "IMPORTE_TOTAL_CON_IMPUESTOS": "0.0000000",
+    "CANTIDAD_KILOS": "0.0000000",
+    "IMPORTE_GRAVADO": "0.0000000",
+    "IMPORTE_EXENTO": "0.0000000",
+    "ID_STA13": "140",
+    "ROW_VERSION": "0x000000000C053FFD",
+    "CAMPOS_ADICIONALES": "<CAMPOS_ADICIONALES />"
+   },
+   {
+    "ID_STA14": "889664",
+    "COTIZ": "1.0000000",
+    "EXPORTADO": "0",
+    "EXP_STOCK": "0",
+    "FECHA_ANU": "1800-01-01 00:00:00.000",
+    "FECHA_MOV": "2026-08-19 00:00:00.000",
+    "HORA": "0000",
+    "LISTA_REM": "0",
+    "LOTE": "0",
+    "LOTE_ANU": "0",
+    "MON_CTE": "1",
+    "N_COMP": "0000100122727",
+    "NCOMP_IN_S": "00219197",
+    "NRO_SUCURS": "0",
+    "SUC_ORIG": "0",
+    "T_COMP": "PDT",
+    "TALONARIO": "9",
+    "TCOMP_IN_S": "VE",
+    "USUARIO": "flaviolopez",
+    "COD_TRANSP": "01",
+    "HORA_COMP": "18:52",
+    "ID_A_RENTA": "0",
+    "DOC_ELECTR": "0",
+    "IMP_IVA": "0.0000000",
+    "IMP_OTIMP": "0.0000000",
+    "IMPORTE_BO": "0.0000000",
+    "IMPORTE_TO": "0.0000000",
+    "DIFERENCIA": "N",
+    "SUC_DESTIN": "0",
+    "DCTO_CLIEN": "0.0000000",
+    "FECHA_INGRESO": "2026-08-19 00:00:00.000",
+    "HORA_INGRESO": "18:52",
+    "USUARIO_INGRESO": "flaviolopez",
+    "TERMINAL_INGRESO": "TELEFONO",
+    "IMPORTE_TOTAL_CON_IMPUESTOS": "0.0000000",
+    "CANTIDAD_KILOS": "0.0000000",
+    "IMPORTE_GRAVADO": "0.0000000",
+    "IMPORTE_EXENTO": "0.0000000",
+    "ID_STA13": "140",
+    "ROW_VERSION": "0x000000000C053FFC",
+    "CAMPOS_ADICIONALES": "<CAMPOS_ADICIONALES />"
+   },
+   {
+    "ID_STA14": "889663",
+    "COTIZ": "1.0000000",
+    "EXPORTADO": "0",
+    "EXP_STOCK": "0",
+    "FECHA_ANU": "1800-01-01 00:00:00.000",
+    "FECHA_MOV": "2026-08-19 00:00:00.000",
+    "HORA": "0000",
+    "LISTA_REM": "0",
+    "LOTE": "0",
+    "LOTE_ANU": "0",
+    "MON_CTE": "1",
+    "N_COMP": "0000100122726",
+    "NCOMP_IN_S": "00219196",
+    "NRO_SUCURS": "0",
+    "SUC_ORIG": "0",
+    "T_COMP": "PDT",
+    "TALONARIO": "9",
+    "TCOMP_IN_S": "VE",
+    "USUARIO": "flaviolopez",
+    "COD_TRANSP": "01",
+    "HORA_COMP": "18:52",
+    "ID_A_RENTA": "0",
+    "DOC_ELECTR": "0",
+    "IMP_IVA": "0.0000000",
+    "IMP_OTIMP": "0.0000000",
+    "IMPORTE_BO": "0.0000000",
+    "IMPORTE_TO": "0.0000000",
+    "DIFERENCIA": "N",
+    "SUC_DESTIN": "0",
+    "DCTO_CLIEN": "0.0000000",
+    "FECHA_INGRESO": "2026-08-19 00:00:00.000",
+    "HORA_INGRESO": "18:52",
+    "USUARIO_INGRESO": "flaviolopez",
+    "TERMINAL_INGRESO": "TELEFONO",
+    "IMPORTE_TOTAL_CON_IMPUESTOS": "0.0000000",
+    "CANTIDAD_KILOS": "0.0000000",
+    "IMPORTE_GRAVADO": "0.0000000",
+    "IMPORTE_EXENTO": "0.0000000",
+    "ID_STA13": "140",
+    "ROW_VERSION": "0x000000000C053FFB",
+    "CAMPOS_ADICIONALES": "<CAMPOS_ADICIONALES />"
+   }
+  ]
+ },
+ {
+  "hdr": [
+   "ID_STA20",
+   "FILLER",
+   "CAN_EQUI_V",
+   "CANT_DEV",
+   "CANT_OC",
+   "CANT_PEND",
+   "CANT_SCRAP",
+   "CANTIDAD",
+   "CANT_FACTU",
+   "COD_ARTICU",
+   "COD_DEPOSI",
+   "DEPOSI_DDE",
+   "EQUIVALENC",
+   "FECHA_MOV",
+   "N_ORDEN_CO",
+   "N_RENGL_OC",
+   "N_RENGL_S",
+   "NCOMP_IN_S",
+   "PLISTA_REM",
+   "PPP_EX",
+   "PPP_LO",
+   "PRECIO",
+   "PRECIO_REM",
+   "TCOMP_IN_S",
+   "TIPO_MOV",
+   "COD_CLASIF",
+   "DCTO_FACTU",
+   "CANT_DEV_2",
+   "CANT_PEND_2",
+   "CANTIDAD_2",
+   "CANT_FACTU_2",
+   "CANT_OC_2",
+   "ID_MEDIDA_STOCK_2",
+   "ID_MEDIDA_STOCK",
+   "ID_MEDIDA_VENTAS",
+   "ID_MEDIDA_COMPRA",
+   "UNIDAD_MEDIDA_SELECCIONADA",
+   "PRECIO_REMITO_VENTAS",
+   "RENGL_PADR",
+   "COD_ARTICU_KIT",
+   "PROMOCION",
+   "PRECIO_ADICIONAL_KIT",
+   "TALONARIO_OC",
+   "ID_STA11",
+   "ID_STA14",
+   "ROW_VERSION",
+   "COD_DEPOSI_INGRESO",
+   "OBSERVACIONES",
+   "IMPUESTO_INTERNO_FIJO",
+   "IMPORTE_SIN_IMPUESTOS",
+   "IMPORTE_CON_IMPUESTOS",
+   "BASE_CALCULO_II_VARIABLE",
+   "CANTIDAD_PARTIDAS",
+   "CANTIDAD_PARTIDAS_2",
+   "NRO_OC_COMP"
+  ],
+  "filas": [
+   {
+    "ID_STA20": "1371248",
+    "CAN_EQUI_V": "1.0000000",
+    "CANT_DEV": "0.0000000",
+    "CANT_OC": "0.0000000",
+    "CANT_PEND": "0.0000000",
+    "CANT_SCRAP": "0.0000000",
+    "CANTIDAD": "1008.0000000",
+    "CANT_FACTU": "0.0000000",
+    "COD_ARTICU": "PTADDES006",
+    "COD_DEPOSI": "01",
+    "EQUIVALENC": "1.0000000",
+    "FECHA_MOV": "2026-08-19 00:00:00.000",
+    "N_RENGL_OC": "0",
+    "N_RENGL_S": "1",
+    "NCOMP_IN_S": "00219203",
+    "PLISTA_REM": "0.0000000",
+    "PPP_EX": "0.0000000",
+    "PPP_LO": "0.0000000",
+    "PRECIO": "0.0000000",
+    "PRECIO_REM": "0.0000000",
+    "TCOMP_IN_S": "VE",
+    "TIPO_MOV": "E",
+    "DCTO_FACTU": "0.0000000",
+    "CANT_DEV_2": "0.0000000",
+    "CANT_PEND_2": "0.0000000",
+    "CANTIDAD_2": "0.0000000",
+    "CANT_FACTU_2": "0.0000000",
+    "CANT_OC_2": "0.0000000",
+    "ID_MEDIDA_STOCK": "17",
+    "UNIDAD_MEDIDA_SELECCIONADA": "P",
+    "PRECIO_REMITO_VENTAS": "0.0000000",
+    "RENGL_PADR": "0",
+    "PROMOCION": "0",
+    "PRECIO_ADICIONAL_KIT": "0.0000000",
+    "TALONARIO_OC": "0",
+    "ID_STA11": "1780",
+    "ID_STA14": "889677",
+    "ROW_VERSION": "0x000000000C06BC6C",
+    "IMPUESTO_INTERNO_FIJO": "0.0000000",
+    "IMPORTE_SIN_IMPUESTOS": "0.0000000",
+    "IMPORTE_CON_IMPUESTOS": "0.0000000",
+    "BASE_CALCULO_II_VARIABLE": "0.0000000",
+    "CANTIDAD_PARTIDAS": "0.0000000",
+    "CANTIDAD_PARTIDAS_2": "0.0000000"
+   },
+   {
+    "ID_STA20": "1371249",
+    "CAN_EQUI_V": "1.0000000",
+    "CANT_DEV": "0.0000000",
+    "CANT_OC": "0.0000000",
+    "CANT_PEND": "0.0000000",
+    "CANT_SCRAP": "0.0000000",
+    "CANTIDAD": "168.0000000",
+    "CANT_FACTU": "0.0000000",
+    "COD_ARTICU": "PTACANT0006",
+    "COD_DEPOSI": "01",
+    "EQUIVALENC": "1.0000000",
+    "FECHA_MOV": "2026-08-19 00:00:00.000",
+    "N_RENGL_OC": "0",
+    "N_RENGL_S": "2",
+    "NCOMP_IN_S": "00219203",
+    "PLISTA_REM": "0.0000000",
+    "PPP_EX": "0.0000000",
+    "PPP_LO": "0.0000000",
+    "PRECIO": "0.0000000",
+    "PRECIO_REM": "0.0000000",
+    "TCOMP_IN_S": "VE",
+    "TIPO_MOV": "E",
+    "DCTO_FACTU": "0.0000000",
+    "CANT_DEV_2": "0.0000000",
+    "CANT_PEND_2": "0.0000000",
+    "CANTIDAD_2": "0.0000000",
+    "CANT_FACTU_2": "0.0000000",
+    "CANT_OC_2": "0.0000000",
+    "ID_MEDIDA_STOCK": "17",
+    "UNIDAD_MEDIDA_SELECCIONADA": "P",
+    "PRECIO_REMITO_VENTAS": "0.0000000",
+    "RENGL_PADR": "0",
+    "PROMOCION": "0",
+    "PRECIO_ADICIONAL_KIT": "0.0000000",
+    "TALONARIO_OC": "0",
+    "ID_STA11": "1781",
+    "ID_STA14": "889677",
+    "ROW_VERSION": "0x000000000C06BC72",
+    "IMPUESTO_INTERNO_FIJO": "0.0000000",
+    "IMPORTE_SIN_IMPUESTOS": "0.0000000",
+    "IMPORTE_CON_IMPUESTOS": "0.0000000",
+    "BASE_CALCULO_II_VARIABLE": "0.0000000",
+    "CANTIDAD_PARTIDAS": "0.0000000",
+    "CANTIDAD_PARTIDAS_2": "0.0000000"
+   },
+   {
+    "ID_STA20": "1371227",
+    "CAN_EQUI_V": "1.0000000",
+    "CANT_DEV": "0.0000000",
+    "CANT_OC": "0.0000000",
+    "CANT_PEND": "0.0000000",
+    "CANT_SCRAP": "0.0000000",
+    "CANTIDAD": "240.0000000",
+    "CANT_FACTU": "0.0000000",
+    "COD_ARTICU": "PTHIBOLPICA0010",
+    "COD_DEPOSI": "01",
+    "EQUIVALENC": "1.0000000",
+    "FECHA_MOV": "2026-08-19 00:00:00.000",
+    "N_RENGL_OC": "0",
+    "N_RENGL_S": "1",
+    "NCOMP_IN_S": "00219199",
+    "PLISTA_REM": "0.0000000",
+    "PPP_EX": "0.0000000",
+    "PPP_LO": "0.0000000",
+    "PRECIO": "0.0000000",
+    "PRECIO_REM": "0.0000000",
+    "TCOMP_IN_S": "VE",
+    "TIPO_MOV": "E",
+    "DCTO_FACTU": "0.0000000",
+    "CANT_DEV_2": "0.0000000",
+    "CANT_PEND_2": "0.0000000",
+    "CANTIDAD_2": "0.0000000",
+    "CANT_FACTU_2": "0.0000000",
+    "CANT_OC_2": "0.0000000",
+    "ID_MEDIDA_STOCK": "17",
+    "UNIDAD_MEDIDA_SELECCIONADA": "P",
+    "PRECIO_REMITO_VENTAS": "0.0000000",
+    "RENGL_PADR": "0",
+    "PROMOCION": "0",
+    "PRECIO_ADICIONAL_KIT": "0.0000000",
+    "TALONARIO_OC": "0",
+    "ID_STA11": "1820",
+    "ID_STA14": "889666",
+    "ROW_VERSION": "0x000000000C06B57C",
+    "IMPUESTO_INTERNO_FIJO": "0.0000000",
+    "IMPORTE_SIN_IMPUESTOS": "0.0000000",
+    "IMPORTE_CON_IMPUESTOS": "0.0000000",
+    "BASE_CALCULO_II_VARIABLE": "0.0000000",
+    "CANTIDAD_PARTIDAS": "0.0000000",
+    "CANTIDAD_PARTIDAS_2": "0.0000000"
+   },
+   {
+    "ID_STA20": "1371228",
+    "CAN_EQUI_V": "1.0000000",
+    "CANT_DEV": "0.0000000",
+    "CANT_OC": "0.0000000",
+    "CANT_PEND": "0.0000000",
+    "CANT_SCRAP": "0.0000000",
+    "CANTIDAD": "2300.0000000",
+    "CANT_FACTU": "0.0000000",
+    "COD_ARTICU": "PTHIBOLROLI0002",
+    "COD_DEPOSI": "01",
+    "EQUIVALENC": "1.0000000",
+    "FECHA_MOV": "2026-08-19 00:00:00.000",
+    "N_RENGL_OC": "0",
+    "N_RENGL_S": "2",
+    "NCOMP_IN_S": "00219199",
+    "PLISTA_REM": "0.0000000",
+    "PPP_EX": "0.0000000",
+    "PPP_LO": "0.0000000",
+    "PRECIO": "0.0000000",
+    "PRECIO_REM": "0.0000000",
+    "TCOMP_IN_S": "VE",
+    "TIPO_MOV": "E",
+    "DCTO_FACTU": "0.0000000",
+    "CANT_DEV_2": "0.0000000",
+    "CANT_PEND_2": "0.0000000",
+    "CANTIDAD_2": "0.0000000",
+    "CANT_FACTU_2": "0.0000000",
+    "CANT_OC_2": "0.0000000",
+    "ID_MEDIDA_STOCK": "17",
+    "UNIDAD_MEDIDA_SELECCIONADA": "P",
+    "PRECIO_REMITO_VENTAS": "0.0000000",
+    "RENGL_PADR": "0",
+    "PROMOCION": "0",
+    "PRECIO_ADICIONAL_KIT": "0.0000000",
+    "TALONARIO_OC": "0",
+    "ID_STA11": "1465",
+    "ID_STA14": "889666",
+    "ROW_VERSION": "0x000000000C06B582",
+    "IMPUESTO_INTERNO_FIJO": "0.0000000",
+    "IMPORTE_SIN_IMPUESTOS": "0.0000000",
+    "IMPORTE_CON_IMPUESTOS": "0.0000000",
+    "BASE_CALCULO_II_VARIABLE": "0.0000000",
+    "CANTIDAD_PARTIDAS": "0.0000000",
+    "CANTIDAD_PARTIDAS_2": "0.0000000"
+   },
+   {
+    "ID_STA20": "1371226",
+    "CAN_EQUI_V": "1.0000000",
+    "CANT_DEV": "0.0000000",
+    "CANT_OC": "0.0000000",
+    "CANT_PEND": "70.0000000",
+    "CANT_SCRAP": "0.0000000",
+    "CANTIDAD": "70.0000000",
+    "CANT_FACTU": "0.0000000",
+    "COD_ARTICU": "PTHIBOLESCA0010",
+    "COD_DEPOSI": "01",
+    "EQUIVALENC": "1.0000000",
+    "FECHA_MOV": "2026-08-19 00:00:00.000",
+    "N_RENGL_OC": "0",
+    "N_RENGL_S": "1",
+    "NCOMP_IN_S": "00219198",
+    "PLISTA_REM": "0.0000000",
+    "PPP_EX": "0.0000000",
+    "PPP_LO": "0.0000000",
+    "PRECIO": "0.0000000",
+    "PRECIO_REM": "0.0000000",
+    "TCOMP_IN_S": "VE",
+    "TIPO_MOV": "E",
+    "DCTO_FACTU": "0.0000000",
+    "CANT_DEV_2": "0.0000000",
+    "CANT_PEND_2": "0.0000000",
+    "CANTIDAD_2": "0.0000000",
+    "CANT_FACTU_2": "0.0000000",
+    "CANT_OC_2": "0.0000000",
+    "ID_MEDIDA_STOCK": "17",
+    "ID_MEDIDA_VENTAS": "17",
+    "UNIDAD_MEDIDA_SELECCIONADA": "P",
+    "PRECIO_REMITO_VENTAS": "0.0000000",
+    "RENGL_PADR": "0",
+    "PROMOCION": "0",
+    "PRECIO_ADICIONAL_KIT": "0.0000000",
+    "TALONARIO_OC": "0",
+    "ID_STA11": "1712",
+    "ID_STA14": "889665",
+    "ROW_VERSION": "0x000000000BE7C344"
+   },
+   {
+    "ID_STA20": "1371225",
+    "CAN_EQUI_V": "1.0000000",
+    "CANT_DEV": "0.0000000",
+    "CANT_OC": "0.0000000",
+    "CANT_PEND": "460.0000000",
+    "CANT_SCRAP": "0.0000000",
+    "CANTIDAD": "460.0000000",
+    "CANT_FACTU": "0.0000000",
+    "COD_ARTICU": "PTHIBOLROLI0002",
+    "COD_DEPOSI": "01",
+    "EQUIVALENC": "1.0000000",
+    "FECHA_MOV": "2026-08-19 00:00:00.000",
+    "N_RENGL_OC": "0",
+    "N_RENGL_S": "1",
+    "NCOMP_IN_S": "00219197",
+    "PLISTA_REM": "0.0000000",
+    "PPP_EX": "0.0000000",
+    "PPP_LO": "0.0000000",
+    "PRECIO": "0.0000000",
+    "PRECIO_REM": "0.0000000",
+    "TCOMP_IN_S": "VE",
+    "TIPO_MOV": "E",
+    "DCTO_FACTU": "0.0000000",
+    "CANT_DEV_2": "0.0000000",
+    "CANT_PEND_2": "0.0000000",
+    "CANTIDAD_2": "0.0000000",
+    "CANT_FACTU_2": "0.0000000",
+    "CANT_OC_2": "0.0000000",
+    "ID_MEDIDA_STOCK": "17",
+    "ID_MEDIDA_VENTAS": "17",
+    "UNIDAD_MEDIDA_SELECCIONADA": "P",
+    "PRECIO_REMITO_VENTAS": "0.0000000",
+    "RENGL_PADR": "0",
+    "PROMOCION": "0",
+    "PRECIO_ADICIONAL_KIT": "0.0000000",
+    "TALONARIO_OC": "0",
+    "ID_STA11": "1465",
+    "ID_STA14": "889664",
+    "ROW_VERSION": "0x000000000BE7C33D"
+   },
+   {
+    "ID_STA20": "1371224",
+    "CAN_EQUI_V": "1.0000000",
+    "CANT_DEV": "0.0000000",
+    "CANT_OC": "0.0000000",
+    "CANT_PEND": "460.0000000",
+    "CANT_SCRAP": "0.0000000",
+    "CANTIDAD": "460.0000000",
+    "CANT_FACTU": "0.0000000",
+    "COD_ARTICU": "PTHIBOLROLI0002",
+    "COD_DEPOSI": "01",
+    "EQUIVALENC": "1.0000000",
+    "FECHA_MOV": "2026-08-19 00:00:00.000",
+    "N_RENGL_OC": "0",
+    "N_RENGL_S": "1",
+    "NCOMP_IN_S": "00219196",
+    "PLISTA_REM": "0.0000000",
+    "PPP_EX": "0.0000000",
+    "PPP_LO": "0.0000000",
+    "PRECIO": "0.0000000",
+    "PRECIO_REM": "0.0000000",
+    "TCOMP_IN_S": "VE",
+    "TIPO_MOV": "E",
+    "DCTO_FACTU": "0.0000000",
+    "CANT_DEV_2": "0.0000000",
+    "CANT_PEND_2": "0.0000000",
+    "CANTIDAD_2": "0.0000000",
+    "CANT_FACTU_2": "0.0000000",
+    "CANT_OC_2": "0.0000000",
+    "ID_MEDIDA_STOCK": "17",
+    "ID_MEDIDA_VENTAS": "17",
+    "UNIDAD_MEDIDA_SELECCIONADA": "P",
+    "PRECIO_REMITO_VENTAS": "0.0000000",
+    "RENGL_PADR": "0",
+    "PROMOCION": "0",
+    "PRECIO_ADICIONAL_KIT": "0.0000000",
+    "TALONARIO_OC": "0",
+    "ID_STA11": "1465",
+    "ID_STA14": "889663",
+    "ROW_VERSION": "0x000000000BE7C336"
+   }
+  ]
+ }
+]

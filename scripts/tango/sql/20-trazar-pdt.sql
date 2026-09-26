@@ -48,7 +48,8 @@ SELECT s20.COD_ARTICU, a.DESCRIPCIO, s20.COD_DEPOSI, COUNT(*) AS renglones, SUM(
 SELECT COD_ARTICU, COD_DEPOSI, CANT_STOCK FROM STA19 WHERE COD_DEPOSI IN ('01', '02') AND COD_ARTICU LIKE 'PTHI%' ORDER BY COD_DEPOSI, COD_ARTICU;
 
 -- 8) Tablas satélite que un PDT pudo haber tocado además de STA14/STA20/STA19 (imagen del talonario, partidas).
-SELECT TOP 5 * FROM STA14TY WHERE ID_STA14 IN (SELECT TOP 5 ID_STA14 FROM STA14 WHERE T_COMP = 'PDT' ORDER BY ID_STA14 DESC);
+-- (STA14TY no tiene ID_STA14 en esta base: consulta anulada 25/09)
+-- SELECT TOP 5 * FROM STA14TY WHERE ID_STA14 IN (SELECT TOP 5 ID_STA14 FROM STA14 WHERE T_COMP = 'PDT' ORDER BY ID_STA14 DESC);
 
 -- ============================================================================
 -- Agregado 2026-09-25: cómo cargaba BLUESOFT la producción (antes del 20/08/2026).
