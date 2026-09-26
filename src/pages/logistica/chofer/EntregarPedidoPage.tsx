@@ -69,6 +69,12 @@ export default function EntregarPedidoPage() {
   const [paso, setPaso] = useState<Paso>(1)
   const [renglones, setRenglones] = useState<RenglonEntrega[] | null>(null)
   const [nota, setNota] = useState('')
+  // Orden de compra (2026-09-26, pedido de los choferes: en Vender se cargaba y
+  // al entregar un pedido asignado no). null = sin tocar: vale la del pedido que
+  // cargó administración; el chofer la cambia o la agrega si el pedido no la trae.
+  const [ordenCompra, setOrdenCompra] = useState<string | null>(null)
+  // La O/C que sale en el comprobante: la que cargó el chofer o, sin tocar, la del pedido.
+  const ocVenta = normalizarOrdenCompra(ordenCompra ?? order?.numeroOC)
   const [canal, setCanal] = useState<CanalVenta>('contado')
   const [formaPago, setFormaPago] = useState<FormaPago | null>(null)
   const [sucursal, setSucursal] = useState('')
@@ -197,7 +203,7 @@ export default function EntregarPedidoPage() {
       crearVentaCamion(
         {
           canal, cliente: clienteVenta, items, formaPago, firmaCliente: firma, firmanteNombre: firmante, comprobanteInterno,
-          pedidoId: order.id, ordenCompra: normalizarOrdenCompra(order.numeroOC),
+          pedidoId: order.id, ordenCompra: ocVenta,
           clienteSucursalNombre: nombreSucursalVenta(cliente, empresa, clienteVenta.codigoTango),
         },
         {
@@ -281,7 +287,7 @@ export default function EntregarPedidoPage() {
           {exito.conIva && !exito.sinImporte && <p className="text-xs text-secundario mt-0.5">IVA incluido, como sale en la factura</p>}
           <div className="mt-5 w-full rounded-2xl border border-[#D3D1C7] bg-white p-4 text-left text-sm space-y-2">
             <p className="flex gap-2"><span className="text-success font-bold">✓</span> Pedido entregado{exito.parcial ? ' (parcial)' : ''}</p>
-            <p className="flex gap-2"><span className="text-success font-bold">✓</span> {exito.documento ? `${exito.documento}${order.numeroOC ? ` · OC ${order.numeroOC}` : ''}` : 'Factura en camino: la ves en Mis ventas'}</p>
+            <p className="flex gap-2"><span className="text-success font-bold">✓</span> {exito.documento ? `${exito.documento}${ocVenta ? ` · OC ${ocVenta}` : ''}` : 'Factura en camino: la ves en Mis ventas'}</p>
             <p className="flex gap-2"><Mail size={16} className="text-success shrink-0 mt-0.5" /> {exito.mail ? `El comprobante se manda solo a ${exito.mail}` : 'El cliente no tiene mail en Tango: entregale el papel desde Mis ventas'}</p>
             <p className="flex gap-2"><Clock size={16} className="text-amber-600 shrink-0 mt-0.5" /> Tango: en camino</p>
           </div>
@@ -436,6 +442,16 @@ export default function EntregarPedidoPage() {
               })}
             </div>
 
+            <div className="space-y-1.5 pt-1">
+              <label htmlFor="oc-entrega" className="text-xs font-bold uppercase tracking-wide text-secundario">Orden de compra del cliente</label>
+              <input id="oc-entrega" value={ordenCompra ?? order.numeroOC ?? ''} onChange={(e) => setOrdenCompra(e.target.value)}
+                placeholder="Nº de OC (si el cliente la pide)" maxLength={40} autoComplete="off" enterKeyHint="done"
+                className="w-full h-12 bg-white border border-[#D3D1C7] rounded-xl px-3.5 text-base focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent placeholder-gray-400" />
+              {order.numeroOC && (ordenCompra === null || ordenCompra === order.numeroOC) && (
+                <p className="text-xs text-secundario">Viene del pedido cargado por administración. Si el cliente te da otra, cambiala.</p>
+              )}
+            </div>
+
             {noFacturable && (
               <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900">
                 Con {formaPago === 'contado_transferencia' ? 'transferencia' : 'efectivo'} sale factura y a este cliente no se le puede facturar: {noFacturable.join(', ')}. Elegí cuenta corriente o Promo.
@@ -452,11 +468,11 @@ export default function EntregarPedidoPage() {
                 <p className="text-xs font-bold uppercase tracking-wide text-secundario">{sinImporte ? SIN_IMPORTE : conIva ? 'Total con IVA' : 'Total'}</p>
                 <p className="text-xs text-secundario mt-0.5">
                   {documento === 'factura_arca' ? 'Sale factura' : tipoComprobanteInterno({ canal, formaPago: formaPago ?? 'contado_efectivo', total }) ? `Sale ${ETIQUETA_COMPROBANTE[tipoComprobanteInterno({ canal, formaPago: formaPago ?? 'contado_efectivo', total })!].toLowerCase()}` : ''}
-                  {order.numeroOC ? ` · OC ${order.numeroOC}` : ''}
+                  {ocVenta ? ` · OC ${ocVenta}` : ''}
                 </p>
                 {conIva && !sinImporte && <p className="text-[11px] text-secundario tabular-nums mt-0.5">Neto {money(conIva.neto)} · IVA {money(conIva.iva)}{conIva.percepcion > 0 ? ` · Perc. IIBB ${money(conIva.percepcion)}` : ''}</p>}
               </div>
-              <p className="text-2xl font-black tabular-nums">{sinImporte ? `${items.reduce((s, i) => s + i.cantidad, 0)} u.` : money(conIva ? conIva.total : total)}</p>
+              <p className="shrink-0 whitespace-nowrap text-2xl font-black tabular-nums">{sinImporte ? `${items.reduce((s, i) => s + i.cantidad, 0)} u.` : money(conIva ? conIva.total : total)}</p>
             </div>
           </>
         )}
