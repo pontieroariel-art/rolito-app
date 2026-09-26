@@ -2184,6 +2184,9 @@ export interface Despacho {
   confirmedAt?: Timestamp | null
   confirmedBy?: string | null
   modifiedAfterConfirm?: boolean
+  /** Orden de paradas armado a mano por logística (2026-09-26): la ruta automática
+   *  no lo pisa al sumar paradas ni al recargar, hasta "Recalcular ruta automática". */
+  ordenManual?: boolean
   // Número de vuelta del camión/chofer ese día (1 = primera, sin campo =
   // también 1). Permite un 2do despacho independiente del mismo chofer el
   // mismo día ("sale, entrega, vuelve a cargar") sin mezclar sus paradas con

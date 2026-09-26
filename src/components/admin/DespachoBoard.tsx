@@ -11,6 +11,7 @@ import { choferColor } from '../../utils/choferColor'
 import LoadingSpinner from '../ui/LoadingSpinner'
 import { Order, CatalogProducto, UserProfile, Despacho, Camion, PLANTAS, PlantaId } from '../../types'
 import { calcPallets, getCodigoCliente, buildCodigoByClientId, initials } from '../../utils/helpers'
+import { moverAPosicion } from '@/utils/ordenDespacho'
 import { resolveClientDisplay } from '../../utils/constants'
 import { formatDespachoFecha, todayStr } from '../../services/despachoService'
 import { visitasParaFecha, programasParaFecha } from '../../hooks/useVisitas'
@@ -40,7 +41,7 @@ function porChofer<T>(map: Record<string, T>, chofer: UserProfile | null, fallba
 
 // ── DraggableCard ─────────────────────────────────────────────────────────────
 
-const DraggableCard = memo(function DraggableCard({ item, routeNum, arrival, color, locked, codigoByClientId, onMoveUp, onMoveDown }: {
+const DraggableCard = memo(function DraggableCard({ item, routeNum, total, arrival, color, locked, codigoByClientId, onMoveUp, onMoveDown, onSetNumero }: {
   item:      DayItem
   routeNum?: number
   arrival?:  string
@@ -49,6 +50,10 @@ const DraggableCard = memo(function DraggableCard({ item, routeNum, arrival, col
   codigoByClientId?: Map<string, string | undefined>
   onMoveUp?:   () => void
   onMoveDown?: () => void
+  /** Cantidad de paradas de la columna (tope del número que se escribe). */
+  total?:      number
+  /** Mover la parada al número escrito a mano (2026-09-26). */
+  onSetNumero?: (numero: number) => void
 }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: item.dndId })
   const isVisit = item.kind !== 'order'
@@ -77,12 +82,7 @@ const DraggableCard = memo(function DraggableCard({ item, routeNum, arrival, col
       } ${locked ? 'border-green-200 bg-green-50/40' : isVisit ? 'border-violet-200 bg-violet-50' : 'border-[#E4E1D6] bg-white'}`}
     >
       {routeNum != null ? (
-        <span
-          className="shrink-0 w-4 h-4 rounded-full flex items-center justify-center text-white text-[9px] font-bold"
-          style={{ backgroundColor: color ?? '#6b7280' }}
-        >
-          {routeNum}
-        </span>
+        <NumeroParada numero={routeNum} total={total} color={color} onSetNumero={locked ? undefined : onSetNumero} />
       ) : (
         <span className={`shrink-0 ${isVisit ? 'text-violet-400' : 'text-inerte'}`}>
           {isVisit ? <Eye size={12} /> : <Package size={12} />}
@@ -148,6 +148,51 @@ const DraggableCard = memo(function DraggableCard({ item, routeNum, arrival, col
     </div>
   )
 })
+
+// ── NumeroParada ──────────────────────────────────────────────────────────────
+// El número de parada. Si la columna se puede ordenar, se toca y se escribe la
+// posición (2026-09-26, pedido de logística: con las flechas, llevar la parada
+// 25 al 3 eran 22 toques y seguían ordenando en Excel). Enter o salir del campo
+// aplica; Escape cancela. No arranca el arrastre de la tarjeta.
+function NumeroParada({ numero, total, color, onSetNumero }: { numero: number; total?: number; color?: string; onSetNumero?: (n: number) => void }) {
+  const [editando, setEditando] = useState(false)
+  const [valor, setValor] = useState('')
+  const fondo = { backgroundColor: color ?? '#6b7280' }
+  if (!onSetNumero) {
+    return <span className="shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-white text-[10px] font-bold tabular-nums" style={fondo}>{numero}</span>
+  }
+  const aplicar = () => {
+    setEditando(false)
+    const n = parseInt(valor, 10)
+    if (Number.isFinite(n) && n !== numero) onSetNumero(n)
+  }
+  if (editando) {
+    return (
+      <input
+        autoFocus type="text" inputMode="numeric" maxLength={3} value={valor}
+        onPointerDown={(e) => e.stopPropagation()}
+        onChange={(e) => setValor(e.target.value.replace(/\D/g, ''))}
+        onKeyDown={(e) => { e.stopPropagation(); if (e.key === 'Enter') aplicar(); if (e.key === 'Escape') setEditando(false) }}
+        onBlur={aplicar}
+        aria-label={`Nuevo número para la parada ${numero}`}
+        className="shrink-0 w-10 h-6 rounded border-2 border-accent bg-white text-center text-xs font-bold tabular-nums text-gray-900 focus:outline-none"
+      />
+    )
+  }
+  return (
+    <button
+      type="button"
+      onPointerDown={(e) => e.stopPropagation()}
+      onClick={() => { setValor(String(numero)); setEditando(true) }}
+      title={`Parada ${numero}${total ? ` de ${total}` : ''}: tocá para cambiar el número`}
+      aria-label={`Parada ${numero}${total ? ` de ${total}` : ''}. Tocá para cambiar el número`}
+      className="shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-white text-[10px] font-bold tabular-nums ring-offset-1 hover:ring-2 hover:ring-accent/60 focus-visible:ring-2 focus-visible:ring-accent"
+      style={fondo}
+    >
+      {numero}
+    </button>
+  )
+}
 
 // ── GhostCard ─────────────────────────────────────────────────────────────────
 
@@ -275,6 +320,8 @@ const VueltaSection = memo(function VueltaSection({
     reordered.splice(newIndex, 0, moved)
     onManualReorder(slot, reordered.map((i) => i.dndId))
   }
+  const ponerNumero = (dndId: string, numero: number) =>
+    onManualReorder(slot, moverAPosicion(sortedItems.map((i) => i.dndId), dndId, numero))
 
   const orderCount = items.filter((i) => i.kind === 'order').length
   const visitCount = items.filter((i) => i.kind !== 'order').length
@@ -407,13 +454,15 @@ const VueltaSection = memo(function VueltaSection({
             <DraggableCard
               key={item.dndId}
               item={item}
-              routeNum={routeOrder.includes(item.dndId) ? routeOrder.indexOf(item.dndId) + 1 : i + 1}
+              routeNum={i + 1}
+              total={sortedItems.length}
               arrival={arrivals[item.dndId]}
               color={color}
               locked={confirmed}
               codigoByClientId={codigoByClientId}
               onMoveUp={!confirmed && sortedItems.length > 1 && i > 0 ? () => moveItem(i, -1) : undefined}
               onMoveDown={!confirmed && sortedItems.length > 1 && i < sortedItems.length - 1 ? () => moveItem(i, 1) : undefined}
+              onSetNumero={!confirmed && sortedItems.length > 1 ? (n) => ponerNumero(item.dndId, n) : undefined}
             />
           ))
         )}

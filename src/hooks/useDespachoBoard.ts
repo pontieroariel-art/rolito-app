@@ -15,6 +15,7 @@ import { useProgramasVisita, useVisitasPuntuales, visitasParaFecha, programasPar
 import { getPushSubscriptionByEmail } from '../services/userService'
 import { sendPush } from '../services/notificationService'
 import { reportError } from '../services/observability'
+import { ordenCompleto } from '@/utils/ordenDespacho'
 import { subscribeCamiones } from '../services/flotaService'
 import { subscribeAsignacionesDia, setAsignacionChofer, AsignacionChofer, AsignacionesDia } from '../services/asignacionesDiaService'
 
@@ -306,8 +307,50 @@ export function useDespachoBoard(orders: Order[], choferes: UserProfile[], allCl
 
   // Choferes con orden reordenado a mano — se congela el recálculo automático
   // hasta que el usuario pida explícitamente "Recalcular ruta automática"
-  const [manualOrder, setManualOrder] = useState<Record<string, boolean>>({})
+  // Desde el 2026-09-26 la marca se GUARDA en el despacho (`ordenManual`): antes
+  // vivía solo en la pantalla abierta y al recargar, o al sumar una parada, la
+  // ruta automática pisaba el orden armado a mano (logística seguía con Excel).
+  // `manualLocal` es el eco inmediato del toque, hasta que vuelve el despacho.
+  const [manualLocal, setManualOrder] = useState<Record<string, boolean>>({})
   useEffect(() => { setManualOrder({}) }, [fecha])
+  const manualOrder = useMemo(() => {
+    const m: Record<string, boolean> = {}
+    for (const [slot, d] of Object.entries(despachoByDriver)) if (d.ordenManual) m[slot] = true
+    for (const [slot, v] of Object.entries(manualLocal)) { if (v) m[slot] = true; else delete m[slot] }
+    return m
+  }, [despachoByDriver, manualLocal])
+  // Orden vigente de cada columna: el recién calculado o tocado en esta sesión y,
+  // si no hay, el guardado en el despacho (así al recargar se ve el orden real).
+  const ordenVigente = useMemo(() => {
+    const m: Record<string, string[]> = {}
+    for (const [slot, d] of Object.entries(despachoByDriver)) if (d.orderIds?.length) m[slot] = d.orderIds
+    for (const [slot, ids] of Object.entries(routeOrder)) if (ids.length || !m[slot]) m[slot] = ids
+    return m
+  }, [despachoByDriver, routeOrder])
+
+  // El despacho con los datos del día (camión, ayudante, planta, salida): lo usa
+  // la confirmación y el borrador que se crea al ordenar a mano antes de confirmar.
+  const armarDespacho = useCallback((slot: string, status: Despacho['status'], orderIds: string[], extra: Partial<Despacho> = {}): Despacho | null => {
+    const { email: driverEmail, vuelta } = parseSlotKey(slot)
+    const chofer = choferes.find((c) => c.email === driverEmail)
+    if (!chofer) return null
+    const asig     = asignacionesDia[driverEmail]
+    const camion   = asig?.camionId ? camiones.find((cam) => cam.id === asig.camionId) : null
+    const ayudante = asig?.ayudanteEmail ? choferes.find((c) => c.email === asig.ayudanteEmail) : null
+    return {
+      id: despachoId(fecha, driverEmail, vuelta), fecha, driverId: driverEmail,
+      driverName: chofer.nombreContacto || chofer.nombre || chofer.email,
+      camionId:     camion?.id ?? null,
+      camionLabel:  camion ? `${camion.patente} — ${camion.modelo}` : null,
+      ayudanteEmail: asig?.ayudanteEmail ?? null,
+      ayudanteName:  ayudante ? (ayudante.nombreContacto || ayudante.nombre || ayudante.email) : null,
+      status, orderIds,
+      plantaId:   plantaByDriver[slot] ?? PLANTA_DEFAULT,
+      horaSalida: horaSalidaByDriver[slot] ?? '07:00',
+      vuelta,
+      ...extra,
+    }
+  }, [choferes, asignacionesDia, camiones, fecha, plantaByDriver, horaSalidaByDriver])
 
   const handleManualReorder = useCallback(async (slot: string, newOrderIds: string[]) => {
     clearTimeout(debounceRefs.current[slot])
@@ -318,20 +361,45 @@ export function useDespachoBoard(orders: Order[], choferes: UserProfile[], allCl
     setRouteArrivals((prev) => ({ ...prev, [slot]: {} }))
 
     const desp = despachoByDriver[slot]
-    if (desp) {
-      const { email, vuelta } = parseSlotKey(slot)
-      await updateDespacho(despachoId(fecha, email, vuelta), (current) => ({
-        orderIds: newOrderIds,
-        ...(current.status === 'confirmado' ? { modifiedAfterConfirm: true } : {}),
-      }))
+    try {
+      if (desp) {
+        const { email, vuelta } = parseSlotKey(slot)
+        await updateDespacho(despachoId(fecha, email, vuelta), (current) => ({
+          orderIds: newOrderIds, ordenManual: true,
+          ...(current.status === 'confirmado' ? { modifiedAfterConfirm: true } : {}),
+        }))
+      } else {
+        // Sin despacho todavía (se creaba recién al confirmar): se guarda un
+        // borrador, así el orden sobrevive a una recarga y se ve desde otra pestaña.
+        const borrador = armarDespacho(slot, 'borrador', newOrderIds, { ordenManual: true, confirmedAt: null, confirmedBy: null, modifiedAfterConfirm: false })
+        if (borrador) await saveDespacho(borrador)
+      }
+    } catch (err) {
+      reportError(err, { origen: 'useDespachoBoard', accion: 'guardar orden manual', slot })
+      setOrsStatus((prev) => ({ ...prev, [slot]: { ok: false, error: 'No se pudo guardar el orden. Probá de nuevo.' } }))
     }
-  }, [despachoByDriver, fecha])
+  }, [despachoByDriver, fecha, armarDespacho])
 
-  const scheduleRecalc = useCallback((slot: string, dndIds: string[]) => {
+  // Despachos al día para el recálculo, que corre 1,5 s después de pedirse: el
+  // recálculo inicial se pide antes de que lleguen los despachos guardados y, con
+  // el valor del momento, no sabía que un camión tenía orden manual y lo pisaba
+  // en pantalla (2026-09-26).
+  const despachosRef = useRef(despachoByDriver)
+  despachosRef.current = despachoByDriver
+  const manualLocalRef = useRef(manualLocal)
+  manualLocalRef.current = manualLocal
+
+  const scheduleRecalc = useCallback((slot: string, dndIds: string[], opts: { forzar?: boolean } = {}) => {
     clearTimeout(debounceRefs.current[slot])
     setRecalculating((prev) => ({ ...prev, [slot]: true }))
 
     const recalcular = async () => {
+      // Orden manual guardado o recién tocado: no se recalcula salvo que lo pidan.
+      const esManual = manualLocalRef.current[slot] ?? !!despachosRef.current[slot]?.ordenManual
+      if (esManual && !opts.forzar) {
+        setRecalculating((prev) => ({ ...prev, [slot]: false }))
+        return
+      }
       if (dndIds.length === 0) {
         setRecalculating((prev) => ({ ...prev, [slot]: false }))
         setRouteOrder((prev) => ({ ...prev, [slot]: [] }))
@@ -362,7 +430,7 @@ export function useDespachoBoard(orders: Order[], choferes: UserProfile[], allCl
       setOrsStatus((prev)     => ({ ...prev, [slot]: { ok: orsOk, error: orsError } }))
       setRecalculating((prev) => ({ ...prev, [slot]: false }))
 
-      const desp = despachoByDriver[slot]
+      const desp = despachosRef.current[slot]
       if (desp) {
         const { email, vuelta } = parseSlotKey(slot)
         await updateDespacho(despachoId(fecha, email, vuelta), (current) => ({
@@ -380,13 +448,18 @@ export function useDespachoBoard(orders: Order[], choferes: UserProfile[], allCl
         setOrsStatus((prev) => ({ ...prev, [slot]: { ok: false, error: 'No se pudo recalcular o guardar el orden. Probá de nuevo.' } }))
       })
     }, 1500)
-  }, [allItems, coordsByClientId, zonas, fecha, despachoByDriver, plantaByDriver, horaSalidaByDriver])
+  }, [allItems, coordsByClientId, zonas, fecha, plantaByDriver, horaSalidaByDriver])
 
   const handleRecalculate = useCallback((slot: string) => {
-    setManualOrder((prev) => { const n = { ...prev }; delete n[slot]; return n })
+    setManualOrder((prev) => ({ ...prev, [slot]: false }))
+    if (despachoByDriver[slot]?.ordenManual) {
+      const { email, vuelta } = parseSlotKey(slot)
+      updateDespacho(despachoId(fecha, email, vuelta), () => ({ ordenManual: false }))
+        .catch((err) => reportError(err, { origen: 'useDespachoBoard', accion: 'volver a la ruta automática', slot }))
+    }
     const ids = Object.entries(assignments).filter(([, s]) => s === slot).map(([id]) => id)
-    scheduleRecalc(slot, ids)
-  }, [assignments, scheduleRecalc])
+    scheduleRecalc(slot, ids, { forzar: true })
+  }, [assignments, scheduleRecalc, despachoByDriver, fecha])
 
   // Referencias estables (useCallback) para que CamionColumn — envuelto en
   // React.memo — pueda saltear el re-render de columnas no relacionadas ante
@@ -417,10 +490,23 @@ export function useDespachoBoard(orders: Order[], choferes: UserProfile[], allCl
     })
     prevAssignments.current = { ...assignments }
     affected.forEach((slot) => {
-      if (manualOrder[slot]) return
       const ids = Object.entries(assignments).filter(([, s]) => s === slot).map(([id]) => id)
+      if (manualOrder[slot]) {
+        // Orden manual: la parada nueva va al final y se guarda, sin recalcular.
+        const orden = ordenCompleto(ordenVigente[slot], ids)
+        setRouteOrder((prev) => ({ ...prev, [slot]: orden }))
+        if (despachoByDriver[slot]) {
+          const { email, vuelta } = parseSlotKey(slot)
+          updateDespacho(despachoId(fecha, email, vuelta), () => ({ orderIds: orden }))
+            .catch((err) => reportError(err, { origen: 'useDespachoBoard', accion: 'sumar parada a orden manual', slot }))
+        }
+        return
+      }
       scheduleRecalc(slot, ids)
     })
+    // ordenVigente / despachoByDriver / fecha se leen en el momento del cambio de
+    // asignación: sumarlos a las dependencias re-dispararía esto con cada eco del despacho.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [assignments, scheduleRecalc, manualOrder])
 
   // Recalc inicial al cambiar de día — salvo en despachos ya confirmados: antes
@@ -434,7 +520,7 @@ export function useDespachoBoard(orders: Order[], choferes: UserProfile[], allCl
       choferesPrincipales.forEach((c) => {
         (vueltasByDriver[c.email] ?? [1]).forEach((vuelta) => {
           const slot = slotKey(c.email, vuelta)
-          if (despachoByDriver[slot]?.status === 'confirmado') return
+          if (despachoByDriver[slot]?.status === 'confirmado' || despachoByDriver[slot]?.ordenManual) return
           const ids = allItems.filter((i) => i.driverId === c.email && i.vuelta === vuelta).map((i) => i.dndId)
           if (ids.length > 0) scheduleRecalc(slot, ids)
         })
@@ -559,29 +645,16 @@ export function useDespachoBoard(orders: Order[], choferes: UserProfile[], allCl
     const driverItems = Object.entries(assignments)
       .filter(([, s]) => s === slot)
       .map(([dndId]) => dndId)
-    const ordered = (routeOrder[slot]?.filter((id) => driverItems.includes(id)) ?? []).length > 0
-      ? routeOrder[slot].filter((id) => driverItems.includes(id))
-      : driverItems
+    // Completo: antes, con un orden manual, una parada sumada después de ordenar
+    // quedaba afuera del despacho (y de la lista del chofer) al confirmar.
+    const ordered = ordenCompleto(ordenVigente[slot], driverItems)
 
     setConfirmLoading(true)
     try {
-      const id      = despachoId(fecha, driverEmail, vuelta)
-      const nombre  = chofer.nombreContacto || chofer.nombre || chofer.email
-      const asig    = asignacionesDia[driverEmail]
-      const camion  = asig?.camionId ? camiones.find((cam) => cam.id === asig.camionId) : null
-      const ayudante = asig?.ayudanteEmail ? choferes.find((c) => c.email === asig.ayudanteEmail) : null
-      const desp: Despacho = {
-        id, fecha, driverId: driverEmail, driverName: nombre,
-        camionId:     camion?.id    ?? null,
-        camionLabel:  camion ? `${camion.patente} — ${camion.modelo}` : null,
-        ayudanteEmail: asig?.ayudanteEmail ?? null,
-        ayudanteName:  ayudante ? (ayudante.nombreContacto || ayudante.nombre || ayudante.email) : null,
-        status:       'confirmado', orderIds: ordered,
-        plantaId:     plantaByDriver[slot]    ?? PLANTA_DEFAULT,
-        horaSalida:   horaSalidaByDriver[slot] ?? '07:00',
-        confirmedAt:  null, confirmedBy: user?.uid ?? null, modifiedAfterConfirm: false,
-        vuelta,
-      }
+      const desp = armarDespacho(slot, 'confirmado', ordered, {
+        confirmedAt: null, confirmedBy: user?.uid ?? null, modifiedAfterConfirm: false, ordenManual: !!manualOrder[slot],
+      })
+      if (!desp) return
       await saveDespacho(desp)
 
       // Pedidos → confirmado (visitas no cambian estado) — una sola operación
@@ -603,7 +676,7 @@ export function useDespachoBoard(orders: Order[], choferes: UserProfile[], allCl
     } finally {
       setConfirmLoading(false)
     }
-  }, [choferes, assignments, routeOrder, fecha, asignacionesDia, camiones, plantaByDriver, horaSalidaByDriver, user])
+  }, [choferes, assignments, ordenVigente, armarDespacho, manualOrder, user, fecha])
 
   const handleReopen = useCallback(async (slot: string) => {
     const desp = despachoByDriver[slot]
@@ -643,7 +716,7 @@ export function useDespachoBoard(orders: Order[], choferes: UserProfile[], allCl
     vueltasByDriver, handleAddVuelta,
     despachoByDriver,
     itemsByDriver,
-    routeOrder, routeArrivals, recalculating, orsStatus,
+    routeOrder: ordenVigente, routeArrivals, recalculating, orsStatus,
     plantaByDriver, horaSalidaByDriver,
     catalogo,
     manualOrder,
