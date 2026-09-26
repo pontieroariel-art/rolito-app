@@ -101,4 +101,27 @@ ${m.faq}
   ], { stdio: 'ignore' })
   console.log(m.archivo, 'html', Math.round(fs.statSync(path.join(destino, `${m.archivo}.html`)).size / 1024), 'KB · pdf', Math.round(fs.statSync(pdf).size / 1024), 'KB')
 }
+// ── Manual de producción (2026-09-26): maestro propio, docs/manuales/manual-produccion.html.
+// Tablets (instalar, Zebra, fijar pantalla), operario, maquinista y encargado.
+// Se ve en /produccion/manual. Al tocar una pantalla de producción: actualizar el
+// maestro (texto y captura en public/manuales/img/produccion-*.png) y correr esto.
+{
+  const maestro = fs.readFileSync(path.join(dir, 'manual-produccion.html'), 'utf8')
+  const html = maestro.replace('</style>', `  @media screen {
+    html { font-size: 15px; }
+    body { max-width: 860px; margin: 0 auto; padding: 8px 20px 40px; background: white; }
+    .portada { height: auto; padding: 28px 0 8px; margin-bottom: 8px; border-bottom: 2px solid #1D9E75; }
+    .parte { page-break-before: auto; margin-top: 28px; }
+    figure img { max-width: 100%; }
+  }
+</style>`)
+  fs.writeFileSync(path.join(destino, 'produccion.html'), html)
+  const pdf = path.join(destino, 'produccion.pdf')
+  try { fs.unlinkSync(pdf) } catch {}
+  execFileSync('C:/Program Files/Google/Chrome/Application/chrome.exe', [
+    '--headless=new', '--disable-gpu', '--no-pdf-header-footer', '--run-all-compositor-stages-before-draw', '--virtual-time-budget=8000',
+    `--print-to-pdf=${pdf}`, 'file:///' + path.join(destino, 'produccion.html').split(path.sep).join('/'),
+  ], { stdio: 'ignore' })
+  console.log('produccion', 'html', Math.round(fs.statSync(path.join(destino, 'produccion.html')).size / 1024), 'KB · pdf', Math.round(fs.statSync(pdf).size / 1024), 'KB')
+}
 console.log('listo: public/manuales')

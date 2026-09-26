@@ -169,6 +169,7 @@ export const CATALOGO: RutaConfig[] = [
   R('/produccion/partes',           'Partes de máquinas', 'produccion', PRODUCCION_ENCARGADO, { icon: 'Gauge', menuGroup: 'produccion' }),
   R('/produccion/operarios',        'Operarios',          'produccion', PRODUCCION_ENCARGADO, { icon: 'Users', menuGroup: 'configuracion' }),
   R('/produccion/plantas',          'Plantas',            'produccion', PRODUCCION_ENCARGADO, { icon: 'Factory', menuGroup: 'configuracion' }),
+  R('/produccion/manual',           'Manual de producción', 'produccion', PRODUCCION_ENCARGADO, { icon: 'BookOpen', menuGroup: 'configuracion' }),
   R('/produccion/ticket/:palletId', 'Ticket de pallet',   'produccion', PALLET, { deepLink: true, externa: true }),
   R('/produccion/ficha/:palletId',  'Ficha de pallet',    'produccion', PALLET, { deepLink: true, externa: true }),
 
@@ -282,7 +283,7 @@ export const SIDEBARS: Record<Sistema, GrupoSidebar[]> = {
   // como grupos nuevos acá, sin tocar el resto de la navegación.
   produccion: [
     { id: 'produccion',    label: 'Hielo',         entradas: ['/produccion/resumen', '/produccion/listado', '/produccion/partes'] },
-    { id: 'configuracion', label: 'Configuración', entradas: ['/produccion/operarios', '/produccion/plantas'] },
+    { id: 'configuracion', label: 'Configuración', entradas: ['/produccion/operarios', '/produccion/plantas', '/produccion/manual'] },
   ],
   // Tesorería & Cajas: la plata y los valores, de la ventanilla al arqueo.
   tesoreria: [

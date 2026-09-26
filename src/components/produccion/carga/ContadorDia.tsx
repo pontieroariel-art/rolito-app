@@ -23,7 +23,7 @@ function ContadorDiaBase({ total, cargando, ultimo, onReimprimir }: ContadorDiaP
         <span className="text-[clamp(4rem,9vh,7.25rem)] font-black leading-none text-gray-900 tabular-nums tracking-tight">
           {cargando && total === 0 ? '·' : total}
         </span>
-        <span className="text-[clamp(1.1rem,2vh,1.625rem)] font-bold text-gray-900 leading-tight">pallets<br />hoy</span>
+        <span className="text-[clamp(1.1rem,2vh,1.625rem)] font-bold text-gray-900 leading-tight">{total === 1 ? 'pallet' : 'pallets'}<br />hoy</span>
       </div>
       {ultimo ? (
         <div className="flex items-center gap-3 min-w-0">

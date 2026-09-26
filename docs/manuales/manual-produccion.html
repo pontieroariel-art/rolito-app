@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Manual de producción</title>
+<style>
+  @page { size: A4; margin: 18mm 16mm 18mm 16mm; }
+  * { box-sizing: border-box; }
+  html { font-family: Inter, "Segoe UI", Arial, sans-serif; color: #1f2937; font-size: 11pt; line-height: 1.45; }
+  body { margin: 0; }
+  h1 { font-size: 26pt; margin: 0 0 4pt; color: #111827; letter-spacing: -0.01em; }
+  h2 { font-size: 17pt; margin: 0 0 8pt; padding-bottom: 5pt; border-bottom: 2px solid #1D9E75; color: #111827; page-break-after: avoid; }
+  h3 { font-size: 12.5pt; margin: 16pt 0 5pt; color: #0F6B4E; page-break-after: avoid; }
+  p { margin: 0 0 7pt; }
+  ul, ol { margin: 0 0 8pt 18pt; padding: 0; }
+  li { margin-bottom: 3pt; }
+  li > ul, li > ol { margin-top: 3pt; }
+  .portada { height: 250mm; display: flex; flex-direction: column; justify-content: center; page-break-after: always; }
+  .portada .marca { color: #1D9E75; font-weight: 800; font-size: 13pt; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 18pt; }
+  .portada .sub { font-size: 14pt; color: #6B6A62; margin-top: 6pt; }
+  .portada .meta { margin-top: 40pt; color: #6B6A62; font-size: 10pt; }
+  .parte { page-break-before: always; }
+  .parte-titulo { background: #1D9E75; color: white; padding: 16pt 18pt; border-radius: 10pt; margin-bottom: 16pt; }
+  .parte-titulo .n { font-size: 10pt; text-transform: uppercase; letter-spacing: .1em; opacity: .85; }
+  .parte-titulo h2 { color: white; border: 0; margin: 2pt 0 0; font-size: 22pt; padding: 0; }
+  .seccion { page-break-inside: avoid; }
+  .caja { border: 1.5px solid #D3D1C7; border-radius: 8pt; padding: 9pt 12pt; margin: 8pt 0 10pt; background: #FBFAF6; page-break-inside: avoid; }
+  .caja.ojo { border-color: #EFDCB4; background: #FBF6EA; }
+  .caja.ojo b:first-child { color: #8A5203; }
+  .caja.regla { border-color: #B3DDD3; background: #F1F9F5; }
+  .caja.regla b:first-child { color: #0F6B4E; }
+  .pasos li { margin-bottom: 5pt; }
+  .pasos li b { color: #111827; }
+  figure { margin: 8pt 0 12pt; page-break-inside: avoid; }
+  figure img { width: 100%; border: 1px solid #D3D1C7; border-radius: 6pt; }
+  figcaption { font-size: 9pt; color: #6B6A62; margin-top: 3pt; }
+  table { border-collapse: collapse; width: 100%; margin: 6pt 0 10pt; font-size: 10pt; page-break-inside: avoid; }
+  th, td { border: 1px solid #D3D1C7; padding: 4pt 6pt; text-align: left; vertical-align: top; }
+  th { background: #F1F9F5; color: #0F6B4E; font-size: 9.5pt; text-transform: uppercase; letter-spacing: .04em; }
+  .flujo { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6pt; margin: 8pt 0 12pt; }
+  .flujo div { border-radius: 8pt; padding: 8pt 9pt; font-size: 9.5pt; border: 1.5px solid; }
+  .flujo .t { font-weight: 800; font-size: 10.5pt; display: block; margin-bottom: 2pt; }
+  .f1 { border-color: #F0C7C3; background: #FDF3F2; } .f1 .t { color: #97241F; }
+  .f2 { border-color: #EFDCB4; background: #FBF6EA; } .f2 .t { color: #8A5203; }
+  .f3 { border-color: #BFD8EE; background: #EEF4FA; } .f3 .t { color: #14538C; }
+  .f4 { border-color: #AFD9C6; background: #EEF7F2; } .f4 .t { color: #0F6B4E; }
+  .firmas { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6pt; margin: 6pt 0 10pt; }
+  .firmas div { border: 1.5px solid #D3D1C7; border-radius: 8pt; padding: 8pt 9pt; font-size: 9.5pt; background: white; }
+  .firmas .n { display: inline-block; width: 18pt; height: 18pt; border-radius: 50%; background: #1D9E75; color: white; text-align: center; font-weight: 800; line-height: 18pt; margin-right: 4pt; }
+  .boton { display: inline-block; border: 1px solid #1D9E75; color: #0F6B4E; border-radius: 4pt; padding: 0 4pt; font-weight: 700; font-size: 9.5pt; white-space: nowrap; }
+  .menu { display: inline-block; background: #F1F1EC; border-radius: 4pt; padding: 0 4pt; font-weight: 600; white-space: nowrap; }
+  .indice li { margin-bottom: 2pt; }
+  .indice ul { margin-top: 2pt; }
+  .pie { color: #6B6A62; font-size: 9pt; margin-top: 24pt; border-top: 1px solid #D3D1C7; padding-top: 6pt; }
+</style>
+</head>
+<body>
+
+<div class="portada">
+  <div class="marca">Rolito · Distribución de hielo</div>
+  <h1>Manual de producción</h1>
+  <div class="sub">Cómo preparar las tablets de planta, cómo carga pallets el operario, cómo lleva el parte de máquinas el maquinista y cómo sigue todo el encargado desde su panel.</div>
+  <div class="meta">Versión del 26 de septiembre de 2026 · Planta Don Torcuato · corresponde a la app en producción desde esa fecha.</div>
+</div>
+
+<h2>Contenido</h2>
+<ol class="indice">
+  <li>Preparar las tablets (se hace una sola vez)
+    <ul><li>Qué hace falta</li><li>Abrir la app e instalarla</li><li>Primer ingreso</li><li>Conectar la impresora Zebra</li><li>Fijar la pantalla</li><li>La tablet del maquinista</li></ul></li>
+  <li>Operario: cargar pallets
+    <ul><li>La pantalla</li><li>Cargar un pallet</li><li>La etiqueta</li><li>Sonidos y avisos</li><li>Reimprimir, cambiar de operario y errores</li></ul></li>
+  <li>Maquinista: parte de máquinas</li>
+  <li>Encargado: el panel y la configuración
+    <ul><li>El panel del turno</li><li>Día completo y trazabilidad</li><li>Comparativa de turnos</li><li>Producido contra vendido</li><li>Turnos, operarios y capitán</li><li>Operarios y PIN</li><li>Anular un pallet</li><li>Tango</li></ul></li>
+  <li>Preguntas frecuentes</li>
+</ol>
+
+<div class="caja regla"><b>La idea en una línea.</b> Cada pallet que sale de la máquina se carga en la tablet con dos toques. La etiqueta sale sola por la Zebra, el pallet entra solo al stock de Tango y el encargado lo ve en su panel en el momento. Nadie carga planillas después.</div>
+
+<!-- ───────────────────────────── PARTE 1 · PREPARAR LAS TABLETS -->
+<div class="parte">
+<div class="parte-titulo"><div class="n">Parte 1</div><h2>Preparar las tablets</h2></div>
+<p>Esto se hace <b>una sola vez</b> por tablet, o cuando se cambia o se resetea. Lo hace el encargado o quien él designe.</p>
+
+<h3>1.1 · Qué hace falta</h3>
+<table>
+  <tr><th>Qué</th><th>Detalle</th></tr>
+  <tr><td>Tablet de carga</td><td>Android con Chrome, en la zona donde se arman los pallets. Enchufada todo el tiempo.</td></tr>
+  <tr><td>Impresora Zebra ZD421</td><td>Térmica, por Bluetooth, con rollo de etiquetas de 80 × 120 mm. Cerca de la tablet (menos de 5 metros).</td></tr>
+  <tr><td>Wifi de la planta</td><td>Hace falta para que el pallet llegue a la oficina y a Tango. Si se corta un rato, la tablet sigue cargando igual (ver preguntas frecuentes).</td></tr>
+  <tr><td>Tablet del maquinista</td><td>Opcional, otra tablet Android con Chrome, para el parte de máquinas. No necesita impresora.</td></tr>
+  <tr><td>Legajos y PIN</td><td>Cada operario y maquinista tiene su legajo y su PIN de 4 números. Los da de alta el encargado (Parte 4).</td></tr>
+</table>
+
+<h3>1.2 · Abrir la app e instalarla</h3>
+<ol class="pasos">
+  <li><b>Abrir Chrome</b> en la tablet y entrar a <span class="menu">rolito-app.web.app/produccion-torcuato</span>.</li>
+  <li><b>Instalarla como app:</b> tocar el menú <span class="boton">⋮</span> de Chrome (arriba a la derecha) → <span class="menu">Agregar a la pantalla principal</span> o <span class="menu">Instalar app</span> → <span class="boton">Instalar</span>. Aparece el ícono de Rolito en la pantalla de inicio.</li>
+  <li><b>Desde ahora se abre siempre con ese ícono</b>, no desde Chrome. Así se ve a pantalla completa y sin barras.</li>
+</ol>
+
+<h3>1.3 · Primer ingreso</h3>
+<figure><img src="img/produccion-login.png" alt="Ingreso de producción" style="max-width:38%"><figcaption>Ingreso de la planta: legajo y PIN. El PIN de arranque es el número de legajo; el encargado lo puede cambiar.</figcaption></figure>
+<ol class="pasos">
+  <li>Escribir el <b>legajo</b> y el <b>PIN</b> de un operario de Don Torcuato y tocar <span class="boton">Ingresar</span>.</li>
+  <li>La tablet queda <b>marcada como tablet de planta</b>: la próxima vez que se abra va directo al ingreso de producción.</li>
+  <li>Un legajo de otra planta no entra: la app avisa y hay que llamar al encargado.</li>
+</ol>
+
+<h3>1.4 · Conectar la impresora Zebra</h3>
+<ol class="pasos">
+  <li><b>Prender la Zebra</b> y activar el <b>Bluetooth</b> de la tablet (Ajustes → Conexiones → Bluetooth).</li>
+  <li>En la pantalla de carga, tocar <span class="boton">Conectar impresora</span> (arriba). Chrome muestra la lista: elegir la <b>ZD421</b> y tocar <span class="boton">Vincular</span>.</li>
+  <li>El botón pasa a verde: <span class="boton">Impresora lista</span>. Al lado aparece <span class="boton">Prueba</span>: tocarlo. Sale una etiqueta con un marco.</li>
+  <li><b>El marco tiene que llegar justo al borde de la etiqueta.</b> Si queda corto o sale cortado, el rollo no es de 80 × 120: medirlo con una regla y avisar a sistemas para ajustarlo.</li>
+</ol>
+<div class="caja regla"><b>Después de la primera vez, la tablet se reconecta sola.</b> Si la Zebra se apaga, se aleja o se cambia el rollo, la app la vuelve a buscar cada 8 segundos. Mientras tanto las etiquetas esperan en una cola y salen solas cuando vuelve. Nadie tiene que tocar nada.</div>
+
+<h3>1.5 · Fijar la pantalla</h3>
+<p>Para que nadie salga de la carga por error ni use la tablet para otra cosa, Android permite <b>fijar</b> una app en pantalla.</p>
+<ol class="pasos">
+  <li><b>Activarlo una vez:</b> Ajustes → Seguridad (o Seguridad y privacidad → Más ajustes de seguridad) → <span class="menu">Fijar aplicaciones</span> → activar.</li>
+  <li><b>Fijar Rolito:</b> con la app abierta, tocar el botón de <span class="menu">apps recientes</span> (el cuadrado o las tres rayas de abajo), tocar el ícono de Rolito arriba de su ventana → <span class="menu">Fijar esta app</span>.</li>
+  <li><b>Para salir</b> (solo el encargado): mantener apretados a la vez los botones <span class="menu">Atrás</span> y <span class="menu">Recientes</span>.</li>
+</ol>
+<div class="caja"><b>Además:</b> subir el <b>volumen multimedia</b> al máximo (los sonidos avisan si el pallet se cargó o si algo falló) y dejar la tablet <b>enchufada</b>. La pantalla no se apaga sola mientras la carga está abierta: lo hace la app.</div>
+
+<h3>1.6 · La tablet del maquinista</h3>
+<p>Mismos pasos 1.2, 1.3 y 1.5, pero ingresando con el <b>legajo de un maquinista</b>. La app lo reconoce y va directo al <b>parte de máquinas</b> (Parte 3). No hace falta conectar la Zebra. Si en la planta hay una sola tablet, el maquinista puede usar la misma: entra con su legajo y, al terminar, el operario vuelve con el suyo.</p>
+</div>
+
+<!-- ───────────────────────────── PARTE 2 · OPERARIO -->
+<div class="parte">
+<div class="parte-titulo"><div class="n">Parte 2</div><h2>Operario: cargar pallets</h2></div>
+
+<h3>2.1 · La pantalla</h3>
+<figure><img src="img/produccion-carga.png" alt="Pantalla de carga" style="max-width:50%"><figcaption>Arriba: quién está y la impresora. Después, los pallets de hoy y el último cargado con el botón REIMPRIMIR. Abajo, una tarjeta grande por producto, con su color y cuántos van hoy.</figcaption></figure>
+<ul>
+  <li><b>Cada tarjeta es un producto</b>: 10 kg, 3 kg, 2 kg, picado, escama y cementera. En Don Torcuato no aparecen las barras porque se hacen en Merlo.</li>
+  <li>El número grande de arriba a la derecha de cada tarjeta es <b>cuántos pallets de ese producto van hoy</b>.</li>
+</ul>
+
+<h3>2.2 · Cargar un pallet: dos toques</h3>
+<table>
+  <tr><th style="width:50%">1 · Tocar el producto</th><th>2 · Tocar CONFIRMAR E IMPRIMIR</th></tr>
+  <tr>
+    <td><img src="img/produccion-confirmar.png" alt="Ventana de confirmación" style="width:100%;border:1px solid #D3D1C7;border-radius:6pt"></td>
+    <td><img src="img/produccion-cargado.png" alt="Pallet cargado" style="width:100%;border:1px solid #D3D1C7;border-radius:6pt"></td>
+  </tr>
+  <tr>
+    <td>Se abre una ventana con el producto en grande, cuántas bolsas lleva y con qué número va a salir. Si te equivocaste de producto: <span class="boton">Cancelar</span> o tocar afuera.</td>
+    <td>Arriba aparece <b>"3KG cargado · DT-000116"</b>, suena la campana y la etiqueta sale sola por la Zebra. Pegala en el pallet.</td>
+  </tr>
+</table>
+<div class="caja regla"><b>Nada más.</b> No hay que escribir cantidades ni elegir máquina ni turno: la cantidad es la del pallet completo y el turno sale de la hora. Si la ventana queda abierta y nadie toca, se cierra sola a los 8 segundos.</div>
+
+<h3>2.3 · La etiqueta</h3>
+<p>En la cámara de frío los pallets se tienen que reconocer <b>de lejos</b>. La etiqueta tiene arriba una <b>banda</b> con el código del producto en blanco sobre negro y un <b>dibujo distinto por producto</b>, que se reconoce sin leer:</p>
+<figure><img src="img/produccion-etiquetas.png" alt="Etiquetas por producto"><figcaption>Una etiqueta por pallet. Debajo de la banda: producto, cantidad, QR, número, código de barras, el día del año con la fecha, y planta, hora y operario.</figcaption></figure>
+<table>
+  <tr><th>Producto</th><th>Código</th><th>Dibujo de la banda</th></tr>
+  <tr><td>Bolsa 10 kg</td><td>10</td><td>Todo negro</td></tr>
+  <tr><td>Bolsa 3 kg</td><td>3</td><td>Rayas verticales</td></tr>
+  <tr><td>Bolsa 2 kg</td><td>2</td><td>Rayas horizontales</td></tr>
+  <tr><td>Picado 10 kg</td><td>PIC</td><td>Cuadros</td></tr>
+  <tr><td>Escama 10 kg</td><td>ESC</td><td>Rayas diagonales</td></tr>
+  <tr><td>Barras (Merlo)</td><td>BAR</td><td>Marco grueso</td></tr>
+  <tr><td>Cementera</td><td>CEM</td><td>Puntos</td></tr>
+</table>
+<p><b>"DÍA 268 · VIE 25/09"</b>: el número es el día del año. Sirve para rotar la cámara: <b>sale primero el número más chico</b>.</p>
+
+<h3>2.4 · Sonidos y avisos</h3>
+<table>
+  <tr><th>Qué pasa</th><th>Qué se oye / se ve</th><th>Qué hacer</th></tr>
+  <tr><td>Pallet cargado</td><td>Dos notas de campana subiendo y el aviso "… cargado"</td><td>Pegar la etiqueta. Seguir.</td></tr>
+  <tr><td>Mismo producto hace menos de un minuto</td><td>La misma nota dos veces y la ventana pregunta "¿Otro pallet de …? El último fue hace X segundos"</td><td>Si es un pallet nuevo de verdad: <span class="boton">SÍ, CARGAR OTRO</span>. Si fue un doble toque: <span class="boton">Cancelar</span>.</td></tr>
+  <tr><td>La etiqueta no pudo salir</td><td>Dos notas bajando y la franja ámbar "1 etiqueta espera a la impresora"</td><td>Nada: sale sola cuando la Zebra vuelve. Si tarda, fijarse que esté prendida y tocar <span class="boton">Conectar</span>.</td></tr>
+  <tr><td>No se pudo cargar</td><td>Dos notas bajando y un aviso rojo</td><td>Probar de nuevo. Si sigue, avisar al encargado.</td></tr>
+</table>
+<figure><img src="img/produccion-repetido.png" alt="Aviso de pallet repetido" style="max-width:50%"><figcaption>Aviso de repetido: no bloquea, pero obliga a mirar antes de confirmar.</figcaption></figure>
+
+<h3>2.5 · Reimprimir, cambiar de operario y errores</h3>
+<ul>
+  <li><b>Reimprimir:</b> si la etiqueta se trabó o se rompió, tocar <span class="boton">REIMPRIMIR</span> al lado del último pallet. Sale otra igual.</li>
+  <li><b>Cambiar de operario:</b> cada pallet queda a nombre de quien está adentro. Al cambiar de persona, tocar <span class="boton">Cambiar operario</span>, escribir legajo y PIN en los números grandes de la pantalla; con el cuarto número del PIN entra solo. <span class="menu">Cerrar sesión</span> está adentro de esa misma ventana.</li>
+  <li><b>Se cargó mal</b> (otro producto, un pallet que no existe): el operario no lo puede borrar. <b>Avisale al encargado</b>, que lo anula con el motivo y la etiqueta se saca del pallet.</li>
+</ul>
+<figure><img src="img/produccion-cambiar.png" alt="Cambiar operario" style="max-width:45%"><figcaption>Cambiar operario: legajo y PIN con números grandes, sin salir de la carga.</figcaption></figure>
+</div>
+
+<!-- ───────────────────────────── PARTE 3 · MAQUINISTA -->
+<div class="parte">
+<div class="parte-titulo"><div class="n">Parte 3</div><h2>Maquinista: parte de máquinas</h2></div>
+<p>El maquinista reemplaza la planilla de papel "Parte de máquinas" por la tablet. Entra con <b>su legajo y su PIN</b> en la misma dirección de la planta; la app lo lleva directo a su pantalla.</p>
+<table>
+  <tr><th style="width:42%">1 · Elegir el turno</th><th>2 · Anotar cada ciclo</th></tr>
+  <tr>
+    <td><img src="img/produccion-maquinista-turno.png" alt="Elegir turno" style="width:100%;border:1px solid #D3D1C7;border-radius:6pt"></td>
+    <td><img src="img/produccion-maquinista.png" alt="Parte de máquinas" style="width:100%;border:1px solid #D3D1C7;border-radius:6pt"></td>
+  </tr>
+</table>
+<ol class="pasos">
+  <li><b>Elegir el turno</b> que arranca: Mañana, Tarde o Noche. La app sugiere el de la hora. Queda guardado en la tablet por si se recarga.</li>
+  <li><b>Cada rolitera tiene su botón.</b> Cuando la rolitera empieza a tirar hielo, tocar <span class="boton">SALE</span>. Cuando arranca el ciclo nuevo, tocar <span class="boton">ENTRA</span>. El botón va alternando solo y la hora queda anotada.</li>
+  <li><b>Si tocaste de más:</b> <span class="menu">Deshacer última</span> debajo del botón borra la última marca de esa rolitera.</li>
+  <li><b>Maquinarias encendidas:</b> al empezar el turno, tocar los números de cada máquina que está prendida (bombas, ósmosis, compresores, torres, tanques, escamadoras, robots).</li>
+  <li><b>Observaciones:</b> paradas, fallas o cambios de máquina, en texto libre.</li>
+  <li>Al cambiar de turno, <span class="boton">Cambiar turno</span> arriba a la derecha.</li>
+</ol>
+<div class="caja">El maquinista también puede cargar pallets desde la pestaña <span class="menu">Cargar producción</span> de arriba, igual que un operario.</div>
+</div>
+
+<!-- ───────────────────────────── PARTE 4 · ENCARGADO -->
+<div class="parte">
+<div class="parte-titulo"><div class="n">Parte 4</div><h2>Encargado: el panel y la configuración</h2></div>
+<p>El encargado entra desde la computadora o el celular a <span class="menu">rolito-app.web.app/empresa</span> con su DNI y contraseña, y va a <span class="menu">Producción → Resumen</span>.</p>
+
+<h3>4.1 · El panel del turno</h3>
+<figure><img src="img/produccion-panel.png" alt="Panel del encargado"><figcaption>Arriba, planta, día y turno. Después los números grandes del turno, el estado de la tablet, Tango y la calidad de carga, y más abajo las barras por hora y el equipo.</figcaption></figure>
+<table>
+  <tr><th>Número</th><th>Qué dice</th></tr>
+  <tr><td>Pallets del turno</td><td>Cuántos van, con flecha y porcentaje contra el mismo turno de ayer a la misma hora.</td></tr>
+  <tr><td>Pallets del día</td><td>Los tres turnos juntos, con las bolsas.</td></tr>
+  <tr><td>Kilos del turno</td><td>Kilos de hielo producidos (bolsas × peso).</td></tr>
+  <tr><td>Ritmo</td><td>Pallets en esta hora y el promedio por hora del turno.</td></tr>
+  <tr><td>Sin cargar</td><td>Minutos desde el último pallet. <b>A los 30 minutos dentro del turno aparece una alerta roja</b>: casi siempre es una máquina parada o la tablet sin uso.</td></tr>
+</table>
+<ul>
+  <li><b>Tablet de carga:</b> si está en línea, quién está adentro, si la Zebra está conectada y cuántas etiquetas esperan. Si la tablet deja de dar señales, aparece una alerta arriba.</li>
+  <li><b>Tango (stock):</b> cuántos pallets ya entraron al stock, cuántos esperan y cuántos dieron error, con el detalle.</li>
+  <li><b>Calidad de carga:</b> los pallets anulados (con su motivo) y los que se confirmaron igual después del aviso de repetido.</li>
+  <li><b>Pallets por hora:</b> barras de cada hora del turno contra el mismo turno de ayer.</li>
+  <li><b>Equipo del turno:</b> el capitán (con corona) y cada operario con sus pallets. Si alguien cargó sin estar asignado al turno, dice "No asignado".</li>
+  <li><b>Pallets del turno:</b> la lista con hora, código, producto, operario, estado en Tango y si está anulado o fue repetido. Tocando el código se abre la ficha del pallet.</li>
+</ul>
+
+<h3>4.2 · Día completo y trazabilidad</h3>
+<p>Con las flechas o el calendario se elige <b>cualquier día</b>, y con los botones <b>cualquier turno</b>: el panel muestra cómo fue ese turno, quién era el capitán, quién estuvo, qué se produjo y quién cargó cada pallet. <span class="boton">● Ahora</span> vuelve al turno en curso.</p>
+<p><span class="boton">Día completo</span> muestra el <b>día de producción</b>: los tres turnos que arrancan ese día, de 6 a 6 del día siguiente (así la noche no queda partida a la medianoche). Muestra el mejor turno del día, las 24 horas y el equipo de los tres turnos.</p>
+<figure><img src="img/produccion-dia.png" alt="Día completo"><figcaption>Día completo: pallets contra el día anterior, el mejor turno con su capitán y los kilos del día.</figcaption></figure>
+<div class="caja regla"><b>La historia no cambia.</b> Cada pallet guarda al cargarse la foto de su turno: nombre, día, capitán y operarios asignados. Si mañana se cambian los equipos o los horarios, un turno de hace tres meses se sigue viendo como fue.</div>
+
+<h3>4.3 · Comparativa de turnos</h3>
+<figure><img src="img/produccion-comparativa.png" alt="Comparativa de turnos"><figcaption>Podio de turnos para hoy, 7 o 30 días.</figcaption></figure>
+<ul>
+  <li><b>Podio:</b> qué turno produjo más, con kilos, <b>pallets por hora trabajada</b> (para que un turno más largo no gane solo por durar más), anulados, un mini gráfico por día y el capitán que estuvo al frente.</li>
+  <li><b>Capitanes:</b> ranking por promedio de pallets en los turnos que dirigieron, aunque roten de turno.</li>
+</ul>
+
+<h3>4.4 · Producido contra vendido</h3>
+<figure><img src="img/produccion-vendido.png" alt="Producido contra vendido"><figcaption>Si se vende más de lo que se produce, el stock baja (rojo); si se produce más, se levanta stock (verde).</figcaption></figure>
+<ul>
+  <li><b>Producido:</b> pallets cargados en la tablet.</li>
+  <li><b>Vendido:</b> ventas reales de la calle y la ventanilla de la planta, sin anuladas ni cambios, pasadas a pallets. Se actualiza cada 15 minutos.</li>
+  <li><b>Stock:</b> la diferencia, total y por producto. Botones: este turno o este día, hoy, 7 días y 30 días.</li>
+</ul>
+
+<h3>4.5 · Turnos, operarios y capitán</h3>
+<p>En <span class="menu">Producción → Plantas</span> se configuran los turnos de la planta. Cambian con la temporada, así que se editan acá cuando hace falta.</p>
+<figure><img src="img/produccion-turnos.png" alt="Turnos"><figcaption>Cada turno con su horario, sus operarios tildados y el capitán marcado con la corona.</figcaption></figure>
+<ol class="pasos">
+  <li><b>Horario:</b> nombre, desde y hasta. Un turno que termina más temprano de lo que empieza (22:00 a 06:00) cruza la medianoche.</li>
+  <li><b>Operarios:</b> tildar los que trabajan en ese turno.</li>
+  <li><b>Capitán:</b> tocar la corona al lado de su nombre. Hay uno por turno.</li>
+  <li><span class="boton">Guardar turnos</span>. Desde el próximo pallet, el panel y la comparativa usan esta configuración.</li>
+</ol>
+
+<h3>4.6 · Operarios y PIN</h3>
+<figure><img src="img/produccion-operarios.png" alt="Operarios"><figcaption>Alta de operarios y maquinistas, reseteo de PIN y baja.</figcaption></figure>
+<ul>
+  <li><b>Alta:</b> nombre, legajo, planta, PIN de 4 números y puesto: <b>Operario</b> (carga pallets) o <b>Maquinista</b> (parte de máquinas).</li>
+  <li><b>Olvidó el PIN:</b> <span class="boton">Resetear PIN</span> genera uno nuevo en el momento. Comunicáselo: no queda guardado en ningún lado.</li>
+  <li><b>Baja:</b> desactivar al operario. No puede entrar más, pero sus pallets quedan con su nombre.</li>
+</ul>
+
+<h3>4.7 · Anular un pallet</h3>
+<figure><img src="img/produccion-ficha-anular.png" alt="Anular un pallet" style="max-width:70%"><figcaption>La ficha del pallet con la anulación abierta.</figcaption></figure>
+<ol class="pasos">
+  <li>Abrir el pallet desde el panel o el <span class="menu">Listado</span> (tocar el código).</li>
+  <li><span class="boton">Anular pallet</span>, escribir el motivo (por ejemplo "se cargó picado y era escama") y <span class="boton">Confirmar anulación</span>.</li>
+  <li>El pallet <b>no se borra</b>: queda tachado, con tu nombre y el motivo, y deja de contar en todos lados. <b>Sacá la etiqueta del pallet.</b></li>
+  <li>Si ya había entrado a Tango, a facturación le llega un aviso para anular ese comprobante en Tango.</li>
+</ol>
+
+<h3>4.8 · Tango</h3>
+<ul>
+  <li>Cada pallet entra <b>solo</b> al stock de Tango como comprobante de producción (PDT en Torcuato), al depósito de la planta, apenas se carga. Es lo mismo que hacía Bluesoft.</li>
+  <li><b>La oficina ya no carga a mano el PDT de hielo de Torcuato</b>: se duplicaría el stock. El agua ("Producción líquidos") se sigue cargando como siempre.</li>
+  <li>Si un pallet da error, se ve en la tarjeta Tango del panel con el motivo.</li>
+</ul>
+</div>
+
+<!-- ───────────────────────────── PREGUNTAS -->
+<div class="parte">
+<h2>5 · Preguntas frecuentes</h2>
+<p><b>¿Qué pasa si se corta el wifi?</b> La tablet sigue cargando pallets y las etiquetas salen igual (la Zebra va por Bluetooth). Los números están reservados de antemano en la tablet. Cuando vuelve el wifi, los pallets suben solos a la oficina y a Tango.</p>
+<p><b>¿Y si la tablet se reinicia con etiquetas esperando?</b> Las etiquetas pendientes siguen en la cola y salen cuando la Zebra se conecta.</p>
+<p><b>¿Puedo cargar un pallet incompleto?</b> No por ahora: cada pallet se carga con la cantidad completa del producto. Si al final del turno queda uno a medias, se completa en el turno siguiente.</p>
+<p><b>El operario tocó dos veces el mismo producto.</b> La ventana avisa si fue hace menos de un minuto. Si igual se confirmó, el encargado lo anula desde la ficha.</p>
+<p><b>La Zebra no aparece al tocar "Conectar impresora".</b> Fijate que esté prendida, con el Bluetooth de la tablet activado y a menos de 5 metros. Si sigue sin aparecer, apagala y prendela.</p>
+<p><b>La etiqueta sale corrida o cortada.</b> El rollo no es de 80 × 120 mm. Imprimí la <span class="boton">Prueba</span>, medí el rollo y avisá a sistemas.</p>
+<p><b>Un operario entró con el usuario de otro.</b> Los pallets quedan a nombre de quien estaba adentro. Para que no pase, usar siempre <span class="boton">Cambiar operario</span> al cambiar de persona.</p>
+<p><b>¿Por qué en "Producido contra vendido" el producido sale en cero para días viejos?</b> La producción se registra en la app desde el 28/09/2026. Antes se cargaba a mano en Tango.</p>
+<div class="pie">Rolito · app de gestión · manual de producción · 26/09/2026. Las pantallas pueden cambiar de detalle; el circuito (cargar en la tablet → etiqueta → Tango → panel del encargado) es el que manda.</div>
+</div>
+
+</body>
+</html>

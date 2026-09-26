@@ -1,7 +1,7 @@
 import { BookOpen, Download, ExternalLink } from 'lucide-react'
 import PageHeader from '@/components/common/PageHeader'
 
-// Manuales de caja y de tesorería (2026-09-24, pedido de Ariel: "una pestaña
+// Manuales de caja, de tesorería y de producción (2026-09-24 / 26, pedido de Ariel: "una pestaña
 // en cada panel, un manual para cada uno"). El contenido vive en
 // public/manuales/{caja,tesoreria}.html (con sus capturas en img/) y el mismo
 // texto en PDF al lado. Acá solo se muestra adentro de la app; el PDF se
@@ -9,6 +9,7 @@ import PageHeader from '@/components/common/PageHeader'
 const MANUALES = {
   caja:      { titulo: 'Manual de caja',      bajada: 'Tu turno, la liquidación de choferes y cobradores, y cómo cerrás y entregás tu Liquidación de caja.' },
   tesoreria: { titulo: 'Manual de tesorería', bajada: 'Dónde está la plata hoy, cómo recibís las liquidaciones en mano y cómo las contás y validás.' },
+  produccion: { titulo: 'Manual de producción', bajada: 'Preparar las tablets, cargar pallets, el parte de máquinas y el panel del encargado.' },
 } as const
 
 export default function ManualPage({ manual }: { manual: keyof typeof MANUALES }) {

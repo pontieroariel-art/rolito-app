@@ -324,6 +324,7 @@ function AppContent() {
             <Route path="/produccion/partes"    element={<PartesMaquinasPage />} />
             <Route path="/produccion/operarios" element={<OperariosProduccionPage />} />
             <Route path="/produccion/plantas"   element={<PlantasProduccionPage />} />
+            <Route path="/produccion/manual"    element={<ManualPage manual="produccion" />} />
           </Route>
           <Route element={<ProtectedRoute allowedRoles={rolesDe('/produccion/listado')} />}>
             <Route path="/produccion/listado" element={<ProduccionListadoPage />} />
