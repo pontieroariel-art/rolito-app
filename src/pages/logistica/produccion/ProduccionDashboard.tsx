@@ -23,7 +23,7 @@ import { generateQrDataUrl } from '@/utils/qr'
 import { generateBarcodeDataUrl } from '@/utils/barcode'
 import { PRODUCTOS_HIELO, PRODUCTOS_HIELO_LIST } from '@/utils/produccionCatalogo'
 import { PLANTA_INFO } from '@/utils/constants'
-import { armar, codigoDePallet, pendientesSinConfirmar, resumenDelDia, type Armado } from '@/utils/cargaPallets'
+import { armar, codigoDePallet, repetidoHaceSegundos, pendientesSinConfirmar, resumenDelDia, type Armado } from '@/utils/cargaPallets'
 import { armarZplPallet } from '@/utils/zplPallet'
 import { TACTO, vibrar } from '@/utils/tacto'
 import { PLANTAS, ProductoHieloId, PalletProduccion } from '@/types'
@@ -67,6 +67,11 @@ export default function ProduccionDashboard() {
   const [porImprimir, setPorImprimir] = useState<PalletProduccion[]>([])
   /** Confirmación grande del último pallet cargado o reimpreso (1,8 s). */
   const [hecho, setHecho] = useState<{ texto: string; codigo: string; color: string } | null>(null)
+  /** Mismo producto cargado hace menos de un minuto: la ventana lo pregunta. */
+  const [repetido, setRepetido] = useState<number | null>(null)
+  // Los pallets de hoy en una referencia, para que `onTap` sea estable (las tarjetas están en memo).
+  const listasRef = useRef<PalletProduccion[][]>([[], []])
+  listasRef.current = [pallets, pendientes]
 
   useEffect(() => {
     if (!user?.uid || !user.planta) return
@@ -211,6 +216,7 @@ export default function ProduccionDashboard() {
   const onTap = useCallback((productoId: ProductoHieloId) => {
     const ahora = Date.now()
     vibrar(TACTO.toque)
+    setRepetido(repetidoHaceSegundos(productoId, listasRef.current, ahora))
     const numero = uid && planta ? proximoNumero(uid, planta) : null
     setCodigoProximo(numero !== null && planta ? codigoDePallet(PLANTA_INFO[planta].prefijoCodigo, numero) : null)
     setArmado(armar(productoId, ahora))
@@ -314,6 +320,7 @@ export default function ProduccionDashboard() {
           producto={PRODUCTOS_HIELO[armado.productoId]}
           codigoProximo={codigoProximo}
           abiertaDesde={armado.desde}
+          repetidoHaceSeg={repetido}
           onConfirmar={() => confirmar(armado.productoId)}
           onCancelar={() => setArmado(null)}
         />

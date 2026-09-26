@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   accionDelToque, armar, ARMADO_MS, ANTI_DOBLE_TOQUE_MS, codigoDePallet,
-  palletsVigentes, pendientesSinConfirmar, resumenDelDia, type PalletMinimo,
+  palletsVigentes, pendientesSinConfirmar, repetidoHaceSegundos, resumenDelDia, type PalletMinimo,
 } from './cargaPallets'
 
 const ts = (iso: string) => ({ toDate: () => new Date(iso) })
@@ -84,5 +84,23 @@ describe('pendientesSinConfirmar', () => {
 describe('codigoDePallet', () => {
   it('prefijo de planta y seis dígitos', () => {
     expect(codigoDePallet('DT', 91)).toBe('DT-000091')
+  })
+})
+
+describe('repetidoHaceSegundos', () => {
+  const base = new Date('2026-09-14T10:00:00').getTime()
+  const en = (id: string, prod: PalletMinimo['productoId'], segs: number, extra = {}): PalletMinimo =>
+    ({ id, productoId: prod, codigo: `DT-${id}`, fechaFabricacion: { toDate: () => new Date(base + segs * 1000) }, ...extra })
+  it('avisa si el mismo producto se cargó hace menos de un minuto', () => {
+    expect(repetidoHaceSegundos('escama_10kg', [[en('a', 'escama_10kg', 0)]], base + 20_000)).toBe(20)
+  })
+  it('no avisa pasado el minuto, con otro producto o si el anterior se anuló', () => {
+    expect(repetidoHaceSegundos('escama_10kg', [[en('a', 'escama_10kg', 0)]], base + 61_000)).toBeNull()
+    expect(repetidoHaceSegundos('picado_10kg', [[en('a', 'escama_10kg', 0)]], base + 5_000)).toBeNull()
+    expect(repetidoHaceSegundos('escama_10kg', [[en('a', 'escama_10kg', 0, { anulacion: { motivo: 'x' } })]], base + 5_000)).toBeNull()
+  })
+  it('cuenta los pendientes de esta tablet y toma el más nuevo', () => {
+    const r = repetidoHaceSegundos('escama_10kg', [[en('a', 'escama_10kg', 0)], [en('b', 'escama_10kg', 30)]], base + 40_000)
+    expect(r).toBe(10)
   })
 })

@@ -114,3 +114,32 @@ export function resumenDelDia(pallets: PalletMinimo[], pendientes: PalletMinimo[
 export function codigoDePallet(prefijo: string, numero: number): string {
   return `${prefijo}-${String(numero).padStart(6, '0')}`
 }
+
+/**
+ * Un pallet tarda minutos en armarse: si se confirma el mismo producto antes
+ * de este tiempo desde el anterior, casi seguro es un doble cargado
+ * (2026-09-25, pedido de Ariel). La ventana pregunta antes de confirmar.
+ */
+export const REPETIDO_MS = 60_000
+
+/**
+ * Hace cuántos segundos se cargó el último pallet vigente de ese producto, si
+ * fue hace menos de REPETIDO_MS; si no, null. Cuenta los pendientes de esta
+ * tablet (todavía sin confirmar por el servidor) y saltea los anulados.
+ */
+export function repetidoHaceSegundos(
+  productoId: ProductoHieloId,
+  listas: PalletMinimo[][],
+  ahora: number,
+): number | null {
+  let ultimo = -Infinity
+  for (const lista of listas) {
+    for (const p of lista) {
+      if (p.productoId !== productoId || !palletVigente(p)) continue
+      const t = p.fechaFabricacion.toDate().getTime()
+      if (t > ultimo) ultimo = t
+    }
+  }
+  const dif = ahora - ultimo
+  return dif >= 0 && dif < REPETIDO_MS ? Math.max(1, Math.round(dif / 1000)) : null
+}
