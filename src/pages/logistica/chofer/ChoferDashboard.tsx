@@ -24,7 +24,6 @@ import { useRemitosCargaChofer } from '@/hooks/useRemitosCargaChofer'
 import AvisarRegreso from '@/components/chofer/AvisarRegreso'
 import { useDiaActual, useFechaDelDia } from '@/hooks/useDiaActual'
 import { summarizeProducts, toDateStr, todayString } from '@/utils/helpers'
-import { generateHojaDeRuta } from '@/utils/pdf'
 import { useVisorComprobante } from '@/components/ui/VisorComprobante'
 import { Order, VisitaPuntual } from '@/types'
 import EntregaModal from '@/components/chofer/EntregaModal'
@@ -547,6 +546,8 @@ export default function ChoferDashboard() {
           setPdfLoading(true)
           const name = user?.nombreContacto || user?.nombre || 'Chofer'
           try {
+            // La hoja de ruta se carga al tocar PDF (R9).
+            const { generateHojaDeRuta } = await import('@/utils/pdf')
             abrir({ blob: await generateHojaDeRuta(pending, name), nombre: `hoja-de-ruta-${todayString()}.pdf`, titulo: 'Hoja de ruta', subtitulo: `${name} · ${pending.length} entregas` })
           } catch (err) {
             // Sin esto la promesa rechazaba sin aviso y el botón no decía nada (auditoría del chofer, bajas).

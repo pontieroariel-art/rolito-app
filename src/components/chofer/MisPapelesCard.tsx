@@ -3,8 +3,6 @@ import { Eye, FileText, ShieldCheck } from 'lucide-react'
 import Button from '@/components/ui/Button'
 import { useVisorComprobante } from '@/components/ui/VisorComprobante'
 import { useRemitosCargaChofer } from '@/hooks/useRemitosCargaChofer'
-import { generateRemitoCarga } from '@/utils/pdf'
-import { generateRemitoCargaOficial } from '@/utils/remitoCargaOficialPdf'
 import { describirEnvases, envasesDeRemito } from '@/utils/envases'
 import { reportError } from '@/services/observability'
 import type { RemitoCarga } from '@/types'
@@ -32,15 +30,16 @@ export default function MisPapelesCard() {
   const ver = async (r: RemitoCarga) => {
     setAbriendo(r.id); setError('')
     try {
+      // Los generadores se cargan al tocar el botón, no con el inicio (R9).
       const blob = await (r.remitoR
-        ? generateRemitoCargaOficial(r)
-        : generateRemitoCarga({
+        ? import('@/utils/remitoCargaOficialPdf').then((m) => m.generateRemitoCargaOficial(r))
+        : import('@/utils/pdf').then((m) => m.generateRemitoCarga({
           codigo: r.codigo, plantaId: r.plantaId, camionLabel: r.camionLabel, choferNombre: r.choferNombre,
           items: r.items, palletsCarga: r.palletsCarga, envases: r.envases, creadoPor: r.creadoPor,
           fecha: r.fecha.toDate(),
           ...(r.cot?.estado === 'presentado' && r.cot.numero ? { cot: { numero: r.cot.numero, fechaValidez: r.cot.fechaValidez } } : {}),
           ...(r.kg ? { kg: r.kg } : {}),
-        }))
+        })))
       if (blob) {
         abrir({
           blob,

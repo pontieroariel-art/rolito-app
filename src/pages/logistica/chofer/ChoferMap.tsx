@@ -22,7 +22,6 @@ import { useAuth } from '@/context/AuthContext'
 import { useGoogleMapsLoader } from '@/hooks/useGoogleMapsLoader'
 import MapaBase from '@/components/common/map/MapaBase'
 import { summarizeProducts } from '@/utils/helpers'
-import { generateHojaDeRuta } from '@/utils/pdf'
 import { useVisorComprobante } from '@/components/ui/VisorComprobante'
 import type { Order } from '@/types'
 import { PLANTAS } from '@/types'
@@ -464,6 +463,8 @@ export default function ChoferMap() {
             setPdfLoading(true)
             const name = user?.nombreContacto || user?.nombre || 'Chofer'
             try {
+              // La hoja de ruta se carga al tocar PDF (R9).
+              const { generateHojaDeRuta } = await import('@/utils/pdf')
               abrir({ blob: await generateHojaDeRuta(pending, name), nombre: `hoja-de-ruta-${new Date().toISOString().slice(0, 10)}.pdf`, titulo: 'Hoja de ruta', subtitulo: `${name} · ${pending.length} entregas` })
             } catch (err) {
               // Sin esto la promesa rechazaba sin aviso y el botón no decía nada (auditoría del chofer, bajas).

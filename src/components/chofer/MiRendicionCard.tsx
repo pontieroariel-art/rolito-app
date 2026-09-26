@@ -3,12 +3,14 @@ import { CheckCircle2, ChevronDown, ChevronRight, Clock, Eye, Share2 } from 'luc
 import { useVisorComprobante } from '@/components/ui/VisorComprobante'
 import { useMisLiquidaciones } from '@/hooks/useMisLiquidaciones'
 import { useMiViajeHoy } from '@/hooks/useMiViajeHoy'
-import { generateLiquidacion, nombreArchivoLiquidacion } from '@/utils/pdf'
 import { compartirArchivo, puedeCompartirArchivos } from '@/utils/compartir'
 import { formatoARS } from '@/utils/money'
 import { reportError } from '@/services/observability'
 import { esRecibido } from '@/utils/valoresEnPapel'
 import { MOTIVOS_DIFERENCIA_LIQUIDACION, type Liquidacion } from '@/types'
+
+// Los generadores de PDF se cargan al tocar el botón, no con la pantalla (R9).
+const pdf = () => import('@/utils/pdf')
 
 // "Mi rendición": lo que el chofer / supervisor ve de su propia liquidación
 // (2026-09-09). Antes no veía nada. Muestra el código, la plata rendida y la
@@ -32,6 +34,7 @@ export default function MiRendicionCard({ uid, hoy }: { uid: string; hoy: string
   const ver = async (l: Liquidacion) => {
     setOcupado(true); setAviso('')
     try {
+      const { generateLiquidacion, nombreArchivoLiquidacion } = await pdf()
       const blob = await generateLiquidacion(l)
       abrir({ blob, nombre: nombreArchivoLiquidacion(l), titulo: `Liquidación ${l.codigo ?? l.fecha}`, subtitulo: `Mi liquidación del ${l.fecha}` })
     } catch (err) { reportError(err, { origen: 'MiRendicionCard', accion: 'pdf' }); setAviso('No se pudo generar el PDF.') } finally { setOcupado(false) }
@@ -39,6 +42,7 @@ export default function MiRendicionCard({ uid, hoy }: { uid: string; hoy: string
   const enviar = async (l: Liquidacion) => {
     setOcupado(true); setAviso('')
     try {
+      const { generateLiquidacion, nombreArchivoLiquidacion } = await pdf()
       const blob = (await generateLiquidacion(l, undefined, { descargar: false })) as Blob
       const r = await compartirArchivo(blob, nombreArchivoLiquidacion(l), { titulo: `Liquidación ${l.codigo ?? l.fecha}`, texto: `Mi liquidación del ${l.fecha}` })
       if (r === 'descargado') setAviso('Este teléfono no puede compartir archivos: se descargó el PDF.')

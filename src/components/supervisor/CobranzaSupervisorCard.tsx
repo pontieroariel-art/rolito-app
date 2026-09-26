@@ -6,13 +6,15 @@ import Modal from '@/components/ui/Modal'
 import { RETENCION_LABELS } from '@/components/supervisor/RetencionForm'
 import AnularReciboModal from '@/components/cobranzas/AnularReciboModal'
 import { useAuth } from '@/context/AuthContext'
-import { generateReciboCobranzaSupervisor, nombreArchivoReciboSupervisor } from '@/utils/pdf'
 import { compartirArchivo, puedeCompartirArchivos } from '@/utils/compartir'
 import { envioDeRecibo } from '@/utils/envioComprobante'
 import { useVisorComprobante } from '@/components/ui/VisorComprobante'
 import { formatoARS } from '@/utils/money'
 import { cobranzaAnulada, reciboAnulable, textoAnulacionCobranza } from '@/utils/anulacionCobranza'
 import { Cobranza } from '@/types'
+
+// Los generadores de PDF se cargan al tocar el botón, no con la pantalla (R9).
+const pdf = () => import('@/utils/pdf')
 
 /** A dónde va "Hacer el recibo correcto" según quién cobró (misma pantalla de cobro, precargada). */
 export const rutaReemitirRecibo = (c: Cobranza): string =>
@@ -52,6 +54,7 @@ function datosPdf(c: Cobranza) {
 export async function reciboSupervisorBlob(c: Cobranza): Promise<{ blob: Blob; nombre: string; titulo: string } | null> {
   const datos = datosPdf(c)
   if (!datos) return null
+  const { generateReciboCobranzaSupervisor, nombreArchivoReciboSupervisor } = await pdf()
   const blob = await generateReciboCobranzaSupervisor(datos)
   return { blob, nombre: nombreArchivoReciboSupervisor(datos), titulo: `Recibo ${c.numeroRecibo ?? 'de cobranza'}` }
 }
@@ -60,6 +63,7 @@ export async function reciboSupervisorBlob(c: Cobranza): Promise<{ blob: Blob; n
 export async function entregarReciboSupervisor(c: Cobranza): Promise<string> {
   const datos = datosPdf(c)
   if (!datos) return 'Esta cobranza no tiene recibo para generar.'
+  const { generateReciboCobranzaSupervisor, nombreArchivoReciboSupervisor } = await pdf()
   const blob = await generateReciboCobranzaSupervisor(datos)
   const titulo = `Recibo ${c.numeroRecibo ?? 'de cobranza'}`
   const r = await compartirArchivo(blob, nombreArchivoReciboSupervisor(datos), { titulo, texto: `${titulo} — ${c.clienteNombre} — ${formatoARS(c.importe)}` })
