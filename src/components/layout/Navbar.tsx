@@ -233,7 +233,7 @@ export default function Navbar() {
             key={l.to}
             to={l.to}
             className={({ isActive }) =>
-              `flex-1 flex flex-col items-center justify-center py-2.5 gap-0.5 text-[11px] font-medium transition-colors ${
+              `flex-1 min-w-0 flex flex-col items-center justify-start pt-2 pb-1.5 gap-0.5 text-[11px] leading-tight text-center font-medium transition-colors ${
                 isActive ? 'text-accent' : 'text-secundario hover:text-gray-900'
               }`
             }
