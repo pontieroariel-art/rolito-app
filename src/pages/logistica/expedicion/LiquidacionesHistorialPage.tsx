@@ -29,10 +29,11 @@ interface PorRepartidor {
 
 // Una diferencia en cero no es noticia: pierde el color y queda en el gris
 // secundario, que igual se lee. `tabular-nums` lo pone la columna (alinear 'der').
-const dif = (n: number) => (
+const dif = (n: number | undefined) => typeof n !== 'number' ? <span className="text-secundario">—</span> : (
   <span className={`font-semibold ${n === 0 ? 'text-secundario' : n < 0 ? 'text-red-600' : 'text-amber-700'}`}>{formatoARS(n)}</span>
 )
-const plata = (n: number) => <span>{formatoARS(n)}</span>
+// Un cierre sin el importe (dato viejo o incompleto) muestra una raya en vez de tirar la pantalla entera.
+const plata = (n: number | undefined) => <span>{typeof n === 'number' ? formatoARS(n) : '—'}</span>
 /** '2026-09-12' → '12/09'. El mes ya lo eligió el filtro. */
 const diaMes = (fecha: string) => `${fecha.slice(8, 10)}/${fecha.slice(5, 7)}`
 const cerroDe = (l: Liquidacion) =>
