@@ -302,7 +302,7 @@ export default function ProduccionResumenPage() {
       <section className={`${CARD} p-4`}>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-base font-black text-gray-900">{diaCompleto ? 'Pallets del día' : 'Pallets del turno'} ({delTurno.length})</h2>
-          <Link to="/produccion/listado" className="text-sm font-bold text-[#0F6B4E] hover:underline">Ver listado completo →</Link>
+          <Link to="/produccion/listado" className="toque text-sm font-bold text-[#0F6B4E] hover:underline">Ver listado completo →</Link>
         </div>
         {delTurno.length === 0 ? (
           <p className="text-sm text-secundario">No se cargaron pallets {diaCompleto ? 'este día' : 'en este turno'}.</p>

@@ -733,6 +733,7 @@ export default function LogisticaDashboard() {
             <div className="flex items-center gap-2 shrink-0">
               <button
                 onClick={() => setImportModal(true)}
+                aria-label="Cargar PDF"
                 className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 bg-white border border-[#D3D1C7] rounded-lg hover:border-accent transition-colors text-gray-700"
               >
                 <FileText size={13} />
@@ -740,6 +741,7 @@ export default function LogisticaDashboard() {
               </button>
               <button
                 onClick={() => setPedidosYaModal(true)}
+                aria-label="Cargar Pedidos Ya"
                 className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 bg-white border border-[#D3D1C7] rounded-lg hover:border-accent transition-colors text-gray-700"
               >
                 <img src="/logo-pedidosya.png" alt="" className="w-3.5 h-3.5" />
@@ -747,6 +749,7 @@ export default function LogisticaDashboard() {
               </button>
               <button
                 onClick={() => setPedidoManual(true)}
+                aria-label="Pedido manual"
                 className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors font-medium"
               >
                 <Plus size={13} />

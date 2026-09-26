@@ -83,7 +83,7 @@ export default function ResumenLogisticaPage() {
         <section>
           <div className="flex items-center justify-between gap-3 mb-1.5">
             <h2 className="text-xs font-semibold uppercase tracking-wide text-secundario">Clima — próximos 7 días</h2>
-            <Link to="/admin/clima" className="text-xs text-accent hover:underline">Historial →</Link>
+            <Link to="/admin/clima" className="toque text-xs text-accent hover:underline">Historial →</Link>
           </div>
           <ForecastStrip />
         </section>

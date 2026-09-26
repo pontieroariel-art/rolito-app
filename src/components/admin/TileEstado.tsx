@@ -52,7 +52,7 @@ export default function TileEstado({ titulo, tono, valor, sufijo, lineas = [], t
         </div>
       )}
       {children}
-      {to && <Link to={to} className="block text-xs text-accent underline underline-offset-2 mt-auto pt-1">{toLabel}</Link>}
+      {to && <Link to={to} className="toque block text-xs text-accent underline underline-offset-2 mt-auto pt-1">{toLabel}</Link>}
     </div>
   )
 }

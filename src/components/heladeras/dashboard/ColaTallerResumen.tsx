@@ -54,7 +54,7 @@ export default function ColaTallerResumen() {
     <section className="bg-white border border-[#D3D1C7] rounded-xl p-4 space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold text-gray-900">Cola de taller</h2>
-        <Link to="/heladeras/taller" className="text-xs text-accent hover:underline">Ver tablero</Link>
+        <Link to="/heladeras/taller" className="toque text-xs text-accent hover:underline">Ver tablero</Link>
       </div>
 
       {loadingPasos ? (

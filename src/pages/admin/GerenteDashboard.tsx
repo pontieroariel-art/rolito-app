@@ -297,7 +297,7 @@ export default function GerenteDashboard() {
                   </div>
                 ))}
               </div>
-              <Link to="/usuarios" className="block text-xs text-accent hover:underline">
+              <Link to="/usuarios" className="toque block text-xs text-accent hover:underline">
                 Ver todos los usuarios →
               </Link>
             </div>
@@ -388,7 +388,7 @@ export default function GerenteDashboard() {
                   <MiniStat label="En comodato"  value={heladerasStats.en_comodato} />
                 </div>
               )}
-              <Link to="/heladeras/informes" className="block text-xs text-accent hover:underline">
+              <Link to="/heladeras/informes" className="toque block text-xs text-accent hover:underline">
                 Ver informes →
               </Link>
             </div>
@@ -417,7 +417,7 @@ export default function GerenteDashboard() {
                   )}
                 </>
               )}
-              <Link to="/produccion/listado" className="block text-xs text-accent hover:underline">
+              <Link to="/produccion/listado" className="toque block text-xs text-accent hover:underline">
                 Ver listado →
               </Link>
             </div>

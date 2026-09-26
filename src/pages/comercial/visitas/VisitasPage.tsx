@@ -302,6 +302,7 @@ function VisitaCard({
           {onDelete && (
             <button
               onClick={onDelete}
+              aria-label="Borrar"
               className="text-xs text-secundario hover:text-red-500 border border-[#D3D1C7] hover:border-red-300 rounded-lg px-2 py-1 transition-colors"
             >
               ✕
@@ -535,6 +536,7 @@ export default function VisitasPage() {
                         </button>
                         <button
                           onClick={() => deletePrograma(p.id)}
+                          aria-label="Borrar el programa"
                           className="text-xs text-secundario hover:text-red-500 border border-[#D3D1C7] hover:border-red-300 rounded-lg px-3 py-1.5 transition-colors"
                         >
                           ✕

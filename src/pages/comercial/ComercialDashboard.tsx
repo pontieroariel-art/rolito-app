@@ -231,7 +231,7 @@ export default function ComercialDashboard() {
             <section className="space-y-2">
               <div className="flex items-center justify-between">
                 <h2 className="text-xs font-semibold text-secundario uppercase tracking-wide">Clima — próximos 7 días</h2>
-                <Link to="/admin/clima" className="text-xs text-accent hover:underline">Historial →</Link>
+                <Link to="/admin/clima" className="toque text-xs text-accent hover:underline">Historial →</Link>
               </div>
               <ForecastStrip />
             </section>

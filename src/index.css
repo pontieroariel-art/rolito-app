@@ -140,6 +140,10 @@
     min-width: 20px;
     min-height: 20px;
   }
+  /* Link de texto suelto ("Ver tablero", "Historial →"): una zona invisible
+     de 44 px alrededor del texto recibe el toque; el diseño no se mueve. */
+  .toque { position: relative; }
+  .toque::after { content: ""; position: absolute; inset: -14px -4px; }
 }
 @media (max-width: 767px) {
   .text-\[9px\], .text-\[10px\], .text-\[11px\] { font-size: 12px; }
