@@ -121,6 +121,20 @@
     min-height: 44px;
     min-width: 44px;
   }
+  /* Todo botón y todo link con forma de botón (flex / inline-flex) llega a
+     44 px de alto: chips de filtro, Día/Mes/Año, Modificar/Cancelar, Ver…
+     (había unas 25 pantallas con controles de 25 a 36 px). Los de solo ícono,
+     además, 44 de ancho. El contenido de un botón queda centrado solo. */
+  button:not(.no-tactil),
+  [role="button"]:not(.no-tactil),
+  a.flex:not(.no-tactil),
+  a.inline-flex:not(.no-tactil) {
+    min-height: 44px;
+  }
+  button:has(> svg:only-child):not(.no-tactil),
+  a:has(> svg:only-child):not(.no-tactil) {
+    min-width: 44px;
+  }
   input[type="checkbox"]:not(.no-tactil),
   input[type="radio"]:not(.no-tactil) {
     min-width: 20px;
