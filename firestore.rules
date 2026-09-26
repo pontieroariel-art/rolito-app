@@ -456,6 +456,15 @@ service cloud.firestore {
             // Entrega con remito de fábrica (2026-09-23): la prende la oficina, nunca el cliente.
             && request.resource.data.get('entregaConRemitoDeFabrica', false) == resource.data.get('entregaConRemitoDeFabrica', false);
       }
+      // Datos de la operación que asigna la oficina (2026-09-26, auditoría del
+      // chofer, A5): el propio usuario no se los cambia. El camión es el respaldo
+      // del camión de la venta cuando no hay remito; el área viaja en los claims.
+      function staffUnchanged() {
+        return !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+          'camionId', 'camionPatente', 'subrol', 'tipoChofer', 'comisionPorcentaje',
+          'area', 'dni', 'legajo', 'username',
+        ]);
+      }
       // El flag de bridge de Tango (isTangoBridge()) da acceso al pipeline de
       // Tango (tango-outbox, config/tango). Solo lo setea el Admin SDK al
       // aprovisionar la cuenta de servicio; nadie puede auto-otorgárselo
@@ -503,7 +512,12 @@ service cloud.firestore {
       // ni sus datos. Acotado por rol del target (auditoría 2026-08-29, H11): sus
       // queries ya filtran where rol=='cliente' / where rol=='chofer', así que
       // esto no cambia lo que ven, solo cierra el acceso al resto de la colección.
-      allow read: if request.auth != null && (isChofer() || isCaja())
+      // Desde el 2026-09-26 (auditoría del chofer, A5) el chofer lee solo CLIENTES:
+      // ninguna pantalla suya lista choferes, y leía DNI, mail, teléfono y comisión
+      // de los fleteros. Caja sigue leyendo clientes y choferes.
+      allow read: if request.auth != null && isChofer()
+        && resource.data.get('rol', 'cliente') == 'cliente';
+      allow read: if request.auth != null && isCaja()
         && resource.data.get('rol', 'cliente') in ['cliente', 'chofer'];
       // Caja además necesita la lista de TESORERÍA: elige a quién le entrega el
       // sobre en mano (2026-09-16). Solo ese rol, nada más del personal.
@@ -554,7 +568,8 @@ service cloud.firestore {
       // ── Edición del propio perfil: NO puede tocar rol / estado / precios / identidad ──
       allow update: if isSelf() && !esEscrituraImpersonada()
         && rolUnchanged() && rolesExtraUnchanged() && estadoUnchanged()
-        && preciosUnchanged() && identidadUnchanged() && tangoBridgeUnchanged() && autorizaAnulacionesUnchanged();
+        && preciosUnchanged() && identidadUnchanged() && tangoBridgeUnchanged() && autorizaAnulacionesUnchanged()
+        && staffUnchanged();
 
       // ── gerente_comercial / comercial / logistica: gestión de clientes ──
       // Solo sobre documentos de CLIENTE y solo los campos de gestión (nunca

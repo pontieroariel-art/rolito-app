@@ -6366,3 +6366,35 @@ describe('auditoría chofer — A4: visitas puntuales', () => {
     await assertSucceeds(updateDoc(doc(db('log1'), 'visitas-puntuales/sinChofer'), { driverId: 'ch@x.com' }))
   })
 })
+
+describe('auditoría chofer — A5: perfil propio y lectura de otros usuarios', () => {
+  const seedBase = () => seed(async (d) => {
+    await setDoc(doc(d, 'users/ch'), { rol: 'chofer', estado: 'activo', email: 'ch@x.com', camionId: 'cam1', subrol: null, tipoChofer: 'fletero', comisionPorcentaje: 8, dni: '11111111', username: '11111111' })
+    await setDoc(doc(d, 'users/ch2'), { rol: 'chofer', estado: 'activo', email: 'ch2@x.com', tipoChofer: 'fletero', comisionPorcentaje: 10 })
+    await setDoc(doc(d, 'users/cli'), cliente())
+    await setDoc(doc(d, 'users/caja1'), { rol: 'caja', estado: 'activo', planta: 'torcuato' })
+    await setDoc(doc(d, 'users/log1'), { rol: 'logistica', estado: 'activo' })
+  })
+  const ch = () => db('ch', 'ch@x.com')
+  test('el chofer sigue guardando su suscripción de avisos y su teléfono', async () => {
+    await seedBase()
+    await assertSucceeds(updateDoc(doc(ch(), 'users/ch'), { pushSubscription: { endpoint: 'x' } }))
+    await assertSucceeds(updateDoc(doc(ch(), 'users/ch'), { telefono: '1155556666' }))
+  })
+  test('el chofer NO se cambia camión, subrol, tipo, comisión, área ni identidad', async () => {
+    await seedBase()
+    for (const campo of [{ camionId: 'cam9' }, { camionPatente: 'ZZ999ZZ' }, { subrol: 'ayudante' }, { tipoChofer: 'propio' }, { comisionPorcentaje: 50 }, { area: 'heladeras' }, { dni: '22222222' }, { username: '22222222' }, { legajo: 'L1' }]) {
+      await assertFails(updateDoc(doc(ch(), 'users/ch'), campo))
+    }
+  })
+  test('el chofer lee clientes pero NO el perfil de otro chofer', async () => {
+    await seedBase()
+    await assertSucceeds(getDoc(doc(ch(), 'users/cli')))
+    await assertFails(getDoc(doc(ch(), 'users/ch2')))
+  })
+  test('caja y logística siguen leyendo choferes; logística le asigna el camión', async () => {
+    await seedBase()
+    await assertSucceeds(getDoc(doc(db('caja1'), 'users/ch2')))
+    await assertSucceeds(getDoc(doc(db('log1'), 'users/ch2')))
+  })
+})
